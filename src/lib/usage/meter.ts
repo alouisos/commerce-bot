@@ -64,12 +64,36 @@ export async function getMonthUsage(
   return row ?? { conversations: 0, aiCostMicros: 0 };
 }
 
-export async function getQuota(
-  account: Account,
-  now: Date = new Date(),
-): Promise<{ plan: PlanId; expired: boolean; used: number; limit: number; state: QuotaState }> {
+export type Quota = {
+  plan: PlanId;
+  expired: boolean;
+  used: number;
+  limit: number;
+  state: QuotaState;
+  aiCostMicros: number;
+  aiCostCeilingMicros: number;
+  /** This month's AI spend has reached the plan's ceiling: no AI replies until next month. */
+  aiBudgetReached: boolean;
+};
+
+export async function getQuota(account: Account, now: Date = new Date()): Promise<Quota> {
   const status = planStatus(account, now);
-  const { conversations } = await getMonthUsage(account.id, now);
+  const { conversations, aiCostMicros } = await getMonthUsage(account.id, now);
   const limit = status.limits.conversationsPerMonth;
-  return { plan: status.plan, expired: status.expired, used: conversations, limit, state: quotaState(conversations, limit) };
+  const aiCostCeilingMicros = status.limits.aiCostCeilingMicros;
+  return {
+    plan: status.plan,
+    expired: status.expired,
+    used: conversations,
+    limit,
+    state: quotaState(conversations, limit),
+    aiCostMicros,
+    aiCostCeilingMicros,
+    aiBudgetReached: aiCostMicros >= aiCostCeilingMicros,
+  };
+}
+
+/** True when the bot must not call the model this month: trial over, conversation ceiling, or AI budget spent. */
+export function aiBlocked(q: Quota): boolean {
+  return q.expired || q.state === "ceiling" || q.aiBudgetReached;
 }

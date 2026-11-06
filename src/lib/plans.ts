@@ -8,7 +8,14 @@ export type PlanLimits = {
   admins: number | null;
   autoSendEmails: boolean;
   removeBadge: boolean;
+  /** Monthly AI spend ceiling in micro-USD; at or above it the bot goes to the fallback until next month. */
+  aiCostCeilingMicros: number;
 };
+
+/** Past this many visitor messages in one conversation, the bot answers with the fallback (no model call). */
+export const MAX_VISITOR_MESSAGES_PER_CONVERSATION = 40;
+
+const USD = 1_000_000;
 
 const MB = 1024 ** 2;
 const GB = 1024 ** 3;
@@ -21,6 +28,7 @@ const starter: PlanLimits = {
   admins: 2,
   autoSendEmails: false,
   removeBadge: false,
+  aiCostCeilingMicros: 25 * USD,
 };
 const growth: PlanLimits = {
   websites: 3,
@@ -30,6 +38,7 @@ const growth: PlanLimits = {
   admins: 5,
   autoSendEmails: true,
   removeBadge: true,
+  aiCostCeilingMicros: 70 * USD,
 };
 const pro: PlanLimits = {
   websites: 10,
@@ -39,13 +48,15 @@ const pro: PlanLimits = {
   admins: null,
   autoSendEmails: true,
   removeBadge: true,
+  aiCostCeilingMicros: 180 * USD,
 };
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   starter,
   growth,
   pro,
-  trial: { ...growth },
+  // Growth features with a lower AI spend ceiling: a trial is not paid for.
+  trial: { ...growth, aiCostCeilingMicros: 10 * USD },
   complimentary: { ...pro },
 };
 

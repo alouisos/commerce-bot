@@ -7,7 +7,8 @@ import { replaceChunks } from "@/lib/kb/store";
 import { monthKey } from "@/lib/usage/meter";
 import type { ModelReply, ModelRequest } from "@/lib/chat/model";
 import type { ChatEvent, PageContext } from "@/shared/widget-protocol";
-import { makeAccount, makeConversation, makeSite, makeSource } from "../helpers/factories";
+import { hit } from "@/lib/usage/rate-limit";
+import { makeAccount, makeConversation, makeMessage, makeSite, makeSource } from "../helpers/factories";
 import { resetDb } from "../helpers/db";
 
 const model = vi.hoisted(() => ({
@@ -202,6 +203,55 @@ describe("POST /api/widget/chat", () => {
       ["visitor", "chat", "Is argan oil good for dry hair?"],
       ["bot", "fallback", COPY.en.fallback],
     ]);
+  });
+
+  it("a conversation with 40 visitor messages gets the fallback and no model call", async () => {
+    const { site } = await setup();
+    const conv = await makeConversation(site.id, { visitorSessionId: SID });
+    for (let i = 0; i < 39; i++) await makeMessage(conv.id, { content: `q${i}` });
+    // The 40th visitor message is still answered by the model.
+    const ok = await send(site.publicKey, { cid: conv.id, message: "q39" });
+    expect(ok.events.at(-1)?.type).toBe("done");
+    expect(model.calls).toHaveLength(1);
+
+    const { events } = await send(site.publicKey, { cid: conv.id, message: "q40" });
+    expect(events).toEqual([
+      { type: "start", cid: conv.id },
+      { type: "fallback", cid: conv.id, text: COPY.en.fallback },
+    ]);
+    expect(model.calls).toHaveLength(1);
+    const last = (await messagesOf(conv.id)).slice(-2);
+    expect(last.map((m) => [m.role, m.kind, m.content])).toEqual([
+      ["visitor", "chat", "q40"],
+      ["bot", "fallback", COPY.en.fallback],
+    ]);
+  });
+
+  it("an account at this month's AI cost ceiling gets the fallback and no model call", async () => {
+    const { account, site } = await setup({ plan: "starter" });
+    await db.insert(monthlyUsage).values({ accountId: account.id, month: monthKey(new Date()), aiCostMicros: 25_000_000 });
+    const { events } = await send(site.publicKey);
+    expect(events.map((e) => e.type)).toEqual(["start", "fallback"]);
+    expect(model.calls).toHaveLength(0);
+    expect(await db.select().from(usageEvents)).toHaveLength(0);
+  });
+
+  it("the 301st message for one site in 5 minutes is rate limited, whatever the sid and IP", async () => {
+    const { site } = await setup();
+    // Pin the clock to the start of a rate-limit window so the test never straddles a window boundary.
+    const windowMs = 300_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / windowMs) * windowMs + 1000);
+    try {
+      for (let i = 0; i < 299; i++) await hit(`chat:site:${site.id}`, 300, 300);
+      const ok = await send(site.publicKey, { sid: "visitor_rotating_300" }, { ip: "203.0.113.30" });
+      expect(ok.res.status).toBe(200);
+      const { res } = await send(site.publicKey, { sid: "visitor_rotating_301" }, { ip: "203.0.113.31" });
+      expect(res.status).toBe(429);
+      expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("an expired trial answers with the fallback in the visitor's language", async () => {

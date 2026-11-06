@@ -107,6 +107,16 @@ describe("config", () => {
     expect((await cfg(starter)).mode).toBe("fallback");
   });
 
+  it("mode is fallback once this month's AI cost reaches the plan's ceiling", async () => {
+    const s = await setup("starter");
+    const cfg = async () =>
+      (await (await configGET(get(`/api/widget/config?key=${s.site.publicKey}`, ORIGIN))).json()) as WidgetConfig;
+    await db.insert(monthlyUsage).values({ accountId: s.account.id, month: monthKey(new Date()), aiCostMicros: 24_999_999 });
+    expect((await cfg()).mode).toBe("ai");
+    await db.update(monthlyUsage).set({ aiCostMicros: 25_000_000 }).where(eq(monthlyUsage.accountId, s.account.id));
+    expect((await cfg()).mode).toBe("fallback");
+  });
+
   it("updates lastSeenAt at most once a minute", async () => {
     const { site } = await setup();
     await configGET(get(`/api/widget/config?key=${site.publicKey}`, ORIGIN));

@@ -1,10 +1,11 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, count, desc, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { conversations, messages, type Conversation } from "@/db/schema";
 import { copyFor } from "@/lib/copy/defaults";
 import { searchKnowledge } from "@/lib/kb/search";
-import { countConversation, getQuota, recordModelUsage } from "@/lib/usage/meter";
+import { MAX_VISITOR_MESSAGES_PER_CONVERSATION } from "@/lib/plans";
+import { aiBlocked, countConversation, getQuota, recordModelUsage } from "@/lib/usage/meter";
 import { hit } from "@/lib/usage/rate-limit";
 import { appBaseUrl, siteLanguages } from "@/lib/widget/config";
 import { isUuid } from "@/lib/widget/conversation";
@@ -105,13 +106,12 @@ async function findConversation(siteId: string, sid: string, cid: string | null)
   return row ?? null;
 }
 
-async function hasVisitorMessages(conversationId: string): Promise<boolean> {
+async function countVisitorMessages(conversationId: string): Promise<number> {
   const [row] = await db
-    .select({ id: messages.id })
+    .select({ n: count() })
     .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), eq(messages.role, "visitor")))
-    .limit(1);
-  return !!row;
+    .where(and(eq(messages.conversationId, conversationId), eq(messages.role, "visitor")));
+  return Number(row?.n ?? 0);
 }
 
 async function addMessage(
@@ -220,7 +220,11 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
   const key = new URL(req.url).searchParams.get("key");
   const { site, origin } = await resolveWidgetRequest(req, key);
 
-  if (!(await hit(`chat:sid:${input.sid}`, 20, 300)) || !(await hit(`chat:ip:${clientIp(req)}`, 60, 300))) {
+  if (
+    !(await hit(`chat:sid:${input.sid}`, 20, 300)) ||
+    !(await hit(`chat:ip:${clientIp(req)}`, 60, 300)) ||
+    !(await hit(`chat:site:${site.id}`, 300, 300))
+  ) {
     throw new WidgetError(429, "Too many requests");
   }
 
@@ -239,10 +243,12 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
   const conversationId = conversation.id;
   const language = conversation.language;
 
-  if (!(await hasVisitorMessages(conversationId))) await countConversation(site.accountId, now);
+  const previousVisitorMessages = await countVisitorMessages(conversationId);
+  if (previousVisitorMessages === 0) await countConversation(site.accountId, now);
   const visitorMessageId = await addMessage(conversationId, { role: "visitor", content: input.message });
 
-  if (quota.expired || quota.state === "ceiling") {
+  // No model call when the account can't spend more this month, or this conversation already had its share.
+  if (aiBlocked(quota) || previousVisitorMessages >= MAX_VISITOR_MESSAGES_PER_CONVERSATION) {
     const text = copyFor(language).fallback;
     await addMessage(conversationId, { role: "bot", content: text, kind: "fallback" });
     return fallbackResponse(req, origin, conversationId, text);

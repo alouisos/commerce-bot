@@ -1,6 +1,7 @@
+import { AI_LIMIT_TEXT } from "@/components/QuotaBanner";
 import { getAccountForUser } from "@/lib/accounts";
 import { requireUser } from "@/lib/session";
-import { getMonthUsage, getQuota } from "@/lib/usage/meter";
+import { getQuota } from "@/lib/usage/meter";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const DAY = 86_400_000;
@@ -17,7 +18,6 @@ export default async function UsagePage() {
   const account = await getAccountForUser(user.id);
   const now = new Date();
   const quota = await getQuota(account, now);
-  const { aiCostMicros } = await getMonthUsage(account.id, now);
   const planName = quota.plan.charAt(0).toUpperCase() + quota.plan.slice(1);
   const pct = Math.min(100, Math.floor((quota.used / quota.limit) * 100));
 
@@ -53,7 +53,16 @@ export default async function UsagePage() {
         </div>
         <p className="text-sm">{quota.expired ? "Your free trial has ended. Your bot is in fallback mode." : STATE_TEXT[quota.state]}</p>
       </section>
-      <p>AI cost this month: {usd.format(aiCostMicros / 1e6)}</p>
+      <section className="flex flex-col gap-1">
+        <p>
+          AI usage this month: {usd.format(quota.aiCostMicros / 1e6)} of {usd.format(quota.aiCostCeilingMicros / 1e6)}
+        </p>
+        {quota.aiBudgetReached && (
+          <p role="alert" className="text-sm">
+            {AI_LIMIT_TEXT}
+          </p>
+        )}
+      </section>
     </div>
   );
 }

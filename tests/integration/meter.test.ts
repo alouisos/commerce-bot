@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { monthlyUsage } from "@/db/schema";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeSite } from "../helpers/factories";
 import { countConversation, getMonthUsage, getQuota, monthKey, recordModelUsage } from "@/lib/usage/meter";
@@ -39,8 +42,26 @@ describe("metering", () => {
   });
   it("getQuota", async () => {
     const a = await makeAccount({ plan: "starter" });
-    expect(await getQuota(a, nov)).toEqual({ plan: "starter", expired: false, used: 0, limit: 500, state: "ok" });
+    expect(await getQuota(a, nov)).toEqual({
+      plan: "starter",
+      expired: false,
+      used: 0,
+      limit: 500,
+      state: "ok",
+      aiCostMicros: 0,
+      aiCostCeilingMicros: 25_000_000,
+      aiBudgetReached: false,
+    });
     for (let i = 0; i < 400; i++) await countConversation(a.id, nov);
     expect((await getQuota(a, nov)).state).toBe("warning");
+  });
+  it("getQuota reports the AI budget as reached at the plan's ceiling", async () => {
+    const a = await makeAccount({ plan: "starter" });
+    await db.insert(monthlyUsage).values({ accountId: a.id, month: monthKey(nov), aiCostMicros: 24_999_999 });
+    expect((await getQuota(a, nov)).aiBudgetReached).toBe(false);
+    await db.update(monthlyUsage).set({ aiCostMicros: 25_000_000 }).where(eq(monthlyUsage.accountId, a.id));
+    expect(await getQuota(a, nov)).toMatchObject({ aiCostMicros: 25_000_000, aiBudgetReached: true, state: "ok" });
+    // Next month starts from zero.
+    expect((await getQuota(a, dec)).aiBudgetReached).toBe(false);
   });
 });

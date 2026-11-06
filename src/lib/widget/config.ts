@@ -5,7 +5,7 @@ import { siteGreetings, sites, type Account, type Site } from "@/db/schema";
 import { COPY, copyFor } from "@/lib/copy/defaults";
 import { env } from "@/lib/env";
 import { planStatus } from "@/lib/plans";
-import { getQuota } from "@/lib/usage/meter";
+import { aiBlocked, getQuota } from "@/lib/usage/meter";
 import { resolveLanguage } from "@/lib/widget/language";
 import type { WidgetConfig, WidgetStrings } from "@/shared/widget-protocol";
 
@@ -53,7 +53,7 @@ export async function buildWidgetConfig(
 
   const status = planStatus(site.account, now);
   const quota = await getQuota(site.account, now);
-  const mode = status.expired || quota.state === "ceiling" ? "fallback" : "ai";
+  const mode = aiBlocked(quota) ? "fallback" : "ai";
 
   const message = greetings.find((g) => g.language.toLowerCase() === language)?.message ?? defaultGreeting;
   const imageUrl = site.greetingImageKey

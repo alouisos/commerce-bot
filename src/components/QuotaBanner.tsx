@@ -1,6 +1,9 @@
 import { getQuota } from "@/lib/usage/meter";
 import type { Account } from "@/db/schema";
 
+export const AI_LIMIT_TEXT =
+  "Your bot has reached this month's AI usage limit: visitors can leave their email but get no AI replies until next month.";
+
 export async function QuotaBanner({ account }: { account: Account }) {
   const q = await getQuota(account);
   let text: string | null = null;
@@ -10,6 +13,9 @@ export async function QuotaBanner({ account }: { account: Account }) {
     role = "alert";
   } else if (q.state === "ceiling") {
     text = "Your bot is in fallback mode: visitors can leave their email but get no AI replies until next month.";
+    role = "alert";
+  } else if (q.aiBudgetReached) {
+    text = AI_LIMIT_TEXT;
     role = "alert";
   } else if (q.state === "limit") {
     text = "You've reached this month's conversation limit. Visitors can still chat for now.";
