@@ -1,6 +1,6 @@
 import type { BetaMessageParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { getAnthropic } from "@/lib/ai/anthropic";
-import type { TokenUsage } from "@/lib/ai/pricing";
+import { meteredModel, type TokenUsage } from "@/lib/ai/pricing";
 import { env } from "@/lib/env";
 
 export type ModelRequest = {
@@ -76,7 +76,7 @@ export function streamModelReply(req: ModelRequest): ModelReply {
     const text = msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
     return {
       text,
-      model,
+      model: meteredModel(msg.model, model),
       usage: {
         inputTokens: msg.usage.input_tokens,
         outputTokens: msg.usage.output_tokens,

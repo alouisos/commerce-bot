@@ -1,5 +1,5 @@
 import { getAnthropic } from "@/lib/ai/anthropic";
-import type { TokenUsage } from "@/lib/ai/pricing";
+import { meteredModel, type TokenUsage } from "@/lib/ai/pricing";
 import { env } from "@/lib/env";
 
 export function buildPrompt(caption?: string): string {
@@ -68,7 +68,7 @@ export async function describeImage(input: {
   return {
     caption: parsed.caption,
     description: parsed.description,
-    model,
+    model: meteredModel(res.model, model),
     usage: {
       inputTokens: res.usage.input_tokens,
       outputTokens: res.usage.output_tokens,

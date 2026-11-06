@@ -89,6 +89,24 @@ describe("streamModelReply", () => {
     for (const k of ["temperature", "top_p", "top_k", "thinking"]) expect(arg).not.toHaveProperty(k);
   });
 
+  it("records the response's model when it is priced, else the configured model", async () => {
+    const final = (model: string) => ({
+      model,
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: "ok" }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    });
+    stream.mockReturnValueOnce(fakeStream([textDelta("ok")], final("claude-sonnet-5-5")));
+    const a = streamModelReply(req);
+    await collect(a.textStream);
+    expect((await a.done).model).toBe("claude-sonnet-5-5");
+
+    stream.mockReturnValueOnce(fakeStream([textDelta("ok")], final("claude-unpriced-7")));
+    const b = streamModelReply(req);
+    await collect(b.textStream);
+    expect((await b.done).model).toBe("claude-opus-5-5");
+  });
+
   it("rejects done on refusal", async () => {
     stream.mockReturnValue(
       fakeStream([textDelta("par")], { stop_reason: "refusal", content: [{ type: "text", text: "par" }], usage: { input_tokens: 1, output_tokens: 1 } }),

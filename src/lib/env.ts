@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRICED_MODELS } from "@/lib/ai/pricing";
 
 const bool = z
   .enum(["true", "false"])
@@ -11,11 +12,15 @@ const schema = z
     APP_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(1),
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
-    CHAT_MODEL: z.string().min(1).default("claude-opus-5-5"),
+    CHAT_MODEL: z
+      .enum(PRICED_MODELS, { error: `CHAT_MODEL must be one of: ${PRICED_MODELS.join(", ")}` })
+      .default("claude-opus-5-5"),
     VOYAGE_API_KEY: z.string().min(1).optional(),
     FAKE_MODEL: bool,
     FAKE_EMBEDDINGS: bool,
     CRAWL_ALLOW_PRIVATE_HOSTS: bool,
+    NODE_ENV: z.string().optional(),
+    ALLOW_FAKES_IN_PRODUCTION: bool,
     STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
     STORAGE_LOCAL_DIR: z.string().min(1).default("./.storage"),
     S3_ENDPOINT: z.string().min(1).optional(),
@@ -41,6 +46,17 @@ const schema = z
     };
     need("ANTHROPIC_API_KEY", e.FAKE_MODEL || !!e.ANTHROPIC_API_KEY, "unless FAKE_MODEL=true");
     need("VOYAGE_API_KEY", e.FAKE_EMBEDDINGS || !!e.VOYAGE_API_KEY, "unless FAKE_EMBEDDINGS=true");
+    if (e.NODE_ENV === "production" && !e.ALLOW_FAKES_IN_PRODUCTION) {
+      for (const k of ["FAKE_MODEL", "FAKE_EMBEDDINGS"] as const) {
+        if (e[k]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [k],
+            message: `${k}=true is not allowed in production (set ALLOW_FAKES_IN_PRODUCTION=true only for local e2e runs)`,
+          });
+        }
+      }
+    }
     if (e.STORAGE_DRIVER === "s3") {
       for (const k of [
         "S3_ENDPOINT",

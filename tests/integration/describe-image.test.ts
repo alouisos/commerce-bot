@@ -43,6 +43,19 @@ describe("describeImage request", () => {
     });
   });
 
+  it("records the response's model when it is priced, else the configured model", async () => {
+    const res = (model: string) => ({
+      model,
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: JSON.stringify({ caption: "C", description: "D" }) }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    });
+    create.mockResolvedValueOnce(res("claude-haiku-5-5"));
+    expect((await describeImage({ bytes, mimeType: "image/png" })).model).toBe("claude-haiku-5-5");
+    create.mockResolvedValueOnce(res("claude-unpriced-7"));
+    expect((await describeImage({ bytes, mimeType: "image/png" })).model).toBe("claude-opus-5-5");
+  });
+
   it("throws on refusal", async () => {
     create.mockResolvedValue({ stop_reason: "refusal", content: [], usage: { input_tokens: 1, output_tokens: 0 } });
     await expect(withRealModel(() => describeImage({ bytes, mimeType: "image/png" }))).rejects.toThrow();

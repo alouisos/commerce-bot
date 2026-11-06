@@ -1,8 +1,20 @@
 import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { kbChunks, kbSources, usageEvents } from "@/db/schema";
+const meter = vi.hoisted(() => ({ fail: false }));
+vi.mock("@/lib/usage/meter", async (orig) => {
+  const mod = await orig<typeof import("@/lib/usage/meter")>();
+  return {
+    ...mod,
+    recordModelUsage: async (input: Parameters<typeof mod.recordModelUsage>[0]) => {
+      if (meter.fail) throw new Error("metering db down");
+      return mod.recordModelUsage(input);
+    },
+  };
+});
+
 import { ingestSource } from "@/lib/kb/ingest";
 import { searchKnowledge } from "@/lib/kb/search";
 import { addDocument, addImage, addText } from "@/lib/kb/sources";
@@ -15,7 +27,10 @@ async function reload(id: string) {
 }
 
 describe("ingestSource", () => {
-  beforeEach(resetDb);
+  beforeEach(async () => {
+    meter.fail = false;
+    await resetDb();
+  });
 
   it("ingests a markdown/pdf document and makes it searchable", async () => {
     const site = await makeSite((await makeAccount()).id);
@@ -54,6 +69,19 @@ describe("ingestSource", () => {
     const events = await db.select().from(usageEvents).where(eq(usageEvents.accountId, acc.id));
     expect(events).toHaveLength(1);
     expect(events[0].kind).toBe("image_description");
+  });
+
+  it("an image stays ready when recording its usage fails", async () => {
+    const site = await makeSite((await makeAccount()).id);
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
+    const src = await addImage(site.id, new File([png], "label.png", { type: "image/png" }), "Label");
+    meter.fail = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    await ingestSource(src.id);
+    expect(await reload(src.id)).toMatchObject({ status: "ready", error: null, caption: "Label" });
+    expect(await db.select().from(kbChunks).where(eq(kbChunks.sourceId, src.id))).toHaveLength(1);
+    expect(errors).toHaveBeenCalled();
+    errors.mockRestore();
   });
 
   it("uses the generated caption when none was given", async () => {

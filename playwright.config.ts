@@ -31,6 +31,8 @@ export default defineConfig({
         BETTER_AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-0123456789",
         FAKE_MODEL: "true",
         FAKE_EMBEDDINGS: "true",
+        // `npm start` runs with NODE_ENV=production, where fakes are refused unless explicitly allowed.
+        ALLOW_FAKES_IN_PRODUCTION: "true",
         STORAGE_DRIVER: "local",
       },
     },

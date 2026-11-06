@@ -53,6 +53,26 @@ describe("parseEnv", () => {
     expect(e.FAKE_EMBEDDINGS).toBe(false);
   });
 
+  it("rejects an unknown CHAT_MODEL and names the allowed values", () => {
+    expect(() => parseEnv({ ...base, CHAT_MODEL: "claude-made-up-1" })).toThrow(
+      /CHAT_MODEL.*claude-opus-5-5.*claude-sonnet-5-5.*claude-haiku-5-5/,
+    );
+    expect(parseEnv({ ...base, CHAT_MODEL: "claude-sonnet-5-5" }).CHAT_MODEL).toBe("claude-sonnet-5-5");
+    expect(parseEnv({ ...base, CHAT_MODEL: "claude-haiku-5-5" }).CHAT_MODEL).toBe("claude-haiku-5-5");
+  });
+
+  it("refuses fakes in production unless ALLOW_FAKES_IN_PRODUCTION=true", () => {
+    const prod = { ...base, NODE_ENV: "production" };
+    expect(() => parseEnv({ ...prod, FAKE_MODEL: "true" })).toThrow(/FAKE_MODEL.*production/);
+    expect(() => parseEnv({ ...prod, FAKE_EMBEDDINGS: "true" })).toThrow(/FAKE_EMBEDDINGS.*production/);
+    expect(() => parseEnv({ ...prod, FAKE_MODEL: "true", ALLOW_FAKES_IN_PRODUCTION: "false" })).toThrow(/production/);
+    const allowed = parseEnv({ ...prod, FAKE_MODEL: "true", FAKE_EMBEDDINGS: "true", ALLOW_FAKES_IN_PRODUCTION: "true" });
+    expect(allowed.FAKE_MODEL).toBe(true);
+    expect(parseEnv({ ...prod, FAKE_MODEL: "false", FAKE_EMBEDDINGS: "false" }).FAKE_MODEL).toBe(false);
+    expect(parseEnv({ ...base, NODE_ENV: "development", FAKE_MODEL: "true", FAKE_EMBEDDINGS: "true" }).FAKE_MODEL).toBe(true);
+    expect(parseEnv({ ...base, FAKE_MODEL: "true" }).FAKE_MODEL).toBe(true);
+  });
+
   it("treats empty strings as unset", () => {
     const e = parseEnv({ ...base, RESEND_API_KEY: "", CHAT_MODEL: "" });
     expect(e.RESEND_API_KEY).toBeUndefined();

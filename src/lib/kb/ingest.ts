@@ -37,13 +37,18 @@ export async function ingestSource(sourceId: string): Promise<void> {
         siteId: source.siteId,
         texts: [`[Image: ${caption}]\n${result.description}`],
       });
-      await recordModelUsage({
-        accountId: site.accountId,
-        siteId: site.id,
-        kind: "image_description",
-        model: result.model,
-        usage: result.usage,
-      });
+      try {
+        await recordModelUsage({
+          accountId: site.accountId,
+          siteId: site.id,
+          kind: "image_description",
+          model: result.model,
+          usage: result.usage,
+        });
+      } catch (err) {
+        // The description is stored; a metering failure must not mark the source failed.
+        console.error(`[ingest] source ${sourceId}: recording usage failed`, err);
+      }
       await db.update(kbSources).set({ caption, status: "ready", error: null }).where(eq(kbSources.id, sourceId));
       return;
     }
