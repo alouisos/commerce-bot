@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { memberships } from "@/db/schema";
+import { accounts, memberships } from "@/db/schema";
+import { auth } from "@/lib/auth";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeMembership, makeSite, makeUser } from "../helpers/factories";
 import { createAccountForUser, getAccountForUser } from "@/lib/accounts";
@@ -53,5 +54,40 @@ describe("accounts and access", () => {
   it("isPlatformOwner is case-insensitive", () => {
     expect(isPlatformOwner("A@X.com", ["a@x.com"])).toBe(true);
     expect(isPlatformOwner("b@x.com", ["a@x.com"])).toBe(false);
+  });
+
+  it("sign-up through Better Auth creates a trial account and owner membership", async () => {
+    const res = await auth.api.signUpEmail({
+      body: { email: "hook@example.com", password: "password-12345", name: "Hook" },
+    });
+    const account = await getAccountForUser(res.user.id);
+    expect(account.plan).toBe("trial");
+    const expected = Date.now() + 14 * 24 * 60 * 60 * 1000;
+    expect(Math.abs(account.trialEndsAt!.getTime() - expected)).toBeLessThan(60_000);
+    const rows = await db.select().from(memberships).where(eq(memberships.userId, res.user.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ accountId: account.id, role: "owner" });
+  });
+
+  it("getAccountForUser self-heals a user without an account, once, under concurrency", async () => {
+    const user = await makeUser("heal@example.com");
+    const results = await Promise.all(Array.from({ length: 5 }, () => getAccountForUser(user.id)));
+    expect(new Set(results.map((a) => a.id)).size).toBe(1);
+    expect(results[0].name).toBe("heal's workspace");
+    expect(await db.select().from(accounts)).toHaveLength(1);
+    expect(await db.select().from(memberships)).toHaveLength(1);
+  });
+
+  it("getAccountForUser throws NotFoundError for an unknown user", async () => {
+    await expect(getAccountForUser("no-such-user")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("createAccountForUser returns the existing account when the user already has one", async () => {
+    const user = await makeUser("twice@example.com");
+    const first = await createAccountForUser(user.id, user.email);
+    const second = await createAccountForUser(user.id, user.email);
+    expect(second.id).toBe(first.id);
+    expect(await db.select().from(accounts)).toHaveLength(1);
+    expect(await db.select().from(memberships)).toHaveLength(1);
   });
 });
