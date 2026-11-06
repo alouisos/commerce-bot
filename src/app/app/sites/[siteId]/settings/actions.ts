@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notFound, redirect } from "next/navigation";
 import { requireSiteAccess } from "@/lib/access";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { removeGreetingImage, setGreetingImage, updateSiteSettings } from "@/lib/site-settings";
+import { deleteSite, updateSiteDetails } from "@/lib/sites";
 import { requireUser } from "@/lib/session";
-import { notFound } from "next/navigation";
 
 export type SettingsState = { error?: string; saved?: boolean };
 
@@ -73,4 +74,34 @@ export async function removeGreetingImageAction(siteId: string): Promise<void> {
   await authorize(siteId);
   await removeGreetingImage(siteId);
   revalidatePath(`/app/sites/${siteId}/settings`);
+}
+
+export async function saveSiteDetailsAction(
+  siteId: string,
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  await authorize(siteId);
+  const state = await run(siteId, () =>
+    updateSiteDetails(siteId, {
+      name: String(formData.get("name") ?? ""),
+      baseUrl: String(formData.get("baseUrl") ?? ""),
+    }),
+  );
+  // The site's name and URL are shown in its layout header and on the websites list.
+  if (state.saved) {
+    revalidatePath("/app/sites/[siteId]", "layout");
+    revalidatePath("/app");
+  }
+  return state;
+}
+
+export async function deleteSiteAction(siteId: string, _prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const site = await authorize(siteId);
+  if (String(formData.get("confirmName") ?? "").trim() !== site.name) {
+    return { error: `To confirm, type the website's name exactly: ${site.name}` };
+  }
+  await deleteSite(site.id);
+  revalidatePath("/app");
+  redirect("/app");
 }

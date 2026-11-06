@@ -2,8 +2,10 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { siteGreetings } from "@/db/schema";
 import { loadSite } from "../load-site";
+import { DeleteSiteForm } from "./delete-site-form";
 import { GreetingImageForm } from "./greeting-image-form";
 import { SettingsForm } from "./settings-form";
+import { SiteDetailsForm } from "./site-details-form";
 
 export default async function SettingsPage({ params }: PageProps<"/app/sites/[siteId]/settings">) {
   const { siteId } = await params;
@@ -19,7 +21,10 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
 
   return (
     <div className="flex max-w-xl flex-col gap-8">
+      <SiteDetailsForm siteId={site.id} name={site.name} baseUrl={site.baseUrl} />
+      {/* Remount on a URL change: its allowed-origins field is uncontrolled and the origins were re-derived. */}
       <SettingsForm
+        key={site.baseUrl}
         siteId={site.id}
         initial={{
           botName: site.botName,
@@ -32,6 +37,7 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
         }}
       />
       <GreetingImageForm siteId={site.id} hasImage={!!site.greetingImageKey} version={site.greetingImageKey ?? ""} />
+      <DeleteSiteForm siteId={site.id} name={site.name} />
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { accounts, sites, type Account, type Site } from "@/db/schema";
-import { PlanLimitError, ValidationError } from "@/lib/errors";
+import { accounts, kbSources, sites, type Account, type Site } from "@/db/schema";
+import { NotFoundError, PlanLimitError, ValidationError } from "@/lib/errors";
 import { enqueueCrawl } from "@/lib/jobs";
 import { planStatus } from "@/lib/plans";
+import { getStorage } from "@/lib/storage";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -70,15 +71,20 @@ export function isOriginAllowed(site: { allowedOrigins: string[] }, origin: stri
   return site.allowedOrigins.includes(normalized);
 }
 
+function siteName(input: string): string {
+  const name = input.trim();
+  if (name.length < 1 || name.length > 100) {
+    throw new ValidationError("Name must be between 1 and 100 characters");
+  }
+  return name;
+}
+
 export async function createSite(
   accountId: string,
   input: { name: string; baseUrl: string },
   now: Date = new Date(),
 ): Promise<Site> {
-  const name = input.name.trim();
-  if (name.length < 1 || name.length > 100) {
-    throw new ValidationError("Name must be between 1 and 100 characters");
-  }
+  const name = siteName(input.name);
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const allowedOrigins = deriveAllowedOrigins(baseUrl);
 
@@ -101,6 +107,47 @@ export async function createSite(
   });
   await enqueueCrawl(site.id);
   return site;
+}
+
+/**
+ * Renames the site and/or changes its URL. A new URL replaces the origins derived from the old one
+ * (keeping origins the admin added by hand) and starts a crawl of the new site.
+ */
+export async function updateSiteDetails(siteId: string, input: { name: string; baseUrl: string }): Promise<void> {
+  const name = siteName(input.name);
+  const baseUrl = normalizeBaseUrl(input.baseUrl);
+  const [site] = await db.select().from(sites).where(eq(sites.id, siteId));
+  if (!site) throw new NotFoundError("Site not found");
+  const urlChanged = baseUrl !== site.baseUrl;
+  let allowedOrigins = site.allowedOrigins;
+  if (urlChanged) {
+    const oldDerived = new Set(deriveAllowedOrigins(site.baseUrl));
+    const manual = site.allowedOrigins.filter((o) => !oldDerived.has(o));
+    allowedOrigins = [...new Set([...deriveAllowedOrigins(baseUrl), ...manual])];
+  }
+  await db.update(sites).set({ name, baseUrl, allowedOrigins }).where(eq(sites.id, siteId));
+  if (urlChanged) await enqueueCrawl(siteId);
+}
+
+/**
+ * Deletes the site; the database cascades to its greetings, knowledge, conversations, messages and
+ * leads (usage events keep the account's spend, with site_id set null). Then removes its stored
+ * objects, best-effort: a storage failure is logged and does not undo the delete.
+ */
+export async function deleteSite(siteId: string): Promise<void> {
+  const [site] = await db.select({ greetingImageKey: sites.greetingImageKey }).from(sites).where(eq(sites.id, siteId));
+  if (!site) throw new NotFoundError("Site not found");
+  const sources = await db.select({ key: kbSources.storageKey }).from(kbSources).where(eq(kbSources.siteId, siteId));
+  await db.delete(sites).where(eq(sites.id, siteId));
+  const keys = [site.greetingImageKey, ...sources.map((s) => s.key)].filter((k): k is string => !!k);
+  const storage = getStorage();
+  for (const key of keys) {
+    try {
+      await storage.delete(key);
+    } catch (err) {
+      console.error("site delete: could not remove stored object", { siteId, key }, err);
+    }
+  }
 }
 
 export async function getSiteByPublicKey(key: string): Promise<(Site & { account: Account }) | null> {
