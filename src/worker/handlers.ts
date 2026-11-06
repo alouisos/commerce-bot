@@ -1,5 +1,7 @@
 import type { PgBoss } from "pg-boss";
 import { JOBS, type JobData, type JobName } from "@/lib/jobs";
+import { crawlSite } from "@/lib/crawl/crawl-site";
+import { weeklyRecrawl } from "@/lib/crawl/recrawl";
 import { ingestSource } from "@/lib/kb/ingest";
 
 export type Handlers = Partial<{ [N in JobName]: (data: JobData[N]) => Promise<void> }>;
@@ -7,6 +9,10 @@ export type Handlers = Partial<{ [N in JobName]: (data: JobData[N]) => Promise<v
 /** Later tasks add their handler to this map. Importing this module has no side effects. */
 export const handlers: Handlers = {
   [JOBS.ingestSource]: ({ sourceId }) => ingestSource(sourceId),
+  [JOBS.crawlSite]: async ({ siteId }) => {
+    await crawlSite(siteId);
+  },
+  [JOBS.weeklyRecrawl]: () => weeklyRecrawl(),
 };
 
 export async function registerHandlers(boss: PgBoss, map: Handlers): Promise<void> {

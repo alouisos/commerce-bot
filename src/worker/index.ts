@@ -5,10 +5,12 @@ async function main() {
     // no .env file; rely on the process environment
   }
   // Imported after the env file is loaded: db/client reads the environment at import time.
-  const { getBoss } = await import("@/lib/jobs");
+  const { getBoss, JOBS } = await import("@/lib/jobs");
   const { handlers, registerHandlers } = await import("./handlers");
   const boss = await getBoss();
   await registerHandlers(boss, handlers);
+  // Queues exist already (getBoss creates them); schedule() upserts, so this is safe on every start.
+  await boss.schedule(JOBS.weeklyRecrawl, "0 3 * * 1");
   console.log("[worker] started");
   const stop = async () => {
     await boss.stop();

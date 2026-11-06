@@ -2,7 +2,7 @@ import Link from "next/link";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { kbSources, type KbSource } from "@/db/schema";
-import { deleteSourceAction, setExcludedAction } from "./actions";
+import { deleteSourceAction, recrawlNowAction, setExcludedAction } from "./actions";
 import { AddForms } from "./add-forms";
 import { Poller } from "./poller";
 import { loadSite } from "../load-site";
@@ -87,7 +87,7 @@ export default async function KnowledgePage({
     .where(eq(kbSources.siteId, site.id))
     .orderBy(pagesTab ? asc(kbSources.title) : desc(kbSources.createdAt));
   const rows = all.filter((s) => (s.kind === "page") === pagesTab);
-  const busy = all.some((s) => s.status === "pending" || s.status === "processing");
+  const busy = site.crawlStatus === "crawling" || all.some((s) => s.status === "pending" || s.status === "processing");
   const base = `/app/sites/${site.id}/knowledge`;
 
   return (
@@ -103,10 +103,16 @@ export default async function KnowledgePage({
         </Link>
       </nav>
       {pagesTab && (
-        <div>
-          <button type="button" disabled className="border p-2">
-            Re-crawl now
-          </button>
+        <div className="flex items-center gap-4">
+          <form action={recrawlNowAction.bind(null, site.id)}>
+            <button type="submit" disabled={site.crawlStatus === "crawling"} className="border p-2">
+              Re-crawl now
+            </button>
+          </form>
+          <p>
+            Crawl status: {site.crawlStatus}
+            {site.lastCrawledAt && ` (last crawled ${site.lastCrawledAt.toISOString().slice(0, 16).replace("T", " ")} UTC)`}
+          </p>
         </div>
       )}
       <SourcesTable siteId={site.id} rows={rows} />

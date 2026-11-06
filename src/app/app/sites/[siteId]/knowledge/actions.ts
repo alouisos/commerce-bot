@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import { requireSiteAccess } from "@/lib/access";
 import { NotFoundError, PlanLimitError, ValidationError } from "@/lib/errors";
+import { recrawlNow } from "@/lib/crawl/recrawl";
 import { addDocument, addImage, addText, deleteSource, setExcluded } from "@/lib/kb/sources";
 import { requireUser } from "@/lib/session";
 
@@ -61,4 +62,9 @@ export async function deleteSourceAction(siteId: string, sourceId: string): Prom
 export async function setExcludedAction(siteId: string, sourceId: string, excluded: boolean): Promise<void> {
   await authorize(siteId);
   await run(siteId, () => setExcluded(siteId, sourceId, excluded));
+}
+
+export async function recrawlNowAction(siteId: string): Promise<void> {
+  await authorize(siteId);
+  await run(siteId, () => recrawlNow(siteId));
 }

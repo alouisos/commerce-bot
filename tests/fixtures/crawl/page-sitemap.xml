@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://shop.test/</loc></url>
+  <url><loc>https://shop.test/ingredients/</loc></url>
+  <url><loc>https://shop.test/el/</loc></url>
+  <url><loc>https://shop.test/wp-admin/options.php</loc></url>
+  <url><loc>https://shop.test/catalog.pdf</loc></url>
+  <url><loc>https://other.test/elsewhere/</loc></url>
+</urlset>
