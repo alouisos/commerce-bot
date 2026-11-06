@@ -65,6 +65,8 @@ export const sites = pgTable("sites", {
   crawlStatus: text("crawl_status", { enum: ["idle", "crawling", "done", "failed"] })
     .notNull()
     .default("idle"),
+  /** Set when a crawl starts; a "crawling" status older than the crawl job's lifetime is stale. */
+  crawlStartedAt: timestamp("crawl_started_at"),
   lastCrawledAt: timestamp("last_crawled_at"),
   lastSeenAt: timestamp("last_seen_at"),
   createdAt: createdAt(),

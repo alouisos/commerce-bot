@@ -8,7 +8,15 @@ import { makeAccount, makeMembership, makeSite, makeSource, makeUser } from "../
 
 const current = vi.hoisted(() => ({ user: { id: "", email: "a@example.com" } }));
 vi.mock("@/lib/session", () => ({ requireUser: async () => current.user }));
+// The page's Poller calls useRouter(); there is no mounted app router when rendering in a test.
+vi.mock("next/navigation", async (orig) => ({
+  ...(await orig<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: () => {} }),
+}));
 
+import { renderToStaticMarkup } from "react-dom/server";
+import { sites } from "@/db/schema";
+import KnowledgePage from "@/app/app/sites/[siteId]/knowledge/page";
 import { GET } from "@/app/app/sites/[siteId]/knowledge/image/[sourceId]/route";
 import { deleteSourceAction, setExcludedAction } from "@/app/app/sites/[siteId]/knowledge/actions";
 
@@ -65,5 +73,27 @@ describe("knowledge actions", () => {
     const [row] = await db.select().from(kbSources).where(eq(kbSources.id, s.imgOther.id));
     expect(row.excluded).toBe(false);
     expect(await db.select().from(kbSources).where(eq(kbSources.id, s.srcB.id))).toHaveLength(1);
+  });
+});
+
+describe("knowledge page crawl status", () => {
+  beforeEach(resetDb);
+  const render = async (siteId: string) =>
+    renderToStaticMarkup(
+      await KnowledgePage({ params: Promise.resolve({ siteId }), searchParams: Promise.resolve({ tab: "pages" }) } as never),
+    );
+  const button = (html: string) => html.match(/<button[^>]*>Re-crawl now<\/button>/)?.[0] ?? "";
+
+  it("disables re-crawl while a crawl is running, and enables it with a stale label after 3 hours", async () => {
+    const s = await setup();
+    await db.update(sites).set({ crawlStatus: "crawling", crawlStartedAt: new Date(Date.now() - 60_000) }).where(eq(sites.id, s.siteA.id));
+    let html = await render(s.siteA.id);
+    expect(html).toContain("Crawl status: crawling");
+    expect(button(html)).toContain("disabled");
+
+    await db.update(sites).set({ crawlStartedAt: new Date(Date.now() - 4 * 3_600_000) }).where(eq(sites.id, s.siteA.id));
+    html = await render(s.siteA.id);
+    expect(html).toContain("Crawl status: stale");
+    expect(button(html)).not.toContain("disabled");
   });
 });

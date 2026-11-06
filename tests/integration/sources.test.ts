@@ -24,7 +24,7 @@ describe("knowledge sources", () => {
     expect(src).toMatchObject({ kind: "document", status: "pending", bytes: buf.length, mimeType: "application/pdf" });
     expect(src.storageKey).toContain(`sites/${site.id}/kb/${src.id}/`);
     expect((await getStorage().get(src.storageKey!))?.body.length).toBe(buf.length);
-    expect(enqueuedJobs()).toContainEqual({ name: "ingest-source", data: { sourceId: src.id } });
+    expect(enqueuedJobs()).toContainEqual({ name: "ingest-source", data: { sourceId: src.id }, options: {} });
   });
 
   it("accepts .md with an empty browser type, normalised to text/markdown", async () => {

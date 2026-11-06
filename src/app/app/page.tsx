@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { sites } from "@/db/schema";
 import { getAccountForUser } from "@/lib/accounts";
+import { crawlStatusLabel } from "@/lib/crawl/recrawl";
 import { relativeTime } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 import { AddSiteForm } from "./add-site-form";
@@ -27,7 +28,7 @@ export default async function WebsitesPage() {
                 </Link>
                 <div>{s.baseUrl}</div>
                 <div className="text-sm">
-                  Crawl status: {s.crawlStatus} · Last seen on site:{" "}
+                  Crawl status: {crawlStatusLabel(s)} · Last seen on site:{" "}
                   {s.lastSeenAt ? relativeTime(s.lastSeenAt) : "Not installed yet"}
                 </div>
               </li>

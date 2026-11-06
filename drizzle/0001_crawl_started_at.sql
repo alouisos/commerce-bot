@@ -1,0 +1,1 @@
+ALTER TABLE "sites" ADD COLUMN "crawl_started_at" timestamp;

@@ -31,7 +31,7 @@ describe("createSite", () => {
     expect(site.baseUrl).toBe("https://www.milianjo.com/shop");
     expect(site.allowedOrigins).toEqual(["https://www.milianjo.com", "https://milianjo.com"]);
     expect(site.publicKey).toMatch(/^pk_[A-Za-z0-9]{24}$/);
-    expect(enqueuedJobs()).toEqual([{ name: "crawl-site", data: { siteId: site.id } }]);
+    expect(enqueuedJobs()).toEqual([{ name: "crawl-site", data: { siteId: site.id }, options: { singletonKey: site.id } }]);
     await expect(createSite(account.id, { name: "Two", baseUrl: "https://two.com" })).rejects.toBeInstanceOf(PlanLimitError);
   });
   it("validates name and url", async () => {

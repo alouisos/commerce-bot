@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { accounts, sites, type Account, type Site } from "@/db/schema";
 import { PlanLimitError, ValidationError } from "@/lib/errors";
-import { enqueue, JOBS } from "@/lib/jobs";
+import { enqueueCrawl } from "@/lib/jobs";
 import { planStatus } from "@/lib/plans";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -99,7 +99,7 @@ export async function createSite(
       .returning();
     return row;
   });
-  await enqueue(JOBS.crawlSite, { siteId: site.id });
+  await enqueueCrawl(site.id);
   return site;
 }
 

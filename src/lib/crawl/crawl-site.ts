@@ -46,7 +46,7 @@ export async function crawlSite(siteId: string, fetcher?: Fetcher, opts: CrawlOp
   const fetch = throttled(fetcher ?? createHttpFetcher(), opts.delayMs ?? 500);
   const concurrency = Math.max(1, opts.concurrency ?? 2);
 
-  await db.update(sites).set({ crawlStatus: "crawling" }).where(eq(sites.id, siteId));
+  await db.update(sites).set({ crawlStatus: "crawling", crawlStartedAt: new Date() }).where(eq(sites.id, siteId));
   let status: "done" | "failed" = "failed";
   const result: CrawlResult = { pages: 0, changed: 0, removed: 0 };
   try {

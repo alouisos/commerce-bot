@@ -2,6 +2,7 @@ import Link from "next/link";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { kbSources, type KbSource } from "@/db/schema";
+import { crawlStatusLabel, isCrawlRunning } from "@/lib/crawl/recrawl";
 import { deleteSourceAction, recrawlNowAction, setExcludedAction } from "./actions";
 import { AddForms } from "./add-forms";
 import { Poller } from "./poller";
@@ -87,7 +88,9 @@ export default async function KnowledgePage({
     .where(eq(kbSources.siteId, site.id))
     .orderBy(pagesTab ? asc(kbSources.title) : desc(kbSources.createdAt));
   const rows = all.filter((s) => (s.kind === "page") === pagesTab);
-  const busy = site.crawlStatus === "crawling" || all.some((s) => s.status === "pending" || s.status === "processing");
+  const now = new Date();
+  const crawling = isCrawlRunning(site, now);
+  const busy = crawling || all.some((s) => s.status === "pending" || s.status === "processing");
   const base = `/app/sites/${site.id}/knowledge`;
 
   return (
@@ -105,12 +108,12 @@ export default async function KnowledgePage({
       {pagesTab && (
         <div className="flex items-center gap-4">
           <form action={recrawlNowAction.bind(null, site.id)}>
-            <button type="submit" disabled={site.crawlStatus === "crawling"} className="border p-2">
+            <button type="submit" disabled={crawling} className="border p-2">
               Re-crawl now
             </button>
           </form>
           <p>
-            Crawl status: {site.crawlStatus}
+            Crawl status: {crawlStatusLabel(site, now)}
             {site.lastCrawledAt && ` (last crawled ${site.lastCrawledAt.toISOString().slice(0, 16).replace("T", " ")} UTC)`}
           </p>
         </div>

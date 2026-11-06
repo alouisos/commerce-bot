@@ -4,7 +4,7 @@ import { db } from "@/db/client";
 import { kbChunks, kbSources, sites } from "@/db/schema";
 import { clearEnqueuedJobs, enqueuedJobs } from "@/lib/jobs";
 import { crawlSite } from "@/lib/crawl/crawl-site";
-import { recrawlNow, weeklyRecrawl } from "@/lib/crawl/recrawl";
+import { crawlStatusLabel, isCrawlRunning, recrawlNow, weeklyRecrawl } from "@/lib/crawl/recrawl";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeSite } from "../helpers/factories";
 import { fakeFetcher, shopFiles } from "../helpers/crawl-fixture";
@@ -22,6 +22,26 @@ describe("crawlSite", () => {
   beforeEach(async () => {
     await resetDb();
     clearEnqueuedJobs();
+  });
+
+  it("records when the crawl started, while it is crawling", async () => {
+    const site = await setup();
+    const before = Date.now();
+    let during: { crawlStatus: string; crawlStartedAt: Date | null } | undefined;
+    const files = shopFiles();
+    const inner = fakeFetcher(files);
+    await crawlSite(
+      site.id,
+      async (url) => {
+        during ??= await site$(site.id);
+        return inner(url);
+      },
+      opts,
+    );
+    expect(during?.crawlStatus).toBe("crawling");
+    expect(during?.crawlStartedAt?.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    const after = await site$(site.id);
+    expect(after.crawlStartedAt?.getTime()).toBe(during?.crawlStartedAt?.getTime());
   });
 
   it("first crawl stores pages, product chunk and status", async () => {
@@ -126,19 +146,47 @@ describe("recrawl", () => {
     await resetDb();
     clearEnqueuedJobs();
   });
-  it("recrawlNow enqueues unless crawling", async () => {
+  const HOUR = 3_600_000;
+  const crawlJob = (siteId: string) => ({ name: "crawl-site", data: { siteId }, options: { singletonKey: siteId } });
+
+  it("recrawlNow enqueues unless a crawl is running", async () => {
     const site = await setup();
     await recrawlNow(site.id);
-    expect(enqueuedJobs()).toEqual([{ name: "crawl-site", data: { siteId: site.id } }]);
+    expect(enqueuedJobs()).toEqual([crawlJob(site.id)]);
     clearEnqueuedJobs();
-    await db.update(sites).set({ crawlStatus: "crawling" }).where(eq(sites.id, site.id));
+    await db.update(sites).set({ crawlStatus: "crawling", crawlStartedAt: new Date(Date.now() - 60_000) }).where(eq(sites.id, site.id));
     await recrawlNow(site.id);
     expect(enqueuedJobs()).toEqual([]);
   });
-  it("weeklyRecrawl enqueues for every site", async () => {
+  it("recrawlNow re-enqueues a crawl that started more than 3 hours ago (stale)", async () => {
+    const site = await setup();
+    await db.update(sites).set({ crawlStatus: "crawling", crawlStartedAt: new Date(Date.now() - 4 * HOUR) }).where(eq(sites.id, site.id));
+    await recrawlNow(site.id);
+    expect(enqueuedJobs()).toEqual([crawlJob(site.id)]);
+  });
+  it("a crawling site with no recorded start (pre-migration row) counts as stale", async () => {
+    const site = await setup();
+    await db.update(sites).set({ crawlStatus: "crawling", crawlStartedAt: null }).where(eq(sites.id, site.id));
+    await recrawlNow(site.id);
+    expect(enqueuedJobs()).toEqual([crawlJob(site.id)]);
+  });
+  it("weeklyRecrawl enqueues for every site, keyed by site", async () => {
     const a = await setup();
     const b = await setup();
     await weeklyRecrawl();
-    expect(enqueuedJobs().map((j) => (j.data as { siteId: string }).siteId).sort()).toEqual([a.id, b.id].sort());
+    expect([...enqueuedJobs()].sort((x, y) => ((x.data as { siteId: string }).siteId < (y.data as { siteId: string }).siteId ? -1 : 1))).toEqual(
+      [crawlJob(a.id), crawlJob(b.id)].sort((x, y) => (x.data.siteId < y.data.siteId ? -1 : 1)),
+    );
+  });
+  it("labels a crawl stale after 3 hours, and only a fresh crawl counts as running", () => {
+    const now = new Date("2026-11-06T12:00:00Z");
+    const at = (h: number) => new Date(now.getTime() - h * HOUR);
+    expect(isCrawlRunning({ crawlStatus: "crawling", crawlStartedAt: at(1) }, now)).toBe(true);
+    expect(isCrawlRunning({ crawlStatus: "crawling", crawlStartedAt: at(4) }, now)).toBe(false);
+    expect(isCrawlRunning({ crawlStatus: "done", crawlStartedAt: at(1) }, now)).toBe(false);
+    expect(crawlStatusLabel({ crawlStatus: "crawling", crawlStartedAt: at(1) }, now)).toBe("crawling");
+    expect(crawlStatusLabel({ crawlStatus: "crawling", crawlStartedAt: at(4) }, now)).toBe("stale");
+    expect(crawlStatusLabel({ crawlStatus: "crawling", crawlStartedAt: null }, now)).toBe("stale");
+    expect(crawlStatusLabel({ crawlStatus: "done", crawlStartedAt: at(4) }, now)).toBe("done");
   });
 });
