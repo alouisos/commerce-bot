@@ -2,7 +2,9 @@ import { LIMITS, type PageContext } from "../../src/shared/widget-protocol";
 
 const TEXT_SELECTOR = "p, li, h1, h2, h3, h4, td, dd";
 const WIDGET_ROOT = "#concierge-root";
-const FIELD_TAGS = "textarea, select, input, script, style, noscript";
+const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+const HIDDEN = '[aria-hidden="true"]';
+const FIELD_TAGS = `textarea, select, input, script, style, noscript, ${EDITABLE}, ${HIDDEN}`;
 
 function clean(s: string): string {
   return s.replace(/\s+/g, " ").trim();
@@ -66,6 +68,16 @@ function ownText(el: Element): string {
   return clean(copy.textContent ?? "");
 }
 
+/** Editable, aria-hidden, or not rendered: never sent to the server. */
+function excluded(el: Element, win: Window): boolean {
+  if (el.closest(EDITABLE) || el.closest(HIDDEN)) return true;
+  for (let n: Element | null = el; n; n = n.parentElement) {
+    const cs = win.getComputedStyle(n);
+    if (cs.display === "none" || cs.visibility === "hidden") return true;
+  }
+  return false;
+}
+
 function inViewport(el: Element, win: Window): boolean {
   const r = el.getBoundingClientRect();
   if (r.width <= 0 || r.height <= 0) return false;
@@ -76,8 +88,8 @@ export function collectPageContext(doc: Document, win: Window): PageContext {
   const outside = (el: Element) => !el.closest(WIDGET_ROOT);
 
   const headings = Array.from(doc.querySelectorAll("h1, h2, h3"))
-    .filter(outside)
-    .map((h) => clean(h.textContent ?? "").slice(0, LIMITS.headingMaxChars))
+    .filter((h) => outside(h) && !excluded(h, win))
+    .map((h) => ownText(h).slice(0, LIMITS.headingMaxChars))
     .filter(Boolean)
     .slice(0, LIMITS.headingsMax);
 
@@ -85,7 +97,7 @@ export function collectPageContext(doc: Document, win: Window): PageContext {
   let total = 0;
   for (const el of Array.from(doc.querySelectorAll(TEXT_SELECTOR))) {
     if (total > LIMITS.visibleTextMaxChars) break;
-    if (!outside(el) || el.querySelector(TEXT_SELECTOR) || !inViewport(el, win)) continue;
+    if (!outside(el) || el.querySelector(TEXT_SELECTOR) || !inViewport(el, win) || excluded(el, win)) continue;
     const t = ownText(el);
     if (!t) continue;
     parts.push(t);

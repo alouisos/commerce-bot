@@ -32,4 +32,12 @@ describe("session", () => {
     markTeased(bad);
     expect(hasTeased(bad)).toBe(true);
   });
+
+  it("keeps a stable sid and cid when getItem works but setItem throws", () => {
+    const bad = { getItem: () => null, setItem() { throw new Error("quota"); } } as unknown as Storage;
+    const a = getSession(bad);
+    expect(getSession(bad).sid).toBe(a.sid);
+    setConversationId(bad, "c-q");
+    expect(getSession(bad).cid).toBe("c-q");
+  });
 });

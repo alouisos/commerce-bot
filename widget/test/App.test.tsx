@@ -79,6 +79,28 @@ describe("teaser", () => {
     for (const t of types) expect(remove.mock.calls.some((c) => c[0] === t)).toBe(true);
   });
 
+  it("pointerdown then click on the teaser opens the panel; pointerdown elsewhere still dismisses", async () => {
+    vi.useFakeTimers();
+    mount();
+    await advance(1500);
+    const t = screen.getByText("Hi, ask me anything").closest("button")!;
+    await act(async () => {
+      t.dispatchEvent(new Event("pointerdown", { bubbles: true, composed: true }));
+    });
+    expect(screen.getByText("Hi, ask me anything")).toBeTruthy();
+    fireEvent.click(t);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    cleanup();
+    sessionStorage.clear();
+    mount();
+    await advance(1500);
+    await act(async () => {
+      t.dispatchEvent(new Event("pointerdown", { bubbles: true, composed: true }));
+      window.dispatchEvent(new Event("pointerdown"));
+    });
+    expect(screen.queryByText("Hi, ask me anything")).toBeNull();
+  });
+
   it("clicking it opens the panel", async () => {
     vi.useFakeTimers();
     mount();

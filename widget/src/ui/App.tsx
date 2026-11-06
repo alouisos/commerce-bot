@@ -121,6 +121,8 @@ export function App({
         const req = { key: siteKey, sid, cid, message: text, page: collectPageContext(document, window) };
         for await (const ev of sendChat(apiBase, req, ctrl.signal)) {
           if (ev.type === "start") {
+            // The cid is stored only here. A navigation before `start` arrives cannot be restored;
+            // the server sends `start` before retrieval and the model, so that window is network latency only.
             cidRef.current = ev.cid;
             setConversationId(store, ev.cid);
           } else if (ev.type === "delta") {

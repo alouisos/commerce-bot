@@ -61,4 +61,32 @@ describe("collectPageContext", () => {
     expect(ctx.headings[0].length).toBe(200);
     expect(ctx.headings[1]).toBe("Two");
   });
+
+  it("excludes contenteditable text", () => {
+    document.body.innerHTML =
+      '<p id=a>public</p><div contenteditable="true"><p id=b>typed draft</p></div><p id=c>ok <span contenteditable>inline typed</span></p><div contenteditable="false"><p id=d>readonly ok</p></div>';
+    visible(...document.querySelectorAll("p"));
+    const text = collectPageContext(document, window).visibleText;
+    expect(text).toContain("public");
+    expect(text).toContain("readonly ok");
+    expect(text).not.toContain("typed");
+  });
+
+  it("excludes aria-hidden content, including headings", () => {
+    document.body.innerHTML =
+      '<h2 aria-hidden="true">hidden heading</h2><div aria-hidden="true"><h3>nested hidden</h3><p id=b>hidden para</p></div><h2>shown</h2><p id=a>seen</p>';
+    visible(...document.querySelectorAll("p"));
+    const ctx = collectPageContext(document, window);
+    expect(ctx.headings).toEqual(["shown"]);
+    expect(ctx.visibleText).toBe("seen");
+  });
+
+  it("excludes visibility:hidden and display:none content", () => {
+    document.body.innerHTML =
+      '<p id=a>seen</p><p id=b style="visibility:hidden">invisible</p><div style="display:none"><p id=c>gone</p></div><h2 style="visibility:hidden">hid</h2>';
+    visible(...document.querySelectorAll("p"));
+    const ctx = collectPageContext(document, window);
+    expect(ctx.visibleText).toBe("seen");
+    expect(ctx.headings).toEqual([]);
+  });
 });

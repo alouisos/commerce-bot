@@ -9,6 +9,7 @@ const memory: { sid: string | null; cid: string | null; teased: boolean } = { si
 
 /** undefined means storage threw (use memory); null means storage works and has no value. */
 function read(store: Storage, key: string): string | null | undefined {
+  if (memoryOnly) return undefined;
   try {
     return store.getItem(key);
   } catch {
@@ -16,11 +17,15 @@ function read(store: Storage, key: string): string | null | undefined {
   }
 }
 
+// Once a write fails (quota, private mode) memory is the source of truth for the page's life,
+// so the sid and cid stay stable even though getItem still works.
+let memoryOnly = false;
+
 function write(store: Storage, key: string, value: string): void {
   try {
     store.setItem(key, value);
   } catch {
-    // fall back to memory only
+    memoryOnly = true;
   }
 }
 
