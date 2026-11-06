@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db/client";
-import { accounts, memberships, sites, user } from "@/db/schema";
+import { accounts, kbSources, memberships, sites, user } from "@/db/schema";
 
 export async function makeUser(email?: string) {
   const id = randomUUID();
@@ -35,6 +35,14 @@ export async function makeSite(accountId: string, overrides: Partial<typeof site
       publicKey: `pk_${randomUUID()}`,
       ...overrides,
     })
+    .returning();
+  return row;
+}
+
+export async function makeSource(siteId: string, overrides: Partial<typeof kbSources.$inferInsert> = {}) {
+  const [row] = await db
+    .insert(kbSources)
+    .values({ siteId, kind: "text", title: "Test", status: "ready", ...overrides })
     .returning();
   return row;
 }
