@@ -21,7 +21,7 @@ function splitAtoms(text: string, s: number, e: number, max: number, level: 0 | 
   if (e - s <= max) return [{ s, e, hard: false }];
   if (level === 0) {
     // sentences
-    const parts = matches(text, /\S[^.!?…]*(?:[.!?…]+["')\]]*|$)/g, s, e);
+    const parts = matches(text, /\S[\s\S]*?(?:[.!?…]+["')\]]*(?=\s|$)|$)/g, s, e);
     if (parts.length > 1) return parts.flatMap(([a, b]) => splitAtoms(text, a, b, max, 1));
     return splitAtoms(text, s, e, max, 1);
   }
@@ -60,22 +60,39 @@ export function chunkText(text: string, opts: ChunkOptions = {}): string[] {
     atoms.push(...splitAtoms(text, a, b, max, 0));
   }
 
+  const isWs = (ch: string) => /\s/.test(ch);
+  const snapForward = (from: number) => {
+    let p = from;
+    while (p < text.length && !((p === 0 || isWs(text[p - 1])) && !isWs(text[p]))) p++;
+    return p;
+  };
+
   const chunks: string[] = [];
   let i = 0;
+  let start = atoms.length ? atoms[0].s : 0;
   while (i < atoms.length) {
-    const start = atoms[i].s;
     let j = i;
     while (j + 1 < atoms.length && atoms[j + 1].e - start <= max) j++;
     chunks.push(text.slice(start, atoms[j].e));
     if (j === atoms.length - 1) break;
-    if (atoms[j].hard || atoms[j + 1].hard) {
+    const next = atoms[j + 1];
+    if (atoms[j].hard || next.hard) {
       i = j + 1;
+      start = next.s;
       continue;
     }
-    const target = atoms[j].e - overlap;
-    let k = i + 1;
-    while (k <= j && atoms[k].s < target) k++;
-    i = k;
+    // Overlap: start ~overlap chars before this chunk's end, snapped forward to a word start,
+    // but late enough that the next atom fits (guarantees progress).
+    const p = snapForward(Math.max(atoms[j].e - overlap, next.e - max, start + 1));
+    if (overlap === 0 || p >= next.s) {
+      i = j + 1;
+      start = next.s;
+    } else {
+      let k = j;
+      while (atoms[k].s > p) k--;
+      i = k;
+      start = p;
+    }
   }
   return chunks.map((c) => c.trim()).filter(Boolean);
 }
