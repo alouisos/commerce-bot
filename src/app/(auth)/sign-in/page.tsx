@@ -1,0 +1,62 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { authClient } from "@/lib/auth-client";
+
+export default function SignInPage() {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setPending(true);
+    setError(null);
+    const { error } = await authClient.signIn.email({
+      email: String(form.get("email")),
+      password: String(form.get("password")),
+    });
+    setPending(false);
+    if (error) return setError(error.message ?? "Could not sign in");
+    router.push("/app");
+  }
+
+  return (
+    <main className="mx-auto max-w-sm p-6">
+      <h1 className="mb-4 text-xl font-semibold">Sign in</h1>
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1">
+          Email
+          <input name="email" type="email" autoComplete="email" required className="border p-2" />
+        </label>
+        <label className="flex flex-col gap-1">
+          Password
+          <input
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            className="border p-2"
+          />
+        </label>
+        {error && (
+          <p role="alert" className="text-red-700">
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={pending} className="border p-2">
+          Sign in
+        </button>
+      </form>
+      <p className="mt-4">
+        <Link href="/reset-password">Forgot password?</Link>
+      </p>
+      <p className="mt-2">
+        No account yet? <Link href="/sign-up">Sign up</Link>
+      </p>
+    </main>
+  );
+}
