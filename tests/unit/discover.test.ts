@@ -74,4 +74,36 @@ describe("discoverUrls", () => {
     const urls = await discoverUrls("https://shop.test", fakeFetcher(files));
     expect(urls).toContain("https://www.shop.test/about");
   });
+
+  it("ignores off-site and internal Sitemap: lines in robots.txt", async () => {
+    const files = shopFiles();
+    files.set("https://shop.test/robots.txt", {
+      contentType: "text/plain",
+      body: "User-agent: *\nSitemap: http://169.254.169.254/latest/sitemap.xml\nSitemap: https://other.test/sitemap.xml\nSitemap: https://shop.test/sitemap_index.xml",
+    });
+    const requested: string[] = [];
+    const urls = await discoverUrls("https://shop.test", fakeFetcher(files, { requested }));
+    expect(urls).toContain("https://shop.test/product/argan");
+    expect(requested.some((u) => u.includes("169.254") || u.includes("other.test"))).toBe(false);
+  });
+
+  it("fetches at most 50 sitemap files", async () => {
+    const files = shopFiles();
+    const kids = Array.from({ length: 10000 }, (_, i) => `<sitemap><loc>https://shop.test/s/${i}.xml</loc></sitemap>`).join("");
+    files.set("https://shop.test/sitemap_index.xml", { contentType: "application/xml", body: `<sitemapindex>${kids}</sitemapindex>` });
+    for (const k of ["page-sitemap.xml", "product-sitemap.xml"]) files.delete(`https://shop.test/${k}`);
+    const requested: string[] = [];
+    await discoverUrls("https://shop.test", fakeFetcher(files, { requested }));
+    expect(requested.filter((u) => u.endsWith(".xml")).length).toBeLessThanOrEqual(50);
+  });
+
+  it("stops the link-crawl fallback at 600 attempts when every link 404s", async () => {
+    const links = Array.from({ length: 2000 }, (_, i) => `<a href="/p${i}">x</a>`).join("");
+    const files = new Map([["https://shop.test/", { contentType: "text/html", body: `<html><body>${links}</body></html>` }]]);
+    const requested: string[] = [];
+    await discoverUrls("https://shop.test", fakeFetcher(files, { requested }));
+    const attempts = requested.filter((u) => !/robots\.txt|sitemap/.test(u));
+    expect(attempts.length).toBeLessThanOrEqual(600);
+    expect(attempts.length).toBeGreaterThan(100);
+  });
 });

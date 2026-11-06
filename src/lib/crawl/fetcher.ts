@@ -1,3 +1,7 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import { isBlockedAddress } from "./ssrf";
+
 export type FetchResult = { status: number; finalUrl: string; contentType: string; body: string };
 export type Fetcher = (url: string) => Promise<FetchResult>;
 
@@ -57,21 +61,51 @@ async function readCapped(res: Response): Promise<Uint8Array> {
   return out;
 }
 
-export function createHttpFetcher(): Fetcher {
+const MAX_HOPS = 5;
+const REDIRECTS = new Set([301, 302, 303, 307, 308]);
+
+async function hostAllowed(url: URL): Promise<boolean> {
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host)) return !isBlockedAddress(host);
+  try {
+    const addrs = await lookup(host, { all: true });
+    return addrs.length > 0 && addrs.every((a) => !isBlockedAddress(a.address));
+  } catch {
+    return false;
+  }
+}
+
+export function createHttpFetcher(opts: { allowPrivate?: boolean } = {}): Fetcher {
   return async (url) => {
+    let current = url;
     try {
       const { env } = await import("@/lib/env");
-      const res = await fetch(url, {
-        redirect: "follow",
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-        headers: { "user-agent": `ConciergeBot/1.0 (+${env.APP_URL}/bot)`, accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5" },
-      });
-      const contentType = res.headers.get("content-type") ?? "";
-      const isText = /html|xml|text\//i.test(contentType) || contentType === "";
-      const body = isText ? decodeBody(await readCapped(res), contentType) : (await res.body?.cancel(), "");
-      return { status: res.status, finalUrl: res.url || url, contentType, body };
+      const allowPrivate = opts.allowPrivate ?? env.CRAWL_ALLOW_PRIVATE_HOSTS;
+      const signal = AbortSignal.timeout(TIMEOUT_MS);
+      const headers = {
+        "user-agent": `ConciergeBot/1.0 (+${env.APP_URL}/bot)`,
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
+      };
+      for (let hop = 0; hop <= MAX_HOPS; hop++) {
+        const u = new URL(current);
+        if ((u.protocol !== "http:" && u.protocol !== "https:") || (!allowPrivate && !(await hostAllowed(u)))) {
+          return { status: 0, finalUrl: current, contentType: "", body: "" };
+        }
+        const res = await fetch(current, { redirect: "manual", signal, headers });
+        const location = res.headers.get("location");
+        if (REDIRECTS.has(res.status) && location) {
+          await res.body?.cancel().catch(() => {});
+          current = new URL(location, current).href;
+          continue;
+        }
+        const contentType = res.headers.get("content-type") ?? "";
+        const isText = /html|xml|text\//i.test(contentType) || contentType === "";
+        const body = isText ? decodeBody(await readCapped(res), contentType) : (await res.body?.cancel(), "");
+        return { status: res.status, finalUrl: current, contentType, body };
+      }
+      return { status: 0, finalUrl: current, contentType: "", body: "" };
     } catch {
-      return { status: 0, finalUrl: url, contentType: "", body: "" };
+      return { status: 0, finalUrl: current, contentType: "", body: "" };
     }
   };
 }

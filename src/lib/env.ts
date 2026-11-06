@@ -15,6 +15,7 @@ const schema = z
     VOYAGE_API_KEY: z.string().min(1).optional(),
     FAKE_MODEL: bool,
     FAKE_EMBEDDINGS: bool,
+    CRAWL_ALLOW_PRIVATE_HOSTS: bool,
     STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
     STORAGE_LOCAL_DIR: z.string().min(1).default("./.storage"),
     S3_ENDPOINT: z.string().min(1).optional(),

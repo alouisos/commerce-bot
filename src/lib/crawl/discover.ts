@@ -4,6 +4,8 @@ import type { Fetcher } from "./fetcher";
 import { parseRobots, sitemapsFromRobots } from "./robots";
 
 export const MAX_PAGES = 300;
+const MAX_SITEMAP_FETCHES = 50;
+const MAX_LINK_FETCHES = 600;
 const NON_HTML = /\.(pdf|jpe?g|png|gif|webp|svg|zip|mp4|css|js|xml)$/i;
 const DEFAULT_SITEMAPS = ["/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml"];
 
@@ -48,10 +50,13 @@ export async function discoverUrls(baseUrl: string, fetcher: Fetcher, max = MAX_
   };
 
   const seenMaps = new Set<string>();
+  let sitemapFetches = 0;
   async function readSitemap(url: string, depth: number): Promise<void> {
     if (found.size >= max || depth > 3 || seenMaps.has(url)) return;
     seenMaps.add(url);
     if (/\.xml\.gz(\?|$)/i.test(url)) return;
+    if (sitemapFetches >= MAX_SITEMAP_FETCHES) return;
+    sitemapFetches++;
     const res = await fetcher(url);
     if (res.status !== 200) return;
     const $ = cheerio.load(res.body, { xml: true });
@@ -69,7 +74,10 @@ export async function discoverUrls(baseUrl: string, fetcher: Fetcher, max = MAX_
     });
   }
 
-  const candidates = [...sitemapsFromRobots(robotsTxt), ...DEFAULT_SITEMAPS.map((p) => origin + p)];
+  const fromRobots = sitemapsFromRobots(robotsTxt)
+    .map((u) => normalizeUrl(u))
+    .filter((u): u is string => !!u && isSameSite(u, baseUrl));
+  const candidates = [...fromRobots, ...DEFAULT_SITEMAPS.map((p) => origin + p)];
   for (const c of candidates) {
     if (found.size >= max) break;
     await readSitemap(c, 0);
@@ -81,10 +89,12 @@ export async function discoverUrls(baseUrl: string, fetcher: Fetcher, max = MAX_
   if (!start) return [];
   const visited = new Set<string>([start]);
   let level = [start];
-  for (let depth = 0; depth <= 3 && level.length && visited.size <= max; depth++) {
+  let linkFetches = 0;
+  for (let depth = 0; depth <= 3 && level.length && linkFetches < MAX_LINK_FETCHES; depth++) {
     const next: string[] = [];
     for (const url of level) {
-      if (found.size >= max) break;
+      if (found.size >= max || linkFetches >= MAX_LINK_FETCHES) break;
+      linkFetches++;
       const res = await fetcher(url);
       if (res.status !== 200 || !/html/i.test(res.contentType)) continue;
       found.add(url);
