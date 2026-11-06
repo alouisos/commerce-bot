@@ -47,3 +47,5 @@ next-env.d.ts
 !.env.example
 .superpowers/
 /public/widget.js
+/test-results/
+/playwright-report/
