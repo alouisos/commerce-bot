@@ -1,27 +1,12 @@
-import type { PgBoss } from "pg-boss";
-import { getBoss, JOBS, type JobData, type JobName } from "@/lib/jobs";
-
-export type Handlers = Partial<{ [N in JobName]: (data: JobData[N]) => Promise<void> }>;
-
-/** Later tasks add their handler to this map. */
-export const handlers: Handlers = {};
-
-export async function registerHandlers(boss: PgBoss, map: Handlers): Promise<void> {
-  for (const name of Object.values(JOBS)) {
-    const handler = map[name] as ((data: unknown) => Promise<void>) | undefined;
-    if (!handler) continue;
-    await boss.work(name, async (jobs) => {
-      for (const job of jobs) await handler(job.data);
-    });
-  }
-}
-
 async function main() {
   try {
     process.loadEnvFile(".env");
   } catch {
     // no .env file; rely on the process environment
   }
+  // Imported after the env file is loaded: db/client reads the environment at import time.
+  const { getBoss } = await import("@/lib/jobs");
+  const { handlers, registerHandlers } = await import("./handlers");
   const boss = await getBoss();
   await registerHandlers(boss, handlers);
   console.log("[worker] started");

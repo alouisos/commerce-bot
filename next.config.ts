@@ -2,8 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    // Greeting image uploads are up to 2 MB; the limit counts the raw multipart body.
-    serverActions: { bodySizeLimit: "3mb" },
+    // Documents are up to 20 MB; the limit counts the raw multipart body, so leave headroom.
+    serverActions: { bodySizeLimit: "25mb" },
   },
   turbopack: {
     rules: {
