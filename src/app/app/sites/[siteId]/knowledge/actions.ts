@@ -55,20 +55,10 @@ export async function addTextAction(siteId: string, _prev: KnowledgeState, formD
 
 export async function deleteSourceAction(siteId: string, sourceId: string): Promise<void> {
   await authorize(siteId);
-  try {
-    await deleteSource(siteId, sourceId);
-  } catch (err) {
-    if (!(err instanceof NotFoundError)) throw err;
-  }
-  revalidatePath(`/app/sites/${siteId}/knowledge`);
+  await run(siteId, () => deleteSource(siteId, sourceId));
 }
 
 export async function setExcludedAction(siteId: string, sourceId: string, excluded: boolean): Promise<void> {
   await authorize(siteId);
-  try {
-    await setExcluded(siteId, sourceId, excluded);
-  } catch (err) {
-    if (!(err instanceof NotFoundError)) throw err;
-  }
-  revalidatePath(`/app/sites/${siteId}/knowledge`);
+  await run(siteId, () => setExcluded(siteId, sourceId, excluded));
 }

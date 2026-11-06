@@ -80,4 +80,10 @@ describe("ingestSource", () => {
     expect(done.status).toBe("failed");
     expect(done.error).toBe("Processing failed. Please try again or upload a different file.");
   });
+
+  it("resolves without writing anything for a missing source", async () => {
+    await expect(ingestSource("00000000-0000-4000-8000-000000000000")).resolves.toBeUndefined();
+    expect(await db.select().from(kbSources)).toHaveLength(0);
+    expect(await db.select().from(kbChunks)).toHaveLength(0);
+  });
 });
