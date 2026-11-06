@@ -1,4 +1,4 @@
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import type { Account, Site } from "@/db/schema";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { getSiteByPublicKey, isOriginAllowed } from "@/lib/sites";
@@ -14,6 +14,9 @@ export class WidgetError extends Error {
 }
 
 export type WidgetSite = Site & { account: Account };
+
+/** The widget's per-visit session id (random, from sessionStorage); shared by every widget endpoint. */
+export const sidSchema = z.string().regex(/^[A-Za-z0-9_-]{8,100}$/);
 
 export async function resolveWidgetRequest(
   req: Request,

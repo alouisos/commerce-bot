@@ -1,5 +1,5 @@
 import { createLead } from "@/lib/widget/lead";
-import { json, preflight, resolveWidgetRequest, withWidgetErrors } from "@/lib/widget/guard";
+import { clientIp, json, preflight, resolveWidgetRequest, withWidgetErrors } from "@/lib/widget/guard";
 
 export const POST = withWidgetErrors(async (req) => {
   const key = new URL(req.url).searchParams.get("key");
@@ -10,7 +10,7 @@ export const POST = withWidgetErrors(async (req) => {
   } catch {
     body = null;
   }
-  await createLead(site, body);
+  await createLead(site, body, clientIp(req));
   return json({ ok: true }, 201, origin);
 });
 

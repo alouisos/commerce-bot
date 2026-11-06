@@ -19,10 +19,10 @@ beforeEach(resetDb);
 const ORIGIN = "https://example.com";
 const get = (path: string, origin?: string) =>
   new Request(`http://localhost:3000${path}`, { headers: origin ? { Origin: origin } : {} });
-const post = (path: string, body: unknown, origin = ORIGIN) =>
+const post = (path: string, body: unknown, origin = ORIGIN, ip?: string) =>
   new Request(`http://localhost:3000${path}`, {
     method: "POST",
-    headers: { Origin: origin, "Content-Type": "application/json" },
+    headers: { Origin: origin, "Content-Type": "application/json", ...(ip ? { "X-Forwarded-For": ip } : {}) },
     body: JSON.stringify(body),
   });
 const ctx = (sourceId: string) => ({ params: Promise.resolve({ sourceId }) });
@@ -200,7 +200,7 @@ describe("images", () => {
 describe("lead", () => {
   it("validates, rate-limits per sid, stores", async () => {
     const { site } = await setup();
-    const body = (o: object = {}) => ({ key: site.publicKey, sid: "sid-9", cid: null, email: " Foo@Example.COM ", message: " Hi ", ...o });
+    const body = (o: object = {}) => ({ key: site.publicKey, sid: "visitor_sid_9", cid: null, email: " Foo@Example.COM ", message: " Hi ", ...o });
     const url = `/api/widget/lead?key=${site.publicKey}`;
     expect((await leadPOST(post(url, body({ email: "nope" })))).status).toBe(400);
     expect((await leadPOST(post(url, body({ message: "   " })))).status).toBe(400);
@@ -216,16 +216,38 @@ describe("lead", () => {
     expect(rows[0]).toMatchObject({ email: "foo@example.com", message: "Hi", source: "fallback", conversationId: null });
     for (let i = 0; i < 4; i++) expect((await leadPOST(post(url, body()))).status).toBe(201);
     expect((await leadPOST(post(url, body()))).status).toBe(429);
-    expect((await leadPOST(post(url, body({ sid: "other" })))).status).toBe(201);
+    expect((await leadPOST(post(url, body({ sid: "other_visitor" })))).status).toBe(201);
+  });
+
+  it("rejects a sid outside 8-100 of [A-Za-z0-9_-], like chat", async () => {
+    const { site } = await setup();
+    const url = `/api/widget/lead?key=${site.publicKey}`;
+    const body = (sid: unknown) => ({ key: site.publicKey, sid, cid: null, email: "a@b.co", message: "m" });
+    for (const sid of ["short", "has spaces in it", "x".repeat(101), "bad/chars!", 12345678]) {
+      expect((await leadPOST(post(url, body(sid)))).status).toBe(400);
+    }
+    expect((await leadPOST(post(url, body("a".repeat(8))))).status).toBe(201);
+    expect((await leadPOST(post(url, body("A_b-".repeat(25))))).status).toBe(201);
+  });
+
+  it("the 31st lead in an hour from one IP is rate limited, even with rotating sids", async () => {
+    const { site } = await setup();
+    const url = `/api/widget/lead?key=${site.publicKey}`;
+    const body = (i: number) => ({ key: site.publicKey, sid: `rotating_sid_${i}`, cid: null, email: "a@b.co", message: "m" });
+    for (let i = 0; i < 30; i++) expect((await leadPOST(post(url, body(i), ORIGIN, "198.51.100.7"))).status).toBe(201);
+    const res = await leadPOST(post(url, body(30), ORIGIN, "198.51.100.7"));
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
+    expect((await leadPOST(post(url, body(31), ORIGIN, "198.51.100.8"))).status).toBe(201);
   });
 
   it("stores cid only when it belongs to the site and sid", async () => {
     const a = await setup();
     const b = await setup();
-    const mine = await makeConversation(a.site.id, { visitorSessionId: "s1" });
-    const foreign = await makeConversation(b.site.id, { visitorSessionId: "s1" });
+    const mine = await makeConversation(a.site.id, { visitorSessionId: "visitor_s1" });
+    const foreign = await makeConversation(b.site.id, { visitorSessionId: "visitor_s1" });
     const url = `/api/widget/lead?key=${a.site.publicKey}`;
-    const base = { key: a.site.publicKey, sid: "s1", email: "a@b.co", message: "m" };
+    const base = { key: a.site.publicKey, sid: "visitor_s1", email: "a@b.co", message: "m" };
     expect((await leadPOST(post(url, { ...base, cid: mine.id }))).status).toBe(201);
     expect((await leadPOST(post(url, { ...base, cid: foreign.id }))).status).toBe(201);
     expect((await leadPOST(post(url, { ...base, cid: "garbage" }))).status).toBe(201);

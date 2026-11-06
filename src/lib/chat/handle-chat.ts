@@ -9,7 +9,15 @@ import { aiBlocked, countConversation, getQuota, recordModelUsage } from "@/lib/
 import { hit } from "@/lib/usage/rate-limit";
 import { appBaseUrl, siteLanguages } from "@/lib/widget/config";
 import { isUuid } from "@/lib/widget/conversation";
-import { clientIp, corsHeaders, resolveWidgetRequest, WidgetError, withWidgetErrors, type WidgetSite } from "@/lib/widget/guard";
+import {
+  clientIp,
+  corsHeaders,
+  resolveWidgetRequest,
+  sidSchema,
+  WidgetError,
+  withWidgetErrors,
+  type WidgetSite,
+} from "@/lib/widget/guard";
 import { resolveLanguage } from "@/lib/widget/language";
 import { LIMITS, type ChatEvent, type WidgetImage } from "@/shared/widget-protocol";
 import { createMarkerFilter, extractImageMarkers } from "./images";
@@ -36,7 +44,7 @@ const pageSchema = z.object({
 });
 
 const chatSchema = z.object({
-  sid: z.string().regex(/^[A-Za-z0-9_-]{8,100}$/),
+  sid: sidSchema,
   cid: z.string().max(100).nullish().transform((v) => v ?? null),
   message: z.string().trim().min(1).max(LIMITS.messageMaxChars),
   page: pageSchema,
