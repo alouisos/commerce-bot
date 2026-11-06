@@ -17,6 +17,8 @@ vi.mock("@/lib/access", async (orig) => {
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 import { setAccountPlan } from "@/app/owner/actions";
+import OwnerPage from "@/app/owner/page";
+import { renderToStaticMarkup } from "react-dom/server";
 
 beforeEach(async () => {
   await resetDb();
@@ -45,5 +47,27 @@ describe("setAccountPlan", () => {
     const account = await makeAccount();
     session.email = "boss@example.com";
     await expect(setAccountPlan(account.id, "gold" as never)).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("/owner page", () => {
+  it("renders Next's not-found for a non-owner, on its own (without the layout)", async () => {
+    const account = await makeAccount();
+    session.email = "nobody@example.com";
+    let digest: string | undefined;
+    try {
+      await OwnerPage();
+    } catch (e) {
+      digest = (e as { digest?: string }).digest;
+    }
+    expect(digest).toBe("NEXT_HTTP_ERROR_FALLBACK;404");
+    expect(account.id).toBeTruthy();
+  });
+
+  it("lists accounts for the platform owner", async () => {
+    await makeAccount();
+    session.email = "boss@example.com";
+    const html = renderToStaticMarkup(await OwnerPage());
+    expect(html).toContain("Test Account");
   });
 });

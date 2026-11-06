@@ -1,12 +1,18 @@
 import { and, asc, count, eq } from "drizzle-orm";
+import { notFound } from "next/navigation";
 import { db } from "@/db/client";
 import { accounts, memberships, monthlyUsage, sites, user } from "@/db/schema";
+import { isPlatformOwner } from "@/lib/access";
+import { requireUser } from "@/lib/session";
 import { monthKey } from "@/lib/usage/meter";
 import { PlanSelect } from "./plan-select";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 export default async function OwnerPage() {
+  // Checked here as well as in the layout: a page must not rely on its layout for authorization.
+  const currentUser = await requireUser();
+  if (!isPlatformOwner(currentUser.email)) notFound();
   const month = monthKey(new Date());
   const [accountRows, ownerRows, siteRows, usageRows] = await Promise.all([
     db.select().from(accounts).orderBy(asc(accounts.createdAt)),
