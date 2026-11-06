@@ -1,0 +1,31 @@
+[Unit]
+Description=Concierge - Next.js web app (admin, auth, widget API)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/srv/concierge
+Environment=NODE_ENV=production
+# 3000 is taken by Milian Jo on this host.
+Environment=PORT=3100
+Environment=HOSTNAME=127.0.0.1
+# Root-owned, mode 600. systemd reads it as root before dropping to User=.
+EnvironmentFile=/etc/concierge.env
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# STORAGE_DRIVER=local writes under the app dir; with s3 this can stay as is.
+ReadWritePaths=/srv/concierge
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
