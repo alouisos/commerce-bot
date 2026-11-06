@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseEnv } from "@/lib/env";
 
 const base = {
@@ -57,5 +57,24 @@ describe("parseEnv", () => {
     const e = parseEnv({ ...base, RESEND_API_KEY: "", CHAT_MODEL: "" });
     expect(e.RESEND_API_KEY).toBeUndefined();
     expect(e.CHAT_MODEL).toBe("claude-opus-5-5");
+  });
+});
+
+describe("env (lazy view)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("behaves like a plain object for keys, in and spread", async () => {
+    for (const [k, v] of Object.entries({ ...base, FAKE_MODEL: "true", FAKE_EMBEDDINGS: "true" })) {
+      vi.stubEnv(k, v);
+    }
+    const { env } = await import("@/lib/env");
+    expect(Object.keys(env)).toContain("CHAT_MODEL");
+    expect("CHAT_MODEL" in env).toBe(true);
+    expect({ ...env }.CHAT_MODEL).toBe("claude-opus-5-5");
+    expect((env as unknown as { then?: unknown }).then).toBeUndefined();
+    expect(() => JSON.stringify(env)).not.toThrow();
   });
 });

@@ -68,10 +68,25 @@ export function parseEnv(raw: Record<string, string | undefined>): Env {
 
 let cached: Env | undefined;
 
-/** Parsed from process.env on first property access. */
+/** Memoized parse of process.env. */
+export function getEnv(): Env {
+  cached ??= parseEnv(process.env);
+  return cached;
+}
+
+/**
+ * Lazily-parsed view of the environment. Behaves like a plain object for
+ * property reads, `in`, Object.keys and spreading; parsing happens on first use.
+ */
 export const env: Env = new Proxy({} as Env, {
-  get(_t, prop) {
-    cached ??= parseEnv(process.env);
-    return cached[prop as keyof Env];
+  get: (_t, prop) => (prop === "then" ? undefined : Reflect.get(getEnv(), prop)),
+  has: (_t, prop) => Reflect.has(getEnv(), prop),
+  ownKeys: () => Reflect.ownKeys(getEnv()),
+  getOwnPropertyDescriptor: (_t, prop) => {
+    const d = Reflect.getOwnPropertyDescriptor(getEnv(), prop);
+    return d && { ...d, configurable: true };
   },
+  set: () => false,
+  defineProperty: () => false,
+  deleteProperty: () => false,
 });
