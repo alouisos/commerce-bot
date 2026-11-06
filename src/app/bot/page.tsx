@@ -1,9 +1,12 @@
+import { connection } from "next/server";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { env } from "@/lib/env";
 
 export const metadata = { title: "ConciergeBot" };
 
-export default function BotPage() {
+export default async function BotPage() {
+  // Rendered per request: APP_URL is runtime config, not baked in at build time.
+  await connection();
   const appUrl = env.APP_URL.replace(/\/+$/, "");
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">

@@ -4,7 +4,7 @@ async function main() {
   } catch {
     // no .env file; rely on the process environment
   }
-  // Imported after the env file is loaded: db/client reads the environment at import time.
+  // Imported after the env file is loaded, so the first env read (on first use) sees it.
   const { getBoss, JOBS } = await import("@/lib/jobs");
   const { handlers, registerHandlers } = await import("./handlers");
   const boss = await getBoss();
