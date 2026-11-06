@@ -13,32 +13,49 @@ export type KnowledgeHit = {
   score: number;
 };
 
+/** Anything that can open a transaction: the db, or an outer transaction (tests). */
+type Executor = Pick<typeof db, "transaction">;
+
 /** Top-k ready, non-excluded sources of a site by cosine similarity; chunks of one source collapse to the best. */
-export async function searchKnowledge(siteId: string, query: string, k = 6): Promise<KnowledgeHit[]> {
+export async function searchKnowledge(
+  siteId: string,
+  query: string,
+  k = 6,
+  executor: Executor = db,
+): Promise<KnowledgeHit[]> {
   const [qv] = await getEmbedder().embed([query], "query");
   const distance = cosineDistance(kbChunks.embedding, qv);
-  const rows = await db
-    .select({
-      sourceId: kbSources.id,
-      kind: kbSources.kind,
-      title: kbSources.title,
-      caption: kbSources.caption,
-      url: kbSources.url,
-      content: kbChunks.content,
-      score: sql<number>`1 - (${distance})`,
-    })
-    .from(kbChunks)
-    .innerJoin(kbSources, eq(kbChunks.sourceId, kbSources.id))
-    .where(
-      and(
-        eq(kbChunks.siteId, siteId),
-        eq(kbSources.siteId, siteId),
-        eq(kbSources.status, "ready"),
-        eq(kbSources.excluded, false),
-      ),
-    )
-    .orderBy(distance)
-    .limit(k * 4);
+  const rows = await executor.transaction(async (tx) => {
+    // HNSW returns its ef_search nearest candidates before the site filter applies, so a small site
+    // among big ones can get nothing back. Iterative scan keeps scanning until enough rows pass the
+    // filter (pgvector >= 0.8). relaxed_order may return rows slightly out of order: re-sorted below.
+    await tx.execute(
+      sql`SELECT set_config('hnsw.iterative_scan', 'relaxed_order', true), set_config('hnsw.ef_search', '100', true)`,
+    );
+    return tx
+      .select({
+        sourceId: kbSources.id,
+        kind: kbSources.kind,
+        title: kbSources.title,
+        caption: kbSources.caption,
+        url: kbSources.url,
+        content: kbChunks.content,
+        score: sql<number>`1 - (${distance})`,
+      })
+      .from(kbChunks)
+      .innerJoin(kbSources, eq(kbChunks.sourceId, kbSources.id))
+      .where(
+        and(
+          eq(kbChunks.siteId, siteId),
+          eq(kbSources.siteId, siteId),
+          eq(kbSources.status, "ready"),
+          eq(kbSources.excluded, false),
+        ),
+      )
+      .orderBy(distance)
+      .limit(k * 4);
+  });
+  rows.sort((a, b) => Number(b.score) - Number(a.score));
 
   const seen = new Set<string>();
   const hits: KnowledgeHit[] = [];
