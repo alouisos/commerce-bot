@@ -28,14 +28,26 @@ export async function touchLastSeen(siteId: string): Promise<void> {
     );
 }
 
+/** Languages the widget can speak for a site: built-in copy plus any language with a custom greeting. */
+export function availableLanguages(greetings: { language: string }[]): string[] {
+  return [...new Set([...Object.keys(COPY), ...greetings.map((g) => g.language.toLowerCase())])];
+}
+
+export async function siteLanguages(siteId: string): Promise<string[]> {
+  const greetings = await db
+    .select({ language: siteGreetings.language })
+    .from(siteGreetings)
+    .where(eq(siteGreetings.siteId, siteId));
+  return availableLanguages(greetings);
+}
+
 export async function buildWidgetConfig(
   site: Site & { account: Account },
   requestedLang: string | null,
   now: Date = new Date(),
 ): Promise<WidgetConfig> {
   const greetings = await db.select().from(siteGreetings).where(eq(siteGreetings.siteId, site.id));
-  const available = [...new Set([...Object.keys(COPY), ...greetings.map((g) => g.language.toLowerCase())])];
-  const language = resolveLanguage(requestedLang, available, site.defaultLanguage);
+  const language = resolveLanguage(requestedLang, availableLanguages(greetings), site.defaultLanguage);
   const copy = copyFor(language);
   const { defaultGreeting, ...strings } = copy;
 
