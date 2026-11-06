@@ -9,8 +9,11 @@ User=ubuntu
 WorkingDirectory=/srv/concierge
 Environment=NODE_ENV=production
 # Root-owned, mode 600. systemd reads it as root before dropping to User=.
+# npm/node must not write under /home (ProtectHome=read-only).
+Environment=HOME=/srv/concierge
+Environment=npm_config_cache=/tmp/npm-cache
 EnvironmentFile=/etc/concierge.env
-ExecStart=/usr/bin/npm run worker
+ExecStart=/srv/concierge/node_modules/.bin/tsx src/worker/index.ts
 Restart=always
 RestartSec=3
 

@@ -1,6 +1,6 @@
 # Deploying Concierge
 
-Two long-running processes (web: `npm start`, worker: `npm run worker`), Postgres with pgvector, an S3-compatible bucket, and nginx in front. Mirrors the Milian Jo conventions in its `deploy/` directory. Nothing here is applied automatically; run the steps yourself.
+Two long-running processes (web: `next start`, worker: `tsx src/worker/index.ts`, both run from `node_modules/.bin` by the units, equivalent to `npm start` / `npm run worker`), Postgres with pgvector, an S3-compatible bucket, and nginx in front. Mirrors the Milian Jo conventions in its `deploy/` directory. Nothing here is applied automatically; run the steps yourself.
 
 On the shared box Milian Jo already owns port 3000, so Concierge listens on **3100** (`PORT=3100` in `concierge-web.service`, upstream in `nginx-concierge.conf`).
 
@@ -26,6 +26,7 @@ Point an A/AAAA record for the app subdomain (APP_HOST, e.g. `app.example.com`) 
 
 ## 5. Install the app, units and nginx site
 Place the built app at `/srv/concierge` (owned by the service user, `ubuntu` in the units), including `node_modules`, `.next`, `public`, `src`.
+`tsx` (used by the worker) is a devDependency, so install with `npm ci` (not `--omit=dev`) or move it to dependencies.
 
     sudo cp deploy/concierge-web.service deploy/concierge-worker.service /etc/systemd/system/
     sed 's/SERVER_NAME_PLACEHOLDER/app.example.com/' deploy/nginx-concierge.conf \
