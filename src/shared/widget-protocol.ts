@@ -1,0 +1,82 @@
+// Shared between the server and the embeddable widget bundle.
+// Types and constants only: never import anything server-side here.
+//
+// Transport notes:
+// - Every widget request, including POSTs, carries `?key=<public key>` in the
+//   query string. The CORS preflight has no body, so the server reads the key
+//   from the query for OPTIONS.
+// - Visitor identity (`sid`) is a random id in sessionStorage, per visit only.
+
+export const LIMITS = {
+  messageMaxChars: 2000,
+  headingsMax: 20,
+  headingMaxChars: 200,
+  visibleTextMaxChars: 4000,
+  titleMaxChars: 300,
+  urlMaxChars: 2000,
+} as const;
+
+export type PageContext = {
+  url: string;
+  title: string;
+  lang: string | null;
+  headings: string[];
+  visibleText: string;
+  product: { name: string; price: string | null; currency: string | null } | null;
+};
+
+export type WidgetStrings = {
+  disclosure: string;
+  fallback: string;
+  leadThanks: string;
+  open: string;
+  close: string;
+  placeholder: string;
+  send: string;
+  emailLabel: string;
+  questionLabel: string;
+  poweredBy: string;
+};
+
+export type WidgetConfig = {
+  botName: string;
+  accentColor: string;
+  corner: "bottom-right" | "bottom-left";
+  language: string;
+  greeting: { message: string; imageUrl: string | null };
+  strings: WidgetStrings;
+  showBadge: boolean;
+  mode: "ai" | "fallback";
+};
+
+export type WidgetImage = { id: string; url: string; caption: string };
+
+export type StoredMessage = {
+  id: string;
+  role: "visitor" | "bot";
+  content: string;
+  images: WidgetImage[];
+  kind: "chat" | "fallback";
+};
+
+export type ChatRequest = {
+  key: string;
+  sid: string;
+  cid: string | null;
+  message: string;
+  page: PageContext;
+};
+
+export type ChatEvent =
+  | { type: "start"; cid: string }
+  | { type: "delta"; text: string }
+  | { type: "done"; messageId: string; images: WidgetImage[] }
+  | { type: "fallback"; cid: string; text: string };
+
+export type LeadRequest = {
+  key: string;
+  sid: string;
+  cid: string | null;
+  email: string;
+  message: string;
+};

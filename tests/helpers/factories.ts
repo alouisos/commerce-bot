@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db/client";
-import { accounts, kbSources, memberships, sites, user } from "@/db/schema";
+import { accounts, conversations, kbSources, memberships, messages, sites, user } from "@/db/schema";
 
 export async function makeUser(email?: string) {
   const id = randomUUID();
@@ -43,6 +43,22 @@ export async function makeSource(siteId: string, overrides: Partial<typeof kbSou
   const [row] = await db
     .insert(kbSources)
     .values({ siteId, kind: "text", title: "Test", status: "ready", ...overrides })
+    .returning();
+  return row;
+}
+
+export async function makeConversation(siteId: string, overrides: Partial<typeof conversations.$inferInsert> = {}) {
+  const [row] = await db
+    .insert(conversations)
+    .values({ siteId, visitorSessionId: `sid-${randomUUID()}`, language: "en", ...overrides })
+    .returning();
+  return row;
+}
+
+export async function makeMessage(conversationId: string, overrides: Partial<typeof messages.$inferInsert> = {}) {
+  const [row] = await db
+    .insert(messages)
+    .values({ conversationId, role: "visitor", content: "Hello", ...overrides })
     .returning();
   return row;
 }
