@@ -3,24 +3,9 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { sites } from "@/db/schema";
 import { getAccountForUser } from "@/lib/accounts";
+import { relativeTime } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 import { AddSiteForm } from "./add-site-form";
-
-function relativeTime(date: Date, now = new Date()): string {
-  const s = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
-  const units: [number, string][] = [
-    [86400, "day"],
-    [3600, "hour"],
-    [60, "minute"],
-  ];
-  for (const [secs, label] of units) {
-    if (s >= secs) {
-      const n = Math.floor(s / secs);
-      return `${n} ${label}${n === 1 ? "" : "s"} ago`;
-    }
-  }
-  return "just now";
-}
 
 export default async function WebsitesPage() {
   const user = await requireUser();

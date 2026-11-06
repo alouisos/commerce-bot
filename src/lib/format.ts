@@ -1,0 +1,10 @@
+const rtf = new Intl.RelativeTimeFormat("en", { numeric: "always" });
+
+/** "just now" under a minute, otherwise "3 minutes ago" / "2 hours ago" / "4 days ago". */
+export function relativeTime(date: Date, now: Date = new Date()): string {
+  const s = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return rtf.format(-Math.floor(s / 60), "minute");
+  if (s < 86400) return rtf.format(-Math.floor(s / 3600), "hour");
+  return rtf.format(-Math.floor(s / 86400), "day");
+}

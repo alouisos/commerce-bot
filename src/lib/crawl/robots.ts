@@ -9,10 +9,17 @@ function toRegExp(pattern: string): RegExp {
   return new RegExp(`^${body}${anchored ? "$" : ""}`);
 }
 
-/** Rules of the `User-agent: *` group. Longest matching pattern wins; Allow wins ties. */
+/**
+ * Rules for our crawler: the `User-agent: ConciergeBot` group if there is one
+ * (case-insensitive), otherwise the `User-agent: *` group. Longest matching
+ * pattern wins; Allow wins ties.
+ */
 export function parseRobots(txt: string): (path: string) => boolean {
-  const rules: Rule[] = [];
+  const star: Rule[] = [];
+  const bot: Rule[] = [];
+  let hasBot = false;
   let inStar = false;
+  let inBot = false;
   let prevWasAgent = false;
   for (const raw of txt.split(/\r?\n/)) {
     const line = raw.replace(/#.*$/, "").trim();
@@ -23,15 +30,21 @@ export function parseRobots(txt: string): (path: string) => boolean {
     const value = line.slice(i + 1).trim();
     if (key === "user-agent") {
       const isStar = value === "*";
+      const isBot = value.toLowerCase() === "conciergebot";
       inStar = prevWasAgent ? inStar || isStar : isStar;
+      inBot = prevWasAgent ? inBot || isBot : isBot;
+      if (isBot) hasBot = true;
       prevWasAgent = true;
       continue;
     }
     prevWasAgent = false;
-    if (!inStar || (key !== "allow" && key !== "disallow")) continue;
+    if ((!inStar && !inBot) || (key !== "allow" && key !== "disallow")) continue;
     if (!value) continue; // empty Disallow allows all; empty Allow is a no-op
-    rules.push({ allow: key === "allow", pattern: value, re: toRegExp(value) });
+    const rule = { allow: key === "allow", pattern: value, re: toRegExp(value) };
+    if (inStar) star.push(rule);
+    if (inBot) bot.push(rule);
   }
+  const rules = hasBot ? bot : star;
   return (path) => {
     let best: Rule | null = null;
     for (const r of rules) {

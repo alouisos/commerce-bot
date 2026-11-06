@@ -36,3 +36,20 @@ describe("sitemapsFromRobots", () => {
     ]);
   });
 });
+
+describe("parseRobots ConciergeBot group", () => {
+  it("prefers a conciergebot group over *", () => {
+    const allowed = parseRobots("User-agent: *\nAllow: /\n\nUser-agent: ConciergeBot\nDisallow: /");
+    expect(allowed("/shop")).toBe(false);
+  });
+  it("matches case-insensitively and in merged groups", () => {
+    const allowed = parseRobots("User-agent: *\nDisallow: /a\n\nUser-agent: Googlebot\nUser-agent: conciergebot\nDisallow: /b");
+    expect(allowed("/b")).toBe(false);
+    expect(allowed("/a")).toBe(true);
+  });
+  it("falls back to * when no conciergebot group exists", () => {
+    const allowed = parseRobots("User-agent: Googlebot\nDisallow: /\n\nUser-agent: *\nDisallow: /private");
+    expect(allowed("/shop")).toBe(true);
+    expect(allowed("/private")).toBe(false);
+  });
+});
