@@ -25,6 +25,14 @@ export default defineConfig({
           fileParallelism: false,
         },
       },
+      {
+        oxc: { jsx: { runtime: "automatic", importSource: "preact" } },
+        test: {
+          name: "widget",
+          environment: "happy-dom",
+          include: ["widget/test/**/*.test.{ts,tsx}"],
+        },
+      },
     ],
   },
 });

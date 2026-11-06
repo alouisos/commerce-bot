@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run widget:build && next build",
     "start": "next start",
     "worker": "tsx src/worker/index.ts",
     "test": "vitest run",
@@ -36,6 +36,7 @@
   "devDependencies": {
     "@playwright/test": "^1.65.0",
     "@tailwindcss/turbopack": "^4",
+    "@testing-library/preact": "^3.2.6",
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
