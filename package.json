@@ -1,0 +1,51 @@
+{
+  "name": "concierge",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "worker": "tsx src/worker/index.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "widget:build": "node widget/build.mjs",
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.6",
+    "better-auth": "1.7",
+    "cheerio": "^1.2.0",
+    "drizzle-orm": "^0.45.4",
+    "mammoth": "^1.13.0",
+    "next": "16.4.5",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.38.1",
+    "preact": "^11.2.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "resend": "^6.37.0",
+    "unpdf": "^2.1.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
+    "esbuild": "^0.28.2",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.5",
+    "happy-dom": "^21.0.4",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.1.0"
+  }
+}
