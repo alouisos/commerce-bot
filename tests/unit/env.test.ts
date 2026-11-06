@@ -46,7 +46,7 @@ describe("parseEnv", () => {
 
   it("defaults CHAT_MODEL, STORAGE_DRIVER and STORAGE_LOCAL_DIR", () => {
     const e = parseEnv(base);
-    expect(e.CHAT_MODEL).toBe("claude-opus-5-5");
+    expect(e.CHAT_MODEL).toBe("claude-sonnet-5-5");
     expect(e.STORAGE_DRIVER).toBe("local");
     expect(e.STORAGE_LOCAL_DIR).toBe("./.storage");
     expect(e.FAKE_MODEL).toBe(false);
@@ -76,7 +76,7 @@ describe("parseEnv", () => {
   it("treats empty strings as unset", () => {
     const e = parseEnv({ ...base, RESEND_API_KEY: "", CHAT_MODEL: "" });
     expect(e.RESEND_API_KEY).toBeUndefined();
-    expect(e.CHAT_MODEL).toBe("claude-opus-5-5");
+    expect(e.CHAT_MODEL).toBe("claude-sonnet-5-5");
   });
 });
 
@@ -93,7 +93,7 @@ describe("env (lazy view)", () => {
     const { env } = await import("@/lib/env");
     expect(Object.keys(env)).toContain("CHAT_MODEL");
     expect("CHAT_MODEL" in env).toBe(true);
-    expect({ ...env }.CHAT_MODEL).toBe("claude-opus-5-5");
+    expect({ ...env }.CHAT_MODEL).toBe("claude-sonnet-5-5");
     expect((env as unknown as { then?: unknown }).then).toBeUndefined();
     expect(() => JSON.stringify(env)).not.toThrow();
   });

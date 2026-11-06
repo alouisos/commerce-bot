@@ -14,7 +14,7 @@ const schema = z
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
     CHAT_MODEL: z
       .enum(PRICED_MODELS, { error: `CHAT_MODEL must be one of: ${PRICED_MODELS.join(", ")}` })
-      .default("claude-opus-5-5"),
+      .default("claude-sonnet-5-5"),
     VOYAGE_API_KEY: z.string().min(1).optional(),
     FAKE_MODEL: bool,
     FAKE_EMBEDDINGS: bool,

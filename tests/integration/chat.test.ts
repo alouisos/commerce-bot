@@ -150,7 +150,7 @@ describe("POST /api/widget/chat", () => {
 
     const usage = await db.select().from(usageEvents).where(eq(usageEvents.accountId, account.id));
     expect(usage).toHaveLength(1);
-    expect(usage[0]).toMatchObject({ kind: "chat", model: "claude-opus-5-5", siteId: site.id });
+    expect(usage[0]).toMatchObject({ kind: "chat", model: "claude-sonnet-5-5", siteId: site.id });
 
     expect(model.calls[0].system).toContain(site.botName);
     expect(model.calls[0].context).toContain("PAGE");
