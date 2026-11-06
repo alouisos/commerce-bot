@@ -11,7 +11,7 @@ Environment=NODE_ENV=production
 # 3000 is taken by Milian Jo on this host.
 Environment=PORT=3100
 Environment=HOSTNAME=127.0.0.1
-# Root-owned, mode 600. systemd reads it as root before dropping to User=.
+# Owned root:ubuntu, mode 640 (deploy/README.md step 1). systemd reads it as root before dropping to User=.
 # npm/node must not write under /home (ProtectHome=read-only).
 Environment=HOME=/srv/concierge
 Environment=npm_config_cache=/tmp/npm-cache
