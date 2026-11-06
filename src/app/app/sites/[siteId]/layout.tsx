@@ -14,6 +14,7 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/app
         <Link href={`/app/sites/${siteId}/settings`}>Settings</Link>
         <Link href={`/app/sites/${siteId}/knowledge`}>Knowledge</Link>
         <Link href={`/app/sites/${siteId}/install`}>Install</Link>
+        <Link href={`/app/sites/${siteId}/leads`}>Leads</Link>
       </nav>
       {children}
     </div>

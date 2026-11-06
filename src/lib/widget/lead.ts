@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { leads } from "@/db/schema";
 import { LIMITS } from "@/shared/widget-protocol";
+import { notifyNewLead } from "@/lib/leads";
 import { hit } from "@/lib/usage/rate-limit";
 import { findOwnedConversation } from "@/lib/widget/conversation";
 import { sidSchema, WidgetError, type WidgetSite } from "@/lib/widget/guard";
@@ -27,4 +28,8 @@ export async function createLead(site: WidgetSite, body: unknown, ip: string): P
     message: input.message,
     source: "fallback",
   });
+  // Not awaited: the visitor's request doesn't wait on email, and a send failure never fails the lead.
+  void notifyNewLead(site, input).catch((err) =>
+    console.error("lead notification failed", { siteId: site.id }, err),
+  );
 }
