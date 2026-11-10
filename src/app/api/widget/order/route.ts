@@ -33,7 +33,12 @@ export const POST = withWidgetErrors(async (req) => {
     body = null;
   }
   const input = schema.parse(body);
-  if (!(await hit(`order:${site.id}:${input.sid}`, 5, 3600)) || !(await hit(`order:ip:${clientIp(req)}`, 60, 3600))) {
+  // Per visit and per IP, plus a per-site ceiling so forged beacons can't make us hammer the shop's API.
+  if (
+    !(await hit(`order:${site.id}:${input.sid}`, 5, 3600)) ||
+    !(await hit(`order:ip:${clientIp(req)}`, 60, 3600)) ||
+    !(await hit(`order:site:${site.id}`, 200, 3600))
+  ) {
     throw new WidgetError(429, "Too many requests");
   }
   await recordSighting(site, input);

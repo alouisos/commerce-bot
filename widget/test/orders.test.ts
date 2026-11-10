@@ -91,6 +91,15 @@ describe("detectOrderConfirmation", () => {
     expect(detectOrderConfirmation(document, window)).toEqual({ orderId: null, orderKey: null });
   });
 
+  it("reads the order from a translated endpoint or plain permalinks", () => {
+    page("/oloklirosi/paraggelia-elifthi/1234/?key=wc_order_AbC123xyz");
+    document.body.classList.add("woocommerce-order-received");
+    expect(detectOrderConfirmation(document, window)).toEqual({ orderId: "1234", orderKey: "wc_order_AbC123xyz" });
+    page("/checkout/?order-received=987&key=wc_order_AbC123xyz");
+    document.body.classList.add("woocommerce-order-received");
+    expect(detectOrderConfirmation(document, window)).toEqual({ orderId: "987", orderKey: "wc_order_AbC123xyz" });
+  });
+
   it("recognises a generic thank-you page only when it talks about an order", () => {
     page("/thank-you/", "<h1>Thank you for your order</h1>");
     expect(detectOrderConfirmation(document, window)).toEqual({ orderId: null, orderKey: null });

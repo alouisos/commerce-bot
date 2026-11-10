@@ -188,7 +188,7 @@ describe("recording a purchase on a WooCommerce-connected site", () => {
       ref: "r1",
       seenAt: now.toISOString(),
     });
-    expect(jobs[0].options).toMatchObject({ singletonKey: `${site.id}:1234` });
+    expect(jobs[0].options).toMatchObject({ singletonKey: `${site.id}:1234`, singletonSeconds: 3600 });
   });
 
   it("without an order key, nothing happens", async () => {
@@ -221,6 +221,17 @@ describe("POST /api/widget/order", () => {
     expect((await post(raw.publicKey, { ...ok, url: "javascript:alert(1)" })).status).toBe(400);
     for (let i = 0; i < 4; i++) await post(raw.publicKey, ok);
     expect((await post(raw.publicKey, ok)).status).toBe(429);
+  });
+
+  it("caps beacons per site, whatever the visit or address", async () => {
+    const { raw } = await setup();
+    let last = 0;
+    for (let i = 0; i < 201; i++) {
+      const res = await post(raw.publicKey, { key: raw.publicKey, ...sighting({ sid: `visitor_many_${i}` }) }, `10.1.${Math.floor(i / 50)}.${i % 50}`);
+      last = res.status;
+      if (i < 200) expect(res.status).toBe(204);
+    }
+    expect(last).toBe(429);
   });
 
   it("an unknown key or another origin is refused", async () => {

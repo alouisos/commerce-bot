@@ -21,7 +21,14 @@ export async function verifyOrder(
   opts: { now?: Date } = {},
 ): Promise<"recorded" | "unattributed" | "rejected" | "retry"> {
   const now = opts.now ?? new Date();
-  const creds = await getStoreCredentials(data.siteId);
+  let creds;
+  try {
+    creds = await getStoreCredentials(data.siteId);
+  } catch {
+    // The app secret changed since the key was saved: every check would fail, so say so in Settings.
+    await markConnectionFailing(data.siteId, "The saved WooCommerce key can't be read any more. Reconnect WooCommerce.");
+    return "rejected";
+  }
   if (!creds) return "rejected";
 
   let order;
@@ -30,6 +37,10 @@ export async function verifyOrder(
   } catch (err) {
     if (err instanceof WooError && err.kind === "unauthorized") {
       await markConnectionFailing(data.siteId, "WooCommerce refused the key. Reconnect it in Settings.");
+      return "rejected";
+    }
+    if (err instanceof WooError && (err.kind === "redirect" || err.kind === "no-api")) {
+      await markConnectionFailing(data.siteId, err.message);
       return "rejected";
     }
     throw err; // the shop is unreachable: pg-boss retries

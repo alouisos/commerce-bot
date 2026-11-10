@@ -65,4 +65,12 @@ describe("job queues", () => {
     expect(typeof handlers[JOBS.emailTick]).toBe("function");
     expect(typeof handlers[JOBS.retention]).toBe("function");
   });
+
+  it("the same order queued twice for verification becomes one job", async () => {
+    await ensureQueues(boss);
+    const data = { siteId: "s", sid: "v", url: "u", orderId: "1", orderKey: "k", ref: null, seenAt: new Date().toISOString() };
+    const opts = { singletonKey: "s:1", singletonSeconds: 3600 };
+    expect(await boss.send(JOBS.verifyOrder, data, opts)).toBeTruthy();
+    expect(await boss.send(JOBS.verifyOrder, data, opts)).toBeNull();
+  });
 });

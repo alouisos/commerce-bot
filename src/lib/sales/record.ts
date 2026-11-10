@@ -23,7 +23,8 @@ export async function recordSighting(site: WidgetSite, input: Sighting, now: Dat
     await enqueue(
       JOBS.verifyOrder,
       { siteId: site.id, ...input, orderId: input.orderId, orderKey: input.orderKey, seenAt: now.toISOString() },
-      { singletonKey: `${site.id}:${input.orderId}` },
+      // One check per order per hour, however many times the page is reported.
+      { singletonKey: `${site.id}:${input.orderId}`, singletonSeconds: 3600 },
     );
     return;
   }

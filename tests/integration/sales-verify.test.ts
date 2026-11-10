@@ -18,6 +18,8 @@ const seenAt = new Date("2026-11-10T11:00:00Z");
 
 let order: Record<string, unknown> | null;
 let status = 200;
+let notFoundBody = { code: "woocommerce_rest_shop_order_invalid_id", message: "Invalid ID." };
+let redirectTo: string | null = null;
 let gets: string[] = [];
 
 function wooOrder(over: Record<string, unknown> = {}) {
@@ -38,14 +40,17 @@ beforeEach(async () => {
   clearEnqueuedJobs();
   order = wooOrder();
   status = 200;
+  notFoundBody = { code: "woocommerce_rest_shop_order_invalid_id", message: "Invalid ID." };
+  redirectTo = null;
   gets = [];
   setWooTransportForTests({
     fetch: (async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       gets.push(url.pathname);
       if (url.pathname.endsWith("/orders")) return new Response("[]", { status: 200 });
+      if (redirectTo) return new Response(null, { status: 301, headers: { location: redirectTo } });
       if (status !== 200) return new Response("{}", { status });
-      return order ? new Response(JSON.stringify(order), { status: 200 }) : new Response("{}", { status: 404 });
+      return order ? new Response(JSON.stringify(order), { status: 200 }) : new Response(JSON.stringify(notFoundBody), { status: 404 });
     }) as typeof fetch,
     lookup: async () => ["93.184.216.34"],
   });
@@ -137,6 +142,40 @@ describe("verifyOrder", () => {
     expect(await verifyOrder(job(site.id), { now })).toBe("rejected");
     const [conn] = await db.select().from(storeConnections).where(eq(storeConnections.siteId, site.id));
     expect(conn).toMatchObject({ status: "failing", lastError: "WooCommerce refused the key. Reconnect it in Settings." });
+  });
+
+  it("a shop that now redirects marks the connection failing, naming where", async () => {
+    const { site } = await setup();
+    redirectTo = "https://www.milianjo.com/wp-json/wc/v3/orders/1234";
+    expect(await verifyOrder(job(site.id), { now })).toBe("rejected");
+    const [conn] = await db.select().from(storeConnections).where(eq(storeConnections.siteId, site.id));
+    expect(conn).toMatchObject({
+      status: "failing",
+      lastError: "Your shop redirects to https://www.milianjo.com. Reconnect WooCommerce with that address.",
+    });
+  });
+
+  it("a REST API that's gone marks the connection failing; a missing order doesn't", async () => {
+    const { site } = await setup();
+    order = null;
+    expect(await verifyOrder(job(site.id), { now })).toBe("rejected");
+    expect((await db.select().from(storeConnections))[0].status).toBe("connected");
+    notFoundBody = { code: "rest_no_route", message: "No route was found" };
+    expect(await verifyOrder(job(site.id), { now })).toBe("rejected");
+    expect((await db.select().from(storeConnections))[0]).toMatchObject({
+      status: "failing",
+      lastError: "Your shop's WooCommerce REST API can't be reached any more. Reconnect WooCommerce.",
+    });
+  });
+
+  it("a stored key that can't be read marks the connection failing", async () => {
+    const { site } = await setup();
+    await db.update(storeConnections).set({ consumerSecretEnc: "v1.broken.broken.broken" });
+    expect(await verifyOrder(job(site.id), { now })).toBe("rejected");
+    expect((await db.select().from(storeConnections))[0]).toMatchObject({
+      status: "failing",
+      lastError: "The saved WooCommerce key can't be read any more. Reconnect WooCommerce.",
+    });
   });
 
   it("an outage throws, so the job is retried", async () => {

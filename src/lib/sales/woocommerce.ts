@@ -133,7 +133,7 @@ function asOrder(v: unknown): WooOrder | null {
 
 export class WooError extends Error {
   constructor(
-    readonly kind: "unauthorized" | "unavailable",
+    readonly kind: "unauthorized" | "unavailable" | "redirect" | "no-api",
     message: string,
   ) {
     super(message);
@@ -145,7 +145,21 @@ export class WooError extends Error {
 export async function fetchOrder(creds: WooCredentials, id: string): Promise<WooOrder | null> {
   if (!/^\d{1,20}$/.test(id)) return null;
   const res = await wooGet(creds, `/orders/${id}`);
-  if (res.status === 404) return null;
+  if (res.status === 404) {
+    // WooCommerce's own answer for an unknown order; any other 404 means the API itself is gone.
+    const code = (res.json as { code?: unknown } | null)?.code;
+    if (code === "woocommerce_rest_shop_order_invalid_id") return null;
+    throw new WooError("no-api", "Your shop's WooCommerce REST API can't be reached any more. Reconnect WooCommerce.");
+  }
+  if (res.status >= 300 && res.status < 400) {
+    let target = "another address";
+    try {
+      target = new URL(res.location ?? "", creds.storeUrl).origin;
+    } catch {
+      // keep the generic wording
+    }
+    throw new WooError("redirect", `Your shop redirects to ${target}. Reconnect WooCommerce with that address.`);
+  }
   if (res.status === 401 || res.status === 403) throw new WooError("unauthorized", "WooCommerce refused the key");
   if (res.status !== 200) throw new WooError("unavailable", `WooCommerce answered ${res.status}`);
   return asOrder(res.json);

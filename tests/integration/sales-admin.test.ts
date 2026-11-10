@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
-import { contacts, emailMessages, sales } from "@/db/schema";
+import { contacts, emailMessages, sales, storeConnections } from "@/db/schema";
 import { getSalesTotals } from "@/lib/stats/sales";
 import { parseRange } from "@/lib/stats/range";
 import { resetDb } from "../helpers/db";
@@ -95,6 +95,24 @@ describe("sales in the admin", () => {
       await OverviewPage({ params: Promise.resolve({ siteId: site.id }), searchParams: Promise.resolve({}) } as never),
     );
     expect(html).toContain("Connect WooCommerce in Settings to see amounts.");
+  });
+
+  it("a failing connection shows on the overview", async () => {
+    const { site } = await setup();
+    await db.insert(storeConnections).values({
+      siteId: site.id,
+      platform: "woocommerce",
+      storeUrl: "https://example.com",
+      consumerKey: "ck_" + "a".repeat(40),
+      consumerSecretEnc: "v1.x.y.z",
+      verifiedAt: new Date(),
+      status: "failing",
+      lastError: "WooCommerce refused the key. Reconnect it in Settings.",
+    });
+    const html = renderToStaticMarkup(
+      await OverviewPage({ params: Promise.resolve({ siteId: site.id }), searchParams: Promise.resolve({}) } as never),
+    );
+    expect(html).toContain("Sales aren&#x27;t being checked: WooCommerce refused the key. Reconnect it in Settings.");
   });
 
   it("conversations can be filtered to those a sale followed", async () => {

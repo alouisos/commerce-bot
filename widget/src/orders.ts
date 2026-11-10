@@ -6,6 +6,7 @@ import { getRef, getSession } from "./session";
 const KEY = "concierge.orders";
 const MAX_REMEMBERED = 20;
 const WOO_PATH = /\/order-received\/(\d+)\/?$/;
+const TRAILING_ID = /\/(\d{1,20})\/?$/;
 const WOO_KEY = /^wc_order_[A-Za-z0-9]{6,40}$/;
 const GENERIC_PATH = /(order-confirmation|thank-?you|thank_you|checkout\/(onepage\/)?success)(\/|$)/i;
 const ORDER_WORDS = /order|παραγγελ|commande|bestellung|pedido|ordine/i;
@@ -15,10 +16,14 @@ export function detectOrderConfirmation(
   win: Window,
 ): { orderId: string | null; orderKey: string | null } | null {
   const path = win.location.pathname;
+  const params = new URLSearchParams(win.location.search);
   const woo = WOO_PATH.exec(path);
   if (woo || doc.body?.classList.contains("woocommerce-order-received")) {
-    const key = new URLSearchParams(win.location.search).get("key");
-    return { orderId: woo ? woo[1] : null, orderKey: woo && key && WOO_KEY.test(key) ? key : null };
+    // The default endpoint, a renamed or translated one (…/1234/), or plain permalinks (?order-received=1234).
+    const plain = params.get("order-received");
+    const orderId = woo?.[1] ?? (plain && /^\d{1,20}$/.test(plain) ? plain : TRAILING_ID.exec(path)?.[1] ?? null);
+    const key = params.get("key");
+    return { orderId, orderKey: orderId && key && WOO_KEY.test(key) ? key : null };
   }
   if (GENERIC_PATH.test(path)) {
     const headings = Array.from(doc.querySelectorAll("h1, h2")).map((h) => h.textContent ?? "");
