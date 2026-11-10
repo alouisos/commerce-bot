@@ -100,3 +100,21 @@ export type LeadRequest = {
   email: string;
   message: string;
 };
+
+export type PromptRequest = {
+  key: string;
+  sid: string;
+  page: PageContext;
+  intent: Intent;
+  confidence: number;
+};
+
+/** A suggestion to show. `question` is what gets sent as the visitor's message if they tap it. */
+export type PromptOffer = { id: string; text: string; question: string };
+
+export type PromptEventRequest = {
+  key: string;
+  sid: string;
+  id: string;
+  event: "shown" | "tapped" | "dismissed";
+};
