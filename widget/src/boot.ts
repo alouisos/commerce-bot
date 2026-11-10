@@ -55,6 +55,7 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     return;
   }
   if (doc.getElementById(ROOT_ID)) return;
+  const siteKey: string = key;
   const queue = claimGlobal(win);
   if (!queue) return;
   const apiBase = new URL(script.src, win.location.href).origin;
@@ -144,7 +145,7 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     // suggestion request. Tracked whatever the dial says, so conversations show their intent and pages.
     if (!tracker && mayTrack()) {
       tracker = createVisitTracker({ doc, win, store: store! });
-      reportOrderOnce({ doc, win, store: store!, apiBase, siteKey: key });
+      reportOrderOnce({ doc, win, store: store!, apiBase, siteKey });
     } else if (tracker && !mayTrack()) {
       tracker.dispose();
       tracker = undefined;
