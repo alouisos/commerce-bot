@@ -255,6 +255,56 @@ describe("POST /api/widget/chat", () => {
     }
   });
 
+  it("one IP can start at most 20 new conversations an hour; its existing conversation keeps working", async () => {
+    const { site } = await setup();
+    const windowMs = 3600_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / windowMs) * windowMs + 1000);
+    try {
+      let cid: string | null = null;
+      for (let i = 0; i < 20; i++) {
+        const { res, events } = await send(site.publicKey, { sid: `visitor_burner_${i}` }, { ip: "198.51.100.7" });
+        expect(res.status).toBe(200);
+        if (i === 0) cid = (events.find((e) => e.type === "start") as { cid: string }).cid;
+      }
+      const { res } = await send(site.publicKey, { sid: "visitor_burner_99" }, { ip: "198.51.100.7" });
+      expect(res.status).toBe(429);
+      const again = await send(site.publicKey, { sid: "visitor_burner_0", cid }, { ip: "198.51.100.7" });
+      expect(again.res.status).toBe(200);
+      expect(await conversationCount(site.accountId)).toBe(20);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a site gets at most a fifth of its monthly conversations (and at least 50) as new ones per day", async () => {
+    const { site } = await setup();
+    const dayMs = 86_400_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / dayMs) * dayMs + 1000);
+    try {
+      // Starter: 500 a month → 100 new conversations a day.
+      for (let i = 0; i < 99; i++) await hit(`chat:newconv:site:${site.id}`, 100, 86_400);
+      const ok = await send(site.publicKey, { sid: "visitor_daily_100" }, { ip: "203.0.113.60" });
+      expect(ok.res.status).toBe(200);
+      const { res } = await send(site.publicKey, { sid: "visitor_daily_101" }, { ip: "203.0.113.61" });
+      expect(res.status).toBe(429);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an unknown site key is refused before the body is read", async () => {
+    const res = await POST(
+      new Request("http://localhost:3000/api/widget/chat?key=pk_unknown", {
+        method: "POST",
+        headers: { Origin: ORIGIN, "Content-Type": "application/json" },
+        body: "x".repeat(1000),
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
   it("an expired trial answers with the fallback in the visitor's language", async () => {
     const { site } = await setup({ plan: "trial", trialEndsAt: new Date(Date.now() - 1000) });
     const { events } = await send(site.publicKey, { page: { ...page, lang: "el" } });
