@@ -22,3 +22,20 @@ export const pageSchema = z.object({
   // Older widget bundles don't send it.
   kind: z.enum(PAGE_KINDS).default("other"),
 });
+
+/** What the visitor did this visit (`VisitSummary`). */
+export const visitSchema = z.object({
+  intent: z.enum(INTENTS).nullable(),
+  confidence: z.number().min(0).max(1),
+  pages: z
+    .array(
+      z.object({
+        url: z.string().max(LIMITS.urlMaxChars),
+        title: z.string().max(LIMITS.titleMaxChars),
+        seconds: z.number().int().min(0).max(86400),
+      }),
+    )
+    .max(LIMITS.visitPagesMax),
+  addedToCart: z.boolean(),
+  cartSeen: z.boolean(),
+});

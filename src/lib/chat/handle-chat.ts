@@ -1,7 +1,7 @@
-import { and, count, desc, eq, ne } from "drizzle-orm";
+import { and, count, desc, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { conversations, messages, type Conversation } from "@/db/schema";
+import { conversations, messages, promptImpressions, type Conversation } from "@/db/schema";
 import { copyFor } from "@/lib/copy/defaults";
 import { searchKnowledge } from "@/lib/kb/search";
 import { MAX_VISITOR_MESSAGES_PER_CONVERSATION } from "@/lib/plans";
@@ -19,7 +19,7 @@ import {
   type WidgetSite,
 } from "@/lib/widget/guard";
 import { resolveLanguage } from "@/lib/widget/language";
-import { pageSchema } from "@/lib/widget/schemas";
+import { pageSchema, visitSchema } from "@/lib/widget/schemas";
 import { LIMITS, type ChatEvent, type WidgetImage } from "@/shared/widget-protocol";
 import { createMarkerFilter, extractImageMarkers } from "./images";
 import { streamModelReply, type ModelRequest } from "./model";
@@ -33,6 +33,8 @@ const chatSchema = z.object({
   cid: z.string().max(100).nullish().transform((v) => v ?? null),
   message: z.string().trim().min(1).max(LIMITS.messageMaxChars),
   page: pageSchema,
+  visit: visitSchema.nullish().transform((v) => v ?? null),
+  promptId: z.string().max(100).nullish().transform((v) => v ?? null),
 });
 
 type ChatInput = z.infer<typeof chatSchema>;
@@ -99,6 +101,36 @@ async function findConversation(siteId: string, sid: string, cid: string | null)
   return row ?? null;
 }
 
+/**
+ * The suggestion this visit tapped to start the chat, marked tapped. Only an impression offered to this
+ * site and this visit counts; anything else is ignored.
+ */
+async function claimImpression(siteId: string, sid: string, promptId: string | null) {
+  if (!isUuid(promptId)) return null;
+  const mine = and(
+    eq(promptImpressions.id, promptId),
+    eq(promptImpressions.siteId, siteId),
+    eq(promptImpressions.visitorSessionId, sid),
+  );
+  const [row] = await db.select({ id: promptImpressions.id, text: promptImpressions.text }).from(promptImpressions).where(mine);
+  if (!row) return null;
+  await db
+    .update(promptImpressions)
+    .set({ outcome: "tapped", outcomeAt: new Date() })
+    .where(and(mine, isNull(promptImpressions.outcome)));
+  return row;
+}
+
+/** The text of the suggestion that started the conversation, from the impression (never from the request). */
+async function startingSuggestion(impressionId: string | null): Promise<string | null> {
+  if (!impressionId) return null;
+  const [row] = await db
+    .select({ text: promptImpressions.text })
+    .from(promptImpressions)
+    .where(eq(promptImpressions.id, impressionId));
+  return row?.text ?? null;
+}
+
 async function countVisitorMessages(conversationId: string): Promise<number> {
   const [row] = await db
     .select({ n: count() })
@@ -157,6 +189,7 @@ async function runModelReply(
     visitorMessageId: string;
     language: string;
     input: ChatInput;
+    startedFrom: string | null;
   },
 ): Promise<void> {
   const { site, conversationId, input } = ctx;
@@ -177,7 +210,7 @@ async function runModelReply(
       system: buildSystemPrompt(site),
       history,
       message: input.message,
-      context: buildContext(input.page, hits, imageHits),
+      context: buildContext(input.page, hits, imageHits, { summary: input.visit, startedFrom: ctx.startedFrom }),
     });
     reply.done.catch(() => {});
     const filter = createMarkerFilter();
@@ -225,12 +258,29 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
   // Snapshot before counting this conversation, so the decision reflects conversations already served.
   const quota = await getQuota(site.account, now);
 
+  const visitFields = input.visit
+    ? { intent: input.visit.intent, intentConfidence: input.visit.confidence, visit: input.visit }
+    : {};
   let conversation = await findConversation(site.id, input.sid, input.cid);
   if (!conversation) {
     const language = resolveLanguage(input.page.lang, await siteLanguages(site.id), site.defaultLanguage);
+    const impression = await claimImpression(site.id, input.sid, input.promptId);
     [conversation] = await db
       .insert(conversations)
-      .values({ siteId: site.id, visitorSessionId: input.sid, language, firstPageUrl: input.page.url })
+      .values({
+        siteId: site.id,
+        visitorSessionId: input.sid,
+        language,
+        firstPageUrl: input.page.url,
+        promptImpressionId: impression?.id ?? null,
+        ...visitFields,
+      })
+      .returning();
+  } else if (input.visit) {
+    [conversation] = await db
+      .update(conversations)
+      .set(visitFields)
+      .where(eq(conversations.id, conversation.id))
       .returning();
   }
   const conversationId = conversation.id;
@@ -249,7 +299,8 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
 
   const sse = openSse(req, origin);
   sse.send({ type: "start", cid: conversationId });
-  const finished = runModelReply(sse, { site, conversationId, visitorMessageId, language, input })
+  const startedFrom = await startingSuggestion(conversation.promptImpressionId);
+  const finished = runModelReply(sse, { site, conversationId, visitorMessageId, language, input, startedFrom })
     .catch((err) => console.error("chat completion failed", { siteId: site.id, conversationId }, err))
     .finally(() => sse.close());
   opts?.onSettled?.(finished);

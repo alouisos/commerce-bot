@@ -85,6 +85,10 @@ export type ChatRequest = {
   cid: string | null;
   message: string;
   page: PageContext;
+  /** What the visitor did before writing; older bundles don't send it. */
+  visit?: VisitSummary | null;
+  /** The suggestion the visitor tapped to start this chat. */
+  promptId?: string | null;
 };
 
 export type ChatEvent =

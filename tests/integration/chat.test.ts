@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { conversations, messages, monthlyUsage, usageEvents } from "@/db/schema";
+import { conversations, messages, monthlyUsage, promptImpressions, usageEvents } from "@/db/schema";
 import { COPY } from "@/lib/copy/defaults";
 import { replaceChunks } from "@/lib/kb/store";
 import { monthKey } from "@/lib/usage/meter";
 import type { ModelReply, ModelRequest } from "@/lib/chat/model";
 import type { ChatEvent, PageContext } from "@/shared/widget-protocol";
 import { hit } from "@/lib/usage/rate-limit";
-import { makeAccount, makeConversation, makeMessage, makeSite, makeSource } from "../helpers/factories";
+import { makeAccount, makeConversation, makeImpression, makeMessage, makeSite, makeSource } from "../helpers/factories";
 import { resetDb } from "../helpers/db";
 
 const model = vi.hoisted(() => ({
@@ -393,5 +393,67 @@ describe("POST /api/widget/chat", () => {
     );
     expect(res.status).toBe(204);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
+  });
+});
+
+describe("chat context from the visit", () => {
+  const visit = (over: Record<string, unknown> = {}) => ({
+    intent: "buying",
+    confidence: 0.85,
+    pages: [
+      { url: "https://example.com/product/shampoo/", title: "Shampoo", seconds: 40 },
+      { url: "https://example.com/cart/", title: "Cart", seconds: 12 },
+    ],
+    addedToCart: true,
+    cartSeen: true,
+    ...over,
+  });
+  const conversationOf = async (cid: string) => (await db.select().from(conversations).where(eq(conversations.id, cid)))[0];
+  const startOf = (events: ChatEvent[]) => (events.find((e) => e.type === "start") as { cid: string }).cid;
+
+  it("stores the visit and the tapped suggestion, and tells the model", async () => {
+    const { site } = await setup();
+    const imp = await makeImpression(site.id, { visitorSessionId: SID, text: "Want to know why?" });
+    const { events } = await send(site.publicKey, { visit: visit(), promptId: imp.id });
+    const conv = await conversationOf(startOf(events));
+    expect(conv).toMatchObject({ intent: "buying", intentConfidence: 0.85, promptImpressionId: imp.id });
+    expect(conv.visit?.pages).toHaveLength(2);
+    const [row] = await db.select().from(promptImpressions).where(eq(promptImpressions.id, imp.id));
+    expect(row.outcome).toBe("tapped");
+    expect(model.calls[0].context).toContain("Likely intent: Ready to buy (85%)");
+    expect(model.calls[0].context).toContain('Started from the suggestion: "Want to know why?"');
+  });
+
+  it("ignores another visit's suggestion id", async () => {
+    const { site } = await setup();
+    const imp = await makeImpression(site.id, { visitorSessionId: "someone_else_1" });
+    const { events } = await send(site.publicKey, { visit: visit(), promptId: imp.id });
+    expect((await conversationOf(startOf(events))).promptImpressionId).toBeNull();
+    const [row] = await db.select().from(promptImpressions).where(eq(promptImpressions.id, imp.id));
+    expect(row.outcome).toBeNull();
+  });
+
+  it("rejects an oversized visit", async () => {
+    const { site } = await setup();
+    const pages = Array.from({ length: 11 }, (_, i) => ({ url: `https://example.com/p/${i}`, title: "P", seconds: 1 }));
+    expect((await send(site.publicKey, { visit: visit({ pages }) })).res.status).toBe(400);
+    expect((await send(site.publicKey, { visit: visit({ confidence: 3 }) })).res.status).toBe(400);
+  });
+
+  it("later messages update the intent and keep the starting suggestion", async () => {
+    const { site } = await setup();
+    const imp = await makeImpression(site.id, { visitorSessionId: SID });
+    const first = await send(site.publicKey, { visit: visit(), promptId: imp.id });
+    const cid = startOf(first.events);
+    await send(site.publicKey, { cid, visit: visit({ intent: "exploring", confidence: 0.6 }), promptId: null });
+    expect(await conversationOf(cid)).toMatchObject({ intent: "exploring", intentConfidence: 0.6, promptImpressionId: imp.id });
+  });
+
+  it("works without a visit (older widget)", async () => {
+    const { site } = await setup();
+    const { res, events } = await send(site.publicKey);
+    expect(res.status).toBe(200);
+    expect((await conversationOf(startOf(events))).intent).toBeNull();
+    expect(model.calls[0].context).not.toContain("VISIT");
   });
 });
