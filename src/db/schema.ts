@@ -378,6 +378,62 @@ export const emailMessages = pgTable(
   ],
 );
 
+/** A shop's order system (WooCommerce), used to check purchases and read their amounts. */
+export const storeConnections = pgTable("store_connections", {
+  id: id(),
+  siteId: uuid("site_id")
+    .notNull()
+    .unique()
+    .references(() => sites.id, { onDelete: "cascade" }),
+  platform: text("platform", { enum: ["woocommerce"] }).notNull(),
+  storeUrl: text("store_url").notNull(),
+  consumerKey: text("consumer_key").notNull(),
+  /** encryptSecret(); never sent to a browser. */
+  consumerSecretEnc: text("consumer_secret_enc").notNull(),
+  status: text("status", { enum: ["connected", "failing"] })
+    .notNull()
+    .default("connected"),
+  lastError: text("last_error"),
+  verifiedAt: timestamp("verified_at").notNull(),
+  createdAt: createdAt(),
+});
+
+/** A purchase attributed to the bot. Unattributed orders are never stored. */
+export const sales = pgTable(
+  "sales",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    source: text("source", { enum: ["woocommerce", "page"] }).notNull(),
+    externalId: text("external_id"),
+    verified: boolean("verified").notNull(),
+    amountMinor: bigint("amount_minor", { mode: "number" }),
+    currency: text("currency"),
+    orderedAt: timestamp("ordered_at").notNull(),
+    visitorSessionId: text("visitor_session_id").notNull(),
+    pageUrl: text("page_url").notNull(),
+    viaChat: boolean("via_chat").notNull().default(false),
+    viaPrompt: boolean("via_prompt").notNull().default(false),
+    viaEmail: boolean("via_email").notNull().default(false),
+    conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+    promptImpressionId: uuid("prompt_impression_id").references(() => promptImpressions.id, { onDelete: "set null" }),
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    emailMessageId: uuid("email_message_id").references(() => emailMessages.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("sales_order_idx")
+      .on(t.siteId, t.source, t.externalId)
+      .where(sql`${t.externalId} is not null`),
+    uniqueIndex("sales_page_idx")
+      .on(t.siteId, t.visitorSessionId, t.pageUrl)
+      .where(sql`${t.externalId} is null`),
+    index("sales_site_ordered_idx").on(t.siteId, t.orderedAt),
+  ],
+);
+
 export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   windowStart: timestamp("window_start").notNull(),
@@ -396,3 +452,5 @@ export type SiteInsight = typeof siteInsights.$inferSelect;
 export type PromptImpression = typeof promptImpressions.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
 export type EmailMessage = typeof emailMessages.$inferSelect;
+export type Sale = typeof sales.$inferSelect;
+export type StoreConnection = typeof storeConnections.$inferSelect;

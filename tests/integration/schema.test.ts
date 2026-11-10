@@ -1,7 +1,7 @@
 import { cosineDistance, asc } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/db/client";
-import { kbChunks, kbSources } from "@/db/schema";
+import { kbChunks, kbSources, sales, storeConnections } from "@/db/schema";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeSite } from "../helpers/factories";
 
@@ -44,5 +44,31 @@ describe("schema", () => {
       { ...page, kind: "text" },
       { ...page, kind: "text" },
     ]);
+  });
+
+  it("one store connection per site", async () => {
+    const site = await makeSite((await makeAccount()).id);
+    const row = { siteId: site.id, platform: "woocommerce" as const, storeUrl: "https://example.com", consumerKey: "ck_x", consumerSecretEnc: "v1.x", verifiedAt: new Date() };
+    await db.insert(storeConnections).values(row);
+    await expect(db.insert(storeConnections).values(row)).rejects.toThrow();
+  });
+
+  it("a sale is unique per order id, or per visit and page without one", async () => {
+    const site = await makeSite((await makeAccount()).id);
+    const base = {
+      siteId: site.id,
+      verified: true,
+      orderedAt: new Date(),
+      visitorSessionId: "sid-1",
+      pageUrl: "https://example.com/checkout/order-received/1/",
+      viaChat: true,
+    };
+    await db.insert(sales).values({ ...base, source: "woocommerce", externalId: "1" });
+    await expect(db.insert(sales).values({ ...base, source: "woocommerce", externalId: "1", visitorSessionId: "sid-2" })).rejects.toThrow();
+    await db.insert(sales).values({ ...base, source: "page", externalId: null, pageUrl: "https://example.com/thank-you/a" });
+    await db.insert(sales).values({ ...base, source: "page", externalId: null, pageUrl: "https://example.com/thank-you/b" });
+    await expect(db.insert(sales).values({ ...base, source: "page", externalId: null, pageUrl: "https://example.com/thank-you/a" })).rejects.toThrow();
+    const [row] = await db.select().from(sales).limit(1);
+    expect(row).toMatchObject({ viaPrompt: false, viaEmail: false, amountMinor: null, currency: null });
   });
 });
