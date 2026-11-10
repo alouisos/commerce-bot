@@ -54,9 +54,6 @@ export default function SignInPage() {
       <p className="mt-4">
         <Link href="/reset-password">Forgot password?</Link>
       </p>
-      <p className="mt-2">
-        No account yet? <Link href="/sign-up">Sign up</Link>
-      </p>
     </main>
   );
 }

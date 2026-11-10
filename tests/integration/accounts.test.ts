@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { accounts, memberships } from "@/db/schema";
+import { accounts, memberships, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeMembership, makeSite, makeUser } from "../helpers/factories";
@@ -60,24 +60,28 @@ describe("accounts and access", () => {
     expect(isPlatformOwner({ email: "a@x.com", emailVerified: false }, ["a@x.com"])).toBe(false);
   });
 
-  it("a fresh sign-up with a listed owner address is not an owner", async () => {
+  it("a fresh login from an invite with a listed owner address is not an owner", async () => {
     const email = `owner-${Date.now()}@example.com`;
-    const res = await auth.api.signUpEmail({ body: { email, password: "long-enough-password", name: "x" } });
-    expect(res.user.emailVerified).toBe(false);
-    expect(isPlatformOwner(res.user, [email])).toBe(false);
+    const { createInvite } = await import("@/lib/invites");
+    const { acceptInvite } = await import("@/lib/accept-invite");
+    const sent: string[] = [];
+    const mod = await import("@/lib/email");
+    const spy = vi.spyOn(mod, "sendEmail").mockImplementation(async (m) => void sent.push(m.text));
+    await createInvite({ email, accountName: "X", plan: "starter" });
+    const token = /\/invite\/([A-Za-z0-9_-]+)/.exec(sent[0])![1];
+    expect((await acceptInvite(token, { name: "x", password: "long-enough-password" })).ok).toBe(true);
+    spy.mockRestore();
+    const [u] = await db.select().from(user).where(eq(user.email, email));
+    expect(u.emailVerified).toBe(false);
+    expect(isPlatformOwner(u, [email])).toBe(false);
   });
 
-  it("sign-up through Better Auth creates a trial account and owner membership", async () => {
-    const res = await auth.api.signUpEmail({
-      body: { email: "hook@example.com", password: "password-12345", name: "Hook" },
-    });
-    const account = await getAccountForUser(res.user.id);
-    expect(account.plan).toBe("trial");
-    const expected = Date.now() + 14 * 24 * 60 * 60 * 1000;
-    expect(Math.abs(account.trialEndsAt!.getTime() - expected)).toBeLessThan(60_000);
-    const rows = await db.select().from(memberships).where(eq(memberships.userId, res.user.id));
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ accountId: account.id, role: "owner" });
+  it("sign-up through Better Auth without an invite is refused", async () => {
+    await expect(
+      auth.api.signUpEmail({ body: { email: "hook@example.com", password: "password-12345", name: "Hook" } }),
+    ).rejects.toBeTruthy();
+    expect(await db.select().from(accounts)).toHaveLength(0);
+    expect(await db.select().from(memberships)).toHaveLength(0);
   });
 
   it("getAccountForUser self-heals a user without an account, once, under concurrency", async () => {
