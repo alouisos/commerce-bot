@@ -212,14 +212,42 @@ describe("return attribution", () => {
     return (JSON.parse(start.slice(6)) as { cid: string }).cid;
   };
 
-  it("a chat with a subscribed contact's ref links the contact and restarts the sequence", async () => {
+  it("after clicking one of their emails, the subscriber's chat restarts the sequence", async () => {
     const { site, a, msg } = await setup();
+    await db.update(contacts).set({ sequenceStartedAt: new Date(Date.now() - 5 * 86400_000) }).where(eq(contacts.id, a.id));
+    const m = await msg(a.id);
+    await clickGET(new Request(`http://localhost:3000/e/c/${m.id}/0`), { params: Promise.resolve({ messageId: m.id, index: "0" }) });
     const oldDraft = await msg(a.id, "draft");
     const cid = await chat(site.publicKey, { ref: a.ref });
     const [conv] = await db.select().from(conversations).where(eq(conversations.id, cid));
     expect(conv.contactId).toBe(a.id);
     expect((await reload(a.id)).sequenceConversationId).toBe(cid);
     expect((await statusOf(oldDraft.id)).status).toBe("discarded");
+  });
+
+  it("a shared link restarts at most once per click; later chats with the ref are only attributed", async () => {
+    const { site, a, msg } = await setup();
+    await db.update(contacts).set({ sequenceStartedAt: new Date(Date.now() - 5 * 86400_000) }).where(eq(contacts.id, a.id));
+    const m = await msg(a.id);
+    await clickGET(new Request(`http://localhost:3000/e/c/${m.id}/0`), { params: Promise.resolve({ messageId: m.id, index: "0" }) });
+    const first = await chat(site.publicKey, { ref: a.ref, sid: "visitor_first_1" });
+    const second = await chat(site.publicKey, { ref: a.ref, sid: "visitor_second_1" });
+    expect((await reload(a.id)).sequenceConversationId).toBe(first);
+    const [conv] = await db.select().from(conversations).where(eq(conversations.id, second));
+    expect(conv.contactId).toBe(a.id);
+  });
+
+  it("a ref with no recent click of their own email is only attributed, never restarts", async () => {
+    const { site, a, convo, msg } = await setup();
+    const oldDraft = await msg(a.id, "draft");
+    // Clicked, but over 30 days ago.
+    const m = await msg(a.id);
+    await db.update(emailMessages).set({ clickedAt: new Date(Date.now() - 31 * 86400_000) }).where(eq(emailMessages.id, m.id));
+    const cid = await chat(site.publicKey, { ref: a.ref });
+    const [conv] = await db.select().from(conversations).where(eq(conversations.id, cid));
+    expect(conv.contactId).toBe(a.id);
+    expect((await reload(a.id)).sequenceConversationId).toBe(convo.id);
+    expect((await statusOf(oldDraft.id)).status).toBe("draft");
   });
 
   it("another site's ref, an unsubscribed contact's ref, or a malformed ref links nothing", async () => {

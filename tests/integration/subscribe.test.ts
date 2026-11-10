@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
-import { contacts, conversations, leads } from "@/db/schema";
+import { contacts, conversations, emailMessages, leads, rateLimits } from "@/db/schema";
 import { POST as subscribePOST } from "@/app/api/widget/subscribe/route";
 import ConfirmPage from "@/app/e/confirm/[token]/page";
 import { confirmContact, consentWording } from "@/lib/email/contacts";
@@ -112,16 +112,27 @@ describe("subscribe", () => {
     expect(sent).toHaveLength(2);
   });
 
-  it("an already subscribed contact gets the new conversation and no new confirmation", async () => {
+  it("an already subscribed address entered in another chat changes nothing about that person's emails", async () => {
     const { site, sid, convo } = await setup();
     const body = { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" };
     await post(site.publicKey, body);
     const c = await contactOf("a@example.com");
     await confirmContact(c.token);
-    const later = await makeConversation(site.id, { visitorSessionId: "sid-visitor-2" });
-    await post(site.publicKey, { ...body, sid: "sid-visitor-2", cid: later.id });
+    const [draft] = await db
+      .insert(emailMessages)
+      .values({ siteId: site.id, contactId: c.id, conversationId: convo.id, step: 1, status: "draft", subject: "s", body: "b", language: "en", scheduledFor: new Date() })
+      .returning();
+    // Someone else, in their own chat, types the subscriber's address.
+    const stranger = await makeConversation(site.id, { visitorSessionId: "sid-stranger-2" });
+    expect((await post(site.publicKey, { ...body, sid: "sid-stranger-2", cid: stranger.id }, "5.6.7.8")).status).toBe(201);
     expect(sent).toHaveLength(1);
-    expect(await contactOf("a@example.com")).toMatchObject({ status: "subscribed", sequenceConversationId: later.id });
+    expect(await contactOf("a@example.com")).toMatchObject({ status: "subscribed", sequenceConversationId: convo.id });
+    const [row] = await db.select().from(conversations).where(eq(conversations.id, stranger.id));
+    expect(row.contactId).toBeNull();
+    const [d] = await db.select().from(emailMessages).where(eq(emailMessages.id, draft.id));
+    expect(d.status).toBe("draft");
+    const strangerLeads = (await db.select().from(leads)).filter((l) => l.conversationId === stranger.id);
+    expect(strangerLeads).toHaveLength(0);
   });
 
   it("403 when the site can't send email", async () => {
@@ -156,6 +167,14 @@ describe("subscribe", () => {
     const res = await post(site.publicKey, { key: site.publicKey, sid: "sid-other-9", cid: null, email: "victim@example.com", language: "en" }, "9.9.9.9");
     expect(res.status).toBe(429);
     expect(sent).toHaveLength(3);
+  });
+
+  it("rate-limit records never hold the address itself", async () => {
+    const { site, sid } = await setup();
+    await post(site.publicKey, { key: site.publicKey, sid, cid: null, email: "secret.person@example.com", language: "en" });
+    const keys = (await db.select().from(rateLimits)).map((r) => r.key);
+    expect(keys.some((k) => k.startsWith("sub:email:"))).toBe(true);
+    expect(keys.join(" ")).not.toContain("secret.person");
   });
 
   it("a cid from another visit links nothing", async () => {

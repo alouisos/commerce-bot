@@ -35,8 +35,10 @@ export const QUEUE_OPTIONS: Partial<Record<JobName, Omit<Queue, "name">>> = {
   [JOBS.crawlSite]: { policy: "stately", expireInSeconds: CRAWL_MAX_SECONDS, retryLimit: 0 },
   // One model call per site; stately dedupes the daily run and manual refreshes of the same site.
   [JOBS.generateInsights]: { policy: "stately", retryLimit: 1, expireInSeconds: 900 },
-  // One tick at a time; a failed tick is simply picked up by the next one 15 minutes later.
-  [JOBS.emailTick]: { policy: "singleton", retryLimit: 0 },
+  // One tick at a time; a failed tick is simply picked up by the next one 15 minutes later. A tick may run
+  // longer than 15 minutes (up to 50 model calls plus throttled sends), so it isn't expired at pg-boss's
+  // 15-minute default, which would let the next tick start beside it.
+  [JOBS.emailTick]: { policy: "singleton", retryLimit: 0, expireInSeconds: 3600 },
 };
 
 type Recorded = { name: JobName; data: JobData[JobName]; options: SendOptions };

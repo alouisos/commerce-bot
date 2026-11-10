@@ -252,6 +252,72 @@ describe("emailTick: concurrency and errors", () => {
   });
 });
 
+describe("emailTick: a writer that fails for everyone", () => {
+  it("calls the model at most 50 times per tick", async () => {
+    const { site } = await setup();
+    for (let i = 0; i < 59; i++) {
+      const convo = await makeConversation(site.id, { lastMessageAt: T0 });
+      await db.insert(contacts).values({
+        siteId: site.id,
+        email: `bulk${i}@example.com`,
+        language: "en",
+        status: "subscribed",
+        consentText: "x",
+        consentLanguage: "en",
+        consentedAt: T0,
+        confirmedAt: T0,
+        token: `bulk-token-${i}`.padEnd(43, "x"),
+        ref: `bulk-ref-${i}`.padEnd(22, "y"),
+        sequenceConversationId: convo.id,
+      });
+    }
+    let calls = 0;
+    const broken: CallModel = async () => {
+      calls++;
+      return { content: null, model: "claude-sonnet-5-5", usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 } };
+    };
+    await emailTick(at(3 * H), { callModel: broken });
+    expect(calls).toBe(50);
+  });
+});
+
+describe("emailTick: provider rate limit", () => {
+  it("spaces sends out within a tick", async () => {
+    const { site, contact } = await setup();
+    const others = [];
+    for (let i = 0; i < 2; i++) {
+      const [c] = await db
+        .insert(contacts)
+        .values({ ...contact, id: undefined, email: `o${i}@example.com`, token: `other-${i}`.padEnd(43, "x"), ref: `oref-${i}`.padEnd(22, "y") })
+        .returning();
+      others.push(c);
+    }
+    for (const c of [contact, ...others]) {
+      await db.insert(emailMessages).values({
+        siteId: site.id,
+        contactId: c.id,
+        step: 1,
+        status: "approved",
+        subject: "s",
+        body: "b",
+        language: "en",
+        scheduledFor: T0,
+      });
+    }
+    const times: number[] = [];
+    setProviderForTests({
+      send: async () => {
+        times.push(Date.now());
+        return { id: "re" };
+      },
+    });
+    await emailTick(at(H), { callModel, sendIntervalMs: 100 });
+    expect(times).toHaveLength(3);
+    expect(times[1] - times[0]).toBeGreaterThanOrEqual(95);
+    expect(times[2] - times[1]).toBeGreaterThanOrEqual(95);
+  });
+});
+
 describe("restartSequence", () => {
   it("moves the sequence to the new conversation and discards the unsent draft", async () => {
     const { site, contact } = await setup();

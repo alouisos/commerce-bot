@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { canSendEmail } from "@/lib/email/domain";
 import { subscribe } from "@/lib/email/contacts";
@@ -11,6 +12,9 @@ const schema = z.object({
   language: z.string().regex(/^[a-z]{2}$/),
 });
 
+/** Rate-limit records outlive "delete all data", so they hold a hash of the address, never the address. */
+const emailKey = (email: string) => createHash("sha256").update(email).digest("base64url").slice(0, 22);
+
 /** Parses, rate-limits and records a visitor's consent. Unknown fields (a client's own wording) are ignored. */
 export async function handleSubscribe(site: WidgetSite, body: unknown, ip: string): Promise<void> {
   const input = schema.parse(body);
@@ -18,7 +22,7 @@ export async function handleSubscribe(site: WidgetSite, body: unknown, ip: strin
   const allowed =
     (await hit(`sub:${site.id}:${input.sid}`, 3, 3600)) &&
     (await hit(`sub:ip:${ip}`, 20, 3600)) &&
-    (await hit(`sub:email:${site.id}:${input.email}`, 3, 86400));
+    (await hit(`sub:email:${site.id}:${emailKey(input.email)}`, 3, 86400));
   if (!allowed) throw new WidgetError(429, "Too many requests");
   if (!(await canSendEmail(site, site.account))) throw new WidgetError(403, "Email is not available");
   await subscribe(site, { sid: input.sid, cid: input.cid ?? null, email: input.email, language: input.language });

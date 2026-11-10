@@ -8,7 +8,6 @@ import { appBaseUrl } from "@/lib/widget/config";
 import { findOwnedConversation } from "@/lib/widget/conversation";
 import type { WidgetSite } from "@/lib/widget/guard";
 import { fromAddress } from "./domain";
-import { restartSequence } from "./schedule";
 import { sendMail } from "./provider";
 
 export const CONFIRM_VALID_MS = 7 * 86400_000;
@@ -58,7 +57,7 @@ export async function subscribe(
     token: token(32),
   };
 
-  const { contact, needsConfirmation, restart } = await db.transaction(async (tx) => {
+  const { contact, needsConfirmation } = await db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
       .from(contacts)
@@ -66,7 +65,9 @@ export async function subscribe(
       .for("update");
     let contact;
     let needsConfirmation = true;
-    let restart = false;
+    // Typing an address proves nothing about owning it: an already subscribed person's emails, and their
+    // identity, are never tied to this chat by it. Only a new consent, confirmed by email, links a chat.
+    let linkConversation = true;
     if (!existing) {
       [contact] = await tx
         .insert(contacts)
@@ -81,26 +82,24 @@ export async function subscribe(
     } else if (existing.status === "subscribed") {
       contact = existing;
       needsConfirmation = false;
-      restart = conversationId !== null && conversationId !== existing.sequenceConversationId;
+      linkConversation = false;
     } else {
       // Pending or unsubscribed: consent again, with a fresh link.
       [contact] = await tx.update(contacts).set(consent).where(eq(contacts.id, existing.id)).returning();
     }
     await tx.insert(leads).values({
       siteId: site.id,
-      conversationId,
+      conversationId: linkConversation ? conversationId : null,
       email,
       message: "Asked for personalised recommendations",
       source: "consent",
     });
-    if (conversationId) {
+    if (conversationId && linkConversation) {
       await tx.update(conversations).set({ contactId: contact.id }).where(eq(conversations.id, conversationId));
     }
-    return { contact, needsConfirmation, restart };
+    return { contact, needsConfirmation, linkConversation };
   });
 
-  // Already subscribed: follow-ups now come from this conversation.
-  if (restart && conversationId) await restartSequence(contact.id, conversationId, now);
   if (needsConfirmation) await sendConfirmation(site, contact);
 }
 

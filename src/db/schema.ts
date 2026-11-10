@@ -363,6 +363,7 @@ export const emailMessages = pgTable(
     attempts: integer("attempts").notNull().default(0),
     error: text("error"),
     clickedAt: timestamp("clicked_at"),
+    lastClickedAt: timestamp("last_clicked_at"),
     clicks: integer("clicks").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

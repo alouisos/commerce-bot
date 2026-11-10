@@ -22,7 +22,7 @@ const CONSENT = [
   {
     value: "required",
     label: "Wait for consent",
-    help: "The widget doesn't appear or store anything until the visitor consents through your banner or your site calls Concierge.consent(true).",
+    help: 'The widget doesn\'t appear or store anything until the visitor consents through your banner, or your site calls Concierge.consent(true). If that call can run before the widget script loads, use (window.Concierge = window.Concierge || { q: [] }).q.push(["consent", true]) instead.',
   },
   { value: "off", label: "Don't wait", help: "Behaviour is tracked for one visit from the start, as before." },
 ] as const;

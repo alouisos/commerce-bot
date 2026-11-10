@@ -167,13 +167,40 @@ describe("queue", () => {
   it("another site's draft id is not found through the actions, and nothing changes", async () => {
     const { site, foreign } = await setup();
     const d = await email(foreign.id, (await contact(foreign.id, "a@example.com")).id);
-    expect((await outcome(approveDraftAction(site.id, d.id))).digest).toBe("NEXT_HTTP_ERROR_FALLBACK;404");
+    expect((await outcome(approveDraftAction(site.id, d.id, {}, form({ subject: "s", body: "b" })))).digest).toBe(
+      "NEXT_HTTP_ERROR_FALLBACK;404",
+    );
     expect(
       (await outcome(saveDraftAction(site.id, d.id, {}, form({ subject: "hacked", body: "hacked" })))).digest,
     ).toBe("NEXT_HTTP_ERROR_FALLBACK;404");
     expect(await rowOf(d.id)).toMatchObject({ status: "draft", subject: "Your hair" });
     // And the foreign site itself is a 404.
-    expect((await outcome(approveDraftAction(foreign.id, d.id))).digest).toBe("NEXT_HTTP_ERROR_FALLBACK;404");
+    expect((await outcome(approveDraftAction(foreign.id, d.id, {}, form({ subject: "s", body: "b" })))).digest).toBe(
+      "NEXT_HTTP_ERROR_FALLBACK;404",
+    );
+  });
+});
+
+describe("approving with edits", () => {
+  it("Approve & send saves what the admin typed before approving", async () => {
+    const { site } = await setup();
+    const d = await email(site.id, (await contact(site.id, "a@example.com")).id);
+    const res = await approveDraftAction(site.id, d.id, {}, form({ subject: "Fixed subject", body: "Corrected [link](https://milianjo.com/p/1)" }));
+    expect(res).toEqual({ saved: true });
+    expect(await rowOf(d.id)).toMatchObject({
+      status: "approved",
+      subject: "Fixed subject",
+      body: "Corrected [link](https://milianjo.com/p/1)",
+      links: ["https://milianjo.com/p/1"],
+    });
+  });
+
+  it("an invalid edit is refused and nothing is approved", async () => {
+    const { site } = await setup();
+    const d = await email(site.id, (await contact(site.id, "a@example.com")).id);
+    const res = await approveDraftAction(site.id, d.id, {}, form({ subject: "", body: "x" }));
+    expect(res.error).toBeTruthy();
+    expect((await rowOf(d.id)).status).toBe("draft");
   });
 });
 

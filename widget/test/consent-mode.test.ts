@@ -93,6 +93,26 @@ describe("consent mode at boot", () => {
     await waitFor(() => expect(mounted()).toBe(true));
   });
 
+  it("required: Concierge.consent(true) called while the widget is still loading counts", async () => {
+    stub({ ...config, consentMode: "required" });
+    const { win } = makeWin();
+    const booting = boot(document, win, script());
+    expect(() => (win.Concierge as { consent(g: boolean): void }).consent(true)).not.toThrow();
+    await booting;
+    await waitFor(() => expect(mounted()).toBe(true));
+  });
+
+  it("required: the script included twice mounts one widget", async () => {
+    stub({ ...config, consentMode: "required" });
+    let granted = false;
+    const { win } = makeWin({ cmplz_has_consent: () => granted });
+    await Promise.all([boot(document, win, script()), boot(document, win, script())]);
+    granted = true;
+    document.dispatchEvent(new Event("cmplz_status_change"));
+    await waitFor(() => expect(mounted()).toBe(true));
+    expect(document.querySelectorAll("#concierge-root")).toHaveLength(1);
+  });
+
   it("required: consent from the site's banner mounts it", async () => {
     stub({ ...config, consentMode: "required" });
     let granted = false;

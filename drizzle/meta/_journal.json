@@ -43,6 +43,13 @@
       "when": 1794330997169,
       "tag": "0005_email_one_open",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794332445206,
+      "tag": "0006_email_last_click",
+      "breakpoints": true
     }
   ]
 }

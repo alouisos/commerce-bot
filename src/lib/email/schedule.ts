@@ -25,9 +25,12 @@ import { writeEmail, type CallModel } from "./writer";
 const H = 3600_000;
 const D = 24 * H;
 const FIRST_EMAIL_DELAY_MS = 2 * H;
+/** Model calls per tick, whether they succeed or not. */
 const MAX_WRITES_PER_TICK = 50;
 const MAX_SENDS_PER_TICK = 500;
 const MAX_SEND_ATTEMPTS = 3;
+/** Resend allows about 2 requests a second by default; a burst of approvals must not turn into failures. */
+const SEND_INTERVAL_MS = 600;
 /** After a failed write or send, wait a day before writing again; after 3 failures, stop the sequence. */
 const FAILURE_BACKOFF_MS = D;
 const MAX_FAILURES_PER_SEQUENCE = 3;
@@ -47,6 +50,31 @@ export async function restartSequence(contactId: string, conversationId: string,
       .set({ status: "discarded", updatedAt: now })
       .where(and(eq(emailMessages.contactId, contactId), inArray(emailMessages.status, ["draft", "approved"])));
   });
+}
+
+
+/**
+ * Restarts a contact's sequence from a conversation that arrived with their email ref, but only when they
+ * clicked one of their own emails since the sequence last started, within 30 days. A link someone shares
+ * carries the same ref; this way it can restart a sequence at most once per real click.
+ */
+export async function restartAfterClick(contactId: string, conversationId: string, now: Date = new Date()): Promise<boolean> {
+  const at = sql`${now.toISOString()}::timestamp`;
+  const [row] = await db
+    .select({ id: contacts.id })
+    .from(contacts)
+    .where(
+      and(
+        eq(contacts.id, contactId),
+        eq(contacts.status, "subscribed"),
+        sql`exists (select 1 from ${emailMessages} e where e.contact_id = ${contacts.id}
+          and e.last_clicked_at > coalesce(${contacts.sequenceStartedAt}, 'epoch'::timestamp)
+          and e.last_clicked_at > ${at} - interval '30 days')`,
+      ),
+    );
+  if (!row) return false;
+  await restartSequence(contactId, conversationId, now);
+  return true;
 }
 
 async function sequenceHistory(contact: Contact, conversationId: string) {
@@ -111,9 +139,10 @@ async function draftDueEmails(now: Date, callModel: CallModel | undefined): Prom
     .orderBy(contacts.confirmedAt);
 
   let written = 0;
+  let attempts = 0;
   const sendable = new Map<string, boolean>();
   for (const { contact, site: s, account } of rows) {
-    if (written >= MAX_WRITES_PER_TICK) break;
+    if (attempts >= MAX_WRITES_PER_TICK) break;
     const site: SiteWithAccount = { ...s, account };
     if (!sendable.has(site.id)) sendable.set(site.id, await canSendEmail(site, account, now));
     if (!sendable.get(site.id)) continue;
@@ -122,6 +151,7 @@ async function draftDueEmails(now: Date, callModel: CallModel | undefined): Prom
     const conversationId = contact.sequenceConversationId!;
 
     let email;
+    attempts++;
     try {
       email = await writeEmail(
         { site, contact, conversationId, step: next.step, previousSubjects: next.previousSubjects },
@@ -254,7 +284,7 @@ async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "err
   }
 }
 
-async function sendApproved(now: Date): Promise<{ sent: number; skipped: number }> {
+async function sendApproved(now: Date, intervalMs: number): Promise<{ sent: number; skipped: number }> {
   const due = await db
     .select({ id: emailMessages.id })
     .from(emailMessages)
@@ -263,8 +293,12 @@ async function sendApproved(now: Date): Promise<{ sent: number; skipped: number 
     .limit(MAX_SENDS_PER_TICK);
   let sent = 0;
   let skipped = 0;
+  let lastSend = 0;
   for (const { id } of due) {
+    const wait = lastSend + intervalMs - Date.now();
+    if (lastSend && wait > 0) await new Promise((r) => setTimeout(r, wait));
     const r = await sendOne(id, now);
+    if (r === "sent" || r === "error") lastSend = Date.now();
     if (r === "sent") sent++;
     else if (r === "skipped") skipped++;
   }
@@ -273,10 +307,10 @@ async function sendApproved(now: Date): Promise<{ sent: number; skipped: number 
 
 export async function emailTick(
   now: Date = new Date(),
-  opts: { callModel?: CallModel } = {},
+  opts: { callModel?: CallModel; sendIntervalMs?: number } = {},
 ): Promise<{ drafted: number; sent: number; skipped: number }> {
   const drafted = await draftDueEmails(now, opts.callModel);
-  const { sent, skipped } = await sendApproved(now);
+  const { sent, skipped } = await sendApproved(now, opts.sendIntervalMs ?? SEND_INTERVAL_MS);
   return { drafted, sent, skipped };
 }
 

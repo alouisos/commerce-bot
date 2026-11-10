@@ -15,7 +15,7 @@ export function DraftEditor({
     saveDraftAction.bind(null, siteId, draft.id),
     {},
   );
-  const [approveState, approve, approving] = useActionState<EmailActionState>(
+  const [approveState, approve, approving] = useActionState<EmailActionState, FormData>(
     approveDraftAction.bind(null, siteId, draft.id),
     {},
   );

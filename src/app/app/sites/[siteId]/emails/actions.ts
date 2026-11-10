@@ -50,8 +50,20 @@ export async function saveDraftAction(
   );
 }
 
-export async function approveDraftAction(siteId: string, id: string): Promise<EmailActionState> {
-  return withState(siteId, () => approveDraft(siteId, id));
+/** Saves what's in the editor, then approves it: the admin's last edits are what gets sent. */
+export async function approveDraftAction(
+  siteId: string,
+  id: string,
+  _prev: EmailActionState,
+  formData: FormData,
+): Promise<EmailActionState> {
+  return withState(siteId, async () => {
+    await updateDraft(siteId, id, {
+      subject: String(formData.get("subject") ?? ""),
+      body: String(formData.get("body") ?? ""),
+    });
+    await approveDraft(siteId, id);
+  });
 }
 
 export async function discardDraftAction(siteId: string, id: string): Promise<EmailActionState> {

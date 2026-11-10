@@ -55,9 +55,9 @@ describe("job queues", () => {
   });
 
   it("email-tick runs one at a time and isn't retried", async () => {
-    expect(QUEUE_OPTIONS[JOBS.emailTick]).toEqual({ policy: "singleton", retryLimit: 0 });
+    expect(QUEUE_OPTIONS[JOBS.emailTick]).toEqual({ policy: "singleton", retryLimit: 0, expireInSeconds: 3600 });
     await ensureQueues(boss);
-    expect(await boss.getQueue(JOBS.emailTick)).toMatchObject({ policy: "singleton", retryLimit: 0 });
+    expect(await boss.getQueue(JOBS.emailTick)).toMatchObject({ policy: "singleton", retryLimit: 0, expireInSeconds: 3600 });
   });
 
   it("the worker handles the email tick and the nightly retention job", () => {

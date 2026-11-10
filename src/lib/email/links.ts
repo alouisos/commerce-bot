@@ -68,7 +68,11 @@ export async function trackClick(messageId: string, index: number, now: Date = n
   url.searchParams.set("cc_ref", row.ref);
   await db
     .update(emailMessages)
-    .set({ clicks: sql`${emailMessages.clicks} + 1`, clickedAt: sql`coalesce(${emailMessages.clickedAt}, ${now.toISOString()}::timestamp)` })
+    .set({
+      clicks: sql`${emailMessages.clicks} + 1`,
+      clickedAt: sql`coalesce(${emailMessages.clickedAt}, ${now.toISOString()}::timestamp)`,
+      lastClickedAt: now,
+    })
     .where(eq(emailMessages.id, messageId));
   return url.toString();
 }

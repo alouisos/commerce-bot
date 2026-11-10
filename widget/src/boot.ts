@@ -7,8 +7,9 @@ import { App, type ConciergeApi } from "./ui/App";
 import { createVisitTracker, type VisitTracker } from "./visit";
 
 type Queued = unknown[];
-type PublicApi = { open(): void; close(): void; consent(granted: boolean): void };
-type Win = Window & { Concierge?: { q?: Queued[] } | PublicApi };
+type PublicApi = { open(): void; close(): void; consent(granted: boolean): void; __concierge?: true };
+type Stub = { q?: Queued[] };
+type Win = Window & { Concierge?: Stub | PublicApi };
 
 const ROOT_ID = "concierge-root";
 
@@ -25,6 +26,26 @@ function sessionStore(win: Window): Storage {
   }
 }
 
+/**
+ * Puts window.Concierge in place at once, before the config arrives, so a site can call
+ * Concierge.consent(true) (or open/close) at any time: calls are queued until the widget is ready.
+ * Returns the queue, or null when another copy of the script already runs on this page.
+ */
+function claimGlobal(win: Window): Queued[] | null {
+  const existing = (win as Win).Concierge as (Stub & PublicApi) | undefined;
+  if (existing?.__concierge) return null;
+  const q: Queued[] = Array.isArray(existing?.q) ? existing.q : [];
+  const stub: Stub & PublicApi = {
+    __concierge: true,
+    q,
+    open: () => void q.push(["open"]),
+    close: () => void q.push(["close"]),
+    consent: (granted: boolean) => void q.push(["consent", granted]),
+  };
+  (win as Win).Concierge = stub;
+  return q;
+}
+
 export async function boot(doc: Document, win: Window, current: Element | null): Promise<void> {
   const script = findScript(doc, current);
   const key = script?.dataset.site;
@@ -33,6 +54,8 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     return;
   }
   if (doc.getElementById(ROOT_ID)) return;
+  const queue = claimGlobal(win);
+  if (!queue) return;
   const apiBase = new URL(script.src, win.location.href).origin;
 
   let config;
@@ -45,7 +68,6 @@ export async function boot(doc: Document, win: Window, current: Element | null):
   if (doc.getElementById(ROOT_ID)) return;
   if (!doc.body) await new Promise((r) => doc.addEventListener("DOMContentLoaded", r, { once: true }));
 
-  const queue = ((win as Win).Concierge as { q?: Queued[] } | undefined)?.q ?? [];
   const mode = config.consentMode ?? "auto";
 
   // Consent the site gave through Concierge.consent(), on top of any detected tool.
@@ -66,6 +88,7 @@ export async function boot(doc: Document, win: Window, current: Element | null):
   let replayed = false;
 
   const publicApi: PublicApi = {
+    __concierge: true,
     open: () => api?.open(),
     close: () => api?.close(),
     consent: (granted: boolean) => {
@@ -89,7 +112,8 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     render(h(App, { config, apiBase, siteKey: key, store, register, tracker }), mountPoint);
   };
 
-  function mount() {
+  function mount(): boolean {
+    if (doc.getElementById(ROOT_ID)) return false;
     const host = doc.createElement("div");
     host.id = ROOT_ID;
     // Important so host-page `!important` rules cannot restyle the host element.
@@ -107,12 +131,13 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     } catch {
       // no usable location
     }
+    return true;
   }
 
   function update() {
     if (!mountPoint) {
       if (mode === "required" && !consented()) return;
-      mount();
+      if (!mount()) return;
     }
     // Behaviour stays in this tab's sessionStorage for this visit; only a summary is sent, with a chat or a
     // suggestion request. Tracked whatever the dial says, so conversations show their intent and pages.

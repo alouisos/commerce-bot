@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { contacts, conversations, messages, promptImpressions, type Conversation } from "@/db/schema";
 import { copyFor } from "@/lib/copy/defaults";
-import { restartSequence } from "@/lib/email/schedule";
+import { restartAfterClick } from "@/lib/email/schedule";
 import { searchKnowledge } from "@/lib/kb/search";
 import { MAX_VISITOR_MESSAGES_PER_CONVERSATION } from "@/lib/plans";
 import { aiBlocked, countConversation, getQuota, recordModelUsage } from "@/lib/usage/meter";
@@ -305,9 +305,10 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
   const previousVisitorMessages = await countVisitorMessages(conversationId);
   if (previousVisitorMessages === 0) await countConversation(site.accountId, now);
   const visitorMessageId = await addMessage(conversationId, { role: "visitor", content: input.message });
-  // Back from one of our emails and chatting again: follow-ups now come from this conversation.
+  // Back from one of our emails and chatting again: follow-ups now come from this conversation
+  // (attribution alone, without a recent click of their own, never redirects their emails).
   if (previousVisitorMessages === 0 && conversation.contactId) {
-    await restartSequence(conversation.contactId, conversationId, now);
+    await restartAfterClick(conversation.contactId, conversationId, now);
   }
 
   // No model call when the account can't spend more this month, or this conversation already had its share.
