@@ -29,8 +29,11 @@ export async function searchKnowledge(
     // HNSW returns its ef_search nearest candidates before the site filter applies, so a small site
     // among big ones can get nothing back. Iterative scan keeps scanning until enough rows pass the
     // filter (pgvector >= 0.8). relaxed_order may return rows slightly out of order: re-sorted below.
+    // The scan also stops once it uses work_mem × scan_mem_multiplier (default 1 × 4 MB, about 1,000
+    // 1024-dim vectors), which a big neighbouring site can exhaust first; allow 8×.
     await tx.execute(
-      sql`SELECT set_config('hnsw.iterative_scan', 'relaxed_order', true), set_config('hnsw.ef_search', '100', true)`,
+      sql`SELECT set_config('hnsw.iterative_scan', 'relaxed_order', true), set_config('hnsw.ef_search', '100', true),
+        set_config('hnsw.scan_mem_multiplier', '8', true)`,
     );
     return tx
       .select({
