@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-/** Refreshes the page every 5 seconds while sources are still being processed. */
+/** Refreshes the page (server components included) every 5 seconds while `active`, e.g. during a crawl. */
 export function Poller({ active }: { active: boolean }) {
   const router = useRouter();
   useEffect(() => {

@@ -3,12 +3,15 @@
 # Build Concierge locally and deploy it to the Ubuntu host.
 #
 #   ./deploy/deploy.sh [--host IP] [--user ubuntu] [--key path.pem] [--domain bot.example.com]
-#                      [--setup] [--env-file path] [--replace-env]
+#                      [--setup] [--env-file path] [--replace-env] [--web-only]
 #
 #   --setup        first run: upload and run deploy/server-setup.sh (swap, Postgres + pgvector,
 #                  directories, systemd units, nginx site, TLS). Safe to re-run.
 #   --env-file F   upload F as /etc/concierge.env if the server has none (or always, with
 #                  --replace-env). It holds secrets: keep it out of the repo, mode 600.
+#   --web-only     restart only concierge-web, leaving the worker (and any running crawl)
+#                  alone. Only for changes that don't touch worker code (src/worker, src/lib
+#                  used by jobs) or the database schema.
 #
 # Every run:
 #   1. exports HEAD (committed code only; never your local .env) to a temp dir,
@@ -29,6 +32,7 @@ DOMAIN="bot.manxmachina.com"
 SETUP=0
 ENV_FILE=""
 REPLACE_ENV=0
+SERVICES="concierge-web concierge-worker"
 APP_DIR="/srv/concierge"
 
 while [[ $# -gt 0 ]]; do
@@ -40,6 +44,7 @@ while [[ $# -gt 0 ]]; do
     --setup) SETUP=1; shift ;;
     --env-file) ENV_FILE="$2"; shift 2 ;;
     --replace-env) REPLACE_ENV=1; shift ;;
+    --web-only) SERVICES="concierge-web"; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -151,7 +156,7 @@ if [[ ! -d node_modules || "\$(cat .lock-hash 2>/dev/null)" != "\$LOCK" ]]; then
 fi
 set -a; . /etc/concierge.env; set +a
 npm run --silent db:migrate
-sudo systemctl restart concierge-web concierge-worker
+sudo systemctl restart $SERVICES
 EOF
 
 # ---------------------------------------------------------------- 4. verify

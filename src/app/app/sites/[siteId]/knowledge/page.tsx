@@ -5,7 +5,7 @@ import { kbSources, type KbSource } from "@/db/schema";
 import { crawlStatusLabel, isCrawlRunning } from "@/lib/crawl/recrawl";
 import { deleteSourceAction, recrawlNowAction, setExcludedAction } from "./actions";
 import { AddForms } from "./add-forms";
-import { Poller } from "./poller";
+import { Poller } from "@/components/Poller";
 import { loadSite } from "../load-site";
 
 function formatBytes(n: number): string {
@@ -90,7 +90,8 @@ export default async function KnowledgePage({
   const rows = all.filter((s) => (s.kind === "page") === pagesTab);
   const now = new Date();
   const crawling = isCrawlRunning(site, now);
-  const busy = crawling || all.some((s) => s.status === "pending" || s.status === "processing");
+  // While a crawl runs, the site layout's crawl banner refreshes the page; this covers uploads.
+  const busy = !crawling && all.some((s) => s.status === "pending" || s.status === "processing");
   const base = `/app/sites/${site.id}/knowledge`;
 
   return (
