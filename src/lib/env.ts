@@ -30,6 +30,8 @@ const schema = z
     S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(1).optional(),
+    /** Shown to people who need to reach the platform owner (invite-only sign-up, limits). */
+    CONTACT_EMAIL: z.email().optional(),
     PLATFORM_OWNER_EMAILS: z
       .string()
       .optional()

@@ -7,6 +7,7 @@ import { db } from "@/db/client";
 import { accounts } from "@/db/schema";
 import { isPlatformOwner } from "@/lib/access";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { cancelInvite, createInvite, INVITE_PLANS, resendInvite, type InvitePlan } from "@/lib/invites";
 import { parseLimitsForm, setAccountLimits, setTrialEnd } from "@/lib/limits";
 import { PLAN_LIMITS, type PlanId } from "@/lib/plans";
 import { requireUser } from "@/lib/session";
@@ -42,4 +43,44 @@ export async function saveLimitsAction(accountId: string, _prev: OwnerFormState,
   }
   revalidatePath(`/owner/accounts/${accountId}`);
   return { saved: true };
+}
+
+export async function inviteAction(_prev: OwnerFormState, formData: FormData): Promise<OwnerFormState> {
+  await requireOwner();
+  const plan = String(formData.get("plan") ?? "");
+  if (!(INVITE_PLANS as readonly string[]).includes(plan)) return { error: "Choose a plan" };
+  try {
+    await createInvite({
+      email: String(formData.get("email") ?? ""),
+      accountName: String(formData.get("accountName") ?? ""),
+      plan: plan as InvitePlan,
+    });
+  } catch (err) {
+    if (err instanceof ValidationError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath("/owner");
+  return { saved: true };
+}
+
+export async function resendInviteAction(inviteId: string): Promise<void> {
+  await requireOwner();
+  try {
+    await resendInvite(inviteId);
+  } catch (err) {
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  }
+  revalidatePath("/owner");
+}
+
+export async function cancelInviteAction(inviteId: string): Promise<void> {
+  await requireOwner();
+  try {
+    await cancelInvite(inviteId);
+  } catch (err) {
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  }
+  revalidatePath("/owner");
 }

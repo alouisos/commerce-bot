@@ -11,6 +11,9 @@ import { getAccountStats, getPlatformTotals } from "@/lib/stats/platform";
 import { parseRange } from "@/lib/stats/range";
 import { requireUser } from "@/lib/session";
 import { monthKey } from "@/lib/usage/meter";
+import { listPendingInvites } from "@/lib/invites";
+import { cancelInviteAction, resendInviteAction } from "./actions";
+import { InviteForm } from "./invite-form";
 import { PlanSelect } from "./plan-select";
 
 type Search = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
@@ -20,7 +23,7 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
   const currentUser = await requireUser();
   if (!isPlatformOwner(currentUser)) notFound();
   const range = parseRange((await searchParams)?.range);
-  const [accountRows, ownerRows, stats, total, monthRows] = await Promise.all([
+  const [accountRows, ownerRows, stats, total, monthRows, invites] = await Promise.all([
     db.select().from(accounts).orderBy(asc(accounts.createdAt)),
     db
       .select({ accountId: memberships.accountId, email: user.email })
@@ -30,6 +33,7 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
     getAccountStats(range),
     getPlatformTotals(range),
     db.select().from(monthlyUsage).where(eq(monthlyUsage.month, monthKey(new Date()))),
+    listPendingInvites(),
   ]);
   const month = new Map(monthRows.map((r) => [r.accountId, r]));
   const ownerOf = new Map(ownerRows.map((r) => [r.accountId, r.email]));
@@ -48,6 +52,47 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
         <StatTile label="Unanswered" value={String(total.unanswered)} />
         <StatTile label="AI cost" value={usd(total.aiCostMicros)} />
       </dl>
+      <InviteForm />
+      {invites.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold">Pending invites</h2>
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Account</th>
+                <th>Plan</th>
+                <th>Sent</th>
+                <th>Expires</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {invites.map((i) => (
+                <tr key={i.id} className="border-t">
+                  <td className="py-1">{i.email}</td>
+                  <td>{i.accountName}</td>
+                  <td>{i.plan}</td>
+                  <td>{i.createdAt.toISOString().slice(0, 10)}</td>
+                  <td>{i.expiresAt.toISOString().slice(0, 10)}</td>
+                  <td className="flex gap-2">
+                    <form action={resendInviteAction.bind(null, i.id)}>
+                      <button type="submit" className="underline">
+                        Resend
+                      </button>
+                    </form>
+                    <form action={cancelInviteAction.bind(null, i.id)}>
+                      <button type="submit" className="underline">
+                        Cancel
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
       <h2 className="text-lg font-semibold">Accounts</h2>
       <table className="w-full text-left text-sm">
         <thead>

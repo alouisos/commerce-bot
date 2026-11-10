@@ -437,6 +437,22 @@ export const sales = pgTable(
   ],
 );
 
+/** An invitation from the platform owner to set up an account (created with the invite). */
+export const accountInvites = pgTable("account_invites", {
+  id: id(),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  /** Lowercased. */
+  email: text("email").notNull(),
+  /** sha256 of the link's token; the token itself is never stored. */
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  acceptedUserId: text("accepted_user_id"),
+  createdAt: createdAt(),
+});
+
 export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   windowStart: timestamp("window_start").notNull(),
@@ -457,3 +473,4 @@ export type Contact = typeof contacts.$inferSelect;
 export type EmailMessage = typeof emailMessages.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
 export type StoreConnection = typeof storeConnections.$inferSelect;
+export type AccountInvite = typeof accountInvites.$inferSelect;

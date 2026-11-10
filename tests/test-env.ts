@@ -13,6 +13,7 @@ export function applyTestEnv() {
     FAKE_MODEL: "true",
     FAKE_EMBEDDINGS: "true",
     STORAGE_DRIVER: "local",
+    CONTACT_EMAIL: "help@example.com",
   });
   process.env.STORAGE_LOCAL_DIR ??= mkdtempSync(join(tmpdir(), "concierge-storage-"));
 }
