@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { siteGreetings, sites } from "@/db/schema";
+import { accounts, siteGreetings, sites, type Account, type Site } from "@/db/schema";
 import { ValidationError } from "@/lib/errors";
 import { sniffImageType } from "@/lib/files";
+import { planStatus } from "@/lib/plans";
 import { clearPromptCache } from "@/lib/prompts/cache";
 import { getStorage, greetingImageKey } from "@/lib/storage";
 
@@ -63,6 +64,70 @@ export async function updateSiteSettings(siteId: string, input: unknown): Promis
   });
   // Guardrails may have changed; suggestions written under the old rules are dropped.
   await clearPromptCache(siteId);
+}
+
+export const RETENTION_MONTHS = [6, 12, 24, 36] as const;
+
+export const emailSettingsSchema = z.object({
+  emailMode: z.enum(["approval", "automatic"], { error: "Choose how emails are sent" }),
+  emailIntervalDays: z.coerce
+    .number({ error: "Enter the days between emails" })
+    .int("Enter whole days")
+    .min(1, "Send at most one email a day")
+    .max(30, "Wait at most 30 days between emails"),
+  emailMaxPerPerson: z.coerce
+    .number({ error: "Enter how many emails per person" })
+    .int("Enter a whole number")
+    .min(1, "Send at least 1 email per person")
+    .max(10, "Send at most 10 emails per person"),
+  emailFromName: z.string().trim().max(60, "The from name is at most 60 characters"),
+  emailFromLocal: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9][a-z0-9._-]{0,63}$/i, "Use only letters, numbers, dots, dashes or underscores before the @"),
+  retentionMonths: z.coerce
+    .number()
+    .refine((n) => (RETENTION_MONTHS as readonly number[]).includes(n), "Choose 6, 12, 24 or 36 months"),
+  consentMode: z.enum(["auto", "required", "off"], { error: "Choose a cookie-consent mode" }),
+});
+
+export async function updateEmailSettings(siteId: string, input: unknown): Promise<void> {
+  const parsed = emailSettingsSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError(parsed.error.issues.map((i) => i.message).join("; "));
+  }
+  const s = parsed.data;
+  if (s.emailMode === "automatic") {
+    const [row] = await db
+      .select({ plan: accounts.plan, trialEndsAt: accounts.trialEndsAt })
+      .from(sites)
+      .innerJoin(accounts, eq(accounts.id, sites.accountId))
+      .where(eq(sites.id, siteId));
+    if (!row || !planStatus(row, new Date()).limits.autoSendEmails) {
+      throw new ValidationError("Automatic sending needs the Growth plan or higher");
+    }
+  }
+  await db
+    .update(sites)
+    .set({
+      emailMode: s.emailMode,
+      emailIntervalDays: s.emailIntervalDays,
+      emailMaxPerPerson: s.emailMaxPerPerson,
+      emailFromName: s.emailFromName === "" ? null : s.emailFromName,
+      emailFromLocal: s.emailFromLocal.toLowerCase(),
+      retentionMonths: s.retentionMonths,
+      consentMode: s.consentMode,
+    })
+    .where(eq(sites.id, siteId));
+}
+
+/** "automatic" only while the plan allows it; a downgraded site goes back to the approval queue. */
+export function effectiveEmailMode(
+  site: Pick<Site, "emailMode">,
+  account: Pick<Account, "plan" | "trialEndsAt">,
+  now: Date = new Date(),
+): "approval" | "automatic" {
+  return site.emailMode === "automatic" && planStatus(account, now).limits.autoSendEmails ? "automatic" : "approval";
 }
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;

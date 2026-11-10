@@ -4,7 +4,7 @@ import { db } from "@/db/client";
 import { monthlyUsage } from "@/db/schema";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeSite } from "../helpers/factories";
-import { countConversation, getMonthUsage, getQuota, monthKey, recordModelUsage } from "@/lib/usage/meter";
+import { countConversation, countEmailSent, getMonthUsage, getQuota, monthKey, recordModelUsage } from "@/lib/usage/meter";
 import { costMicros } from "@/lib/ai/pricing";
 
 beforeEach(async () => {
@@ -63,5 +63,12 @@ describe("metering", () => {
     expect(await getQuota(a, nov)).toMatchObject({ aiCostMicros: 25_000_000, aiBudgetReached: true, state: "ok" });
     // Next month starts from zero.
     expect((await getQuota(a, dec)).aiBudgetReached).toBe(false);
+  });
+  it("counts sent emails per month", async () => {
+    const a = await makeAccount();
+    expect(await countEmailSent(a.id, nov)).toBe(1);
+    expect(await countEmailSent(a.id, nov)).toBe(2);
+    expect(await countEmailSent(a.id, dec)).toBe(1);
+    expect(await getMonthUsage(a.id, nov)).toMatchObject({ emails: 2, conversations: 0 });
   });
 });

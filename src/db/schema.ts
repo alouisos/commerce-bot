@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   index,
@@ -76,6 +77,23 @@ export const sites = pgTable("sites", {
   proactivity: text("proactivity", { enum: ["off", "gentle", "active"] })
     .notNull()
     .default("gentle"),
+  /** "automatic" takes effect only on plans with autoSendEmails (see effectiveEmailMode). */
+  emailMode: text("email_mode", { enum: ["approval", "automatic"] })
+    .notNull()
+    .default("approval"),
+  emailIntervalDays: integer("email_interval_days").notNull().default(4),
+  emailMaxPerPerson: integer("email_max_per_person").notNull().default(3),
+  emailFromName: text("email_from_name"),
+  emailFromLocal: text("email_from_local").notNull().default("hello"),
+  sendingDomain: text("sending_domain"),
+  sendingDomainId: text("sending_domain_id"),
+  sendingDomainStatus: text("sending_domain_status", { enum: ["none", "pending", "verified", "failed"] })
+    .notNull()
+    .default("none"),
+  retentionMonths: integer("retention_months").notNull().default(24),
+  consentMode: text("consent_mode", { enum: ["auto", "required", "off"] })
+    .notNull()
+    .default("auto"),
   createdAt: createdAt(),
 });
 
@@ -161,6 +179,7 @@ export const conversations = pgTable(
     promptImpressionId: uuid("prompt_impression_id").references(() => promptImpressions.id, {
       onDelete: "set null",
     }),
+    contactId: uuid("contact_id").references((): AnyPgColumn => contacts.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
   (t) => [index("conversations_site_idx").on(t.siteId, t.lastMessageAt)],
@@ -233,7 +252,7 @@ export const usageEvents = pgTable("usage_events", {
     .notNull()
     .references(() => accounts.id, { onDelete: "cascade" }),
   siteId: uuid("site_id").references(() => sites.id, { onDelete: "set null" }),
-  kind: text("kind", { enum: ["chat", "image_description", "insights", "prompt"] }).notNull(),
+  kind: text("kind", { enum: ["chat", "image_description", "insights", "prompt", "email"] }).notNull(),
   model: text("model").notNull(),
   inputTokens: integer("input_tokens").notNull().default(0),
   outputTokens: integer("output_tokens").notNull().default(0),
@@ -252,6 +271,7 @@ export const monthlyUsage = pgTable(
     month: text("month").notNull(),
     conversations: integer("conversations").notNull().default(0),
     aiCostMicros: bigint("ai_cost_micros", { mode: "number" }).notNull().default(0),
+    emails: integer("emails").notNull().default(0),
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.accountId, t.month] })],
@@ -265,7 +285,7 @@ export const leads = pgTable("leads", {
   conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
   email: text("email").notNull(),
   message: text("message").notNull(),
-  source: text("source", { enum: ["fallback"] })
+  source: text("source", { enum: ["fallback", "consent"] })
     .notNull()
     .default("fallback"),
   createdAt: createdAt(),
@@ -288,6 +308,71 @@ export const siteInsights = pgTable(
   (t) => [index("site_insights_site_created_idx").on(t.siteId, t.createdAt)],
 );
 
+/** A person who agreed to emails from one site. Consent is stored as shown, from the server's copy. */
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    /** Lowercased. */
+    email: text("email").notNull(),
+    language: text("language").notNull(),
+    status: text("status", { enum: ["pending", "subscribed", "unsubscribed"] }).notNull(),
+    consentText: text("consent_text").notNull(),
+    consentLanguage: text("consent_language").notNull(),
+    consentedAt: timestamp("consented_at").notNull(),
+    confirmedAt: timestamp("confirmed_at"),
+    unsubscribedAt: timestamp("unsubscribed_at"),
+    /** Confirms and unsubscribes; never leaves the emails we send this person. */
+    token: text("token").notNull().unique(),
+    /** The attribution reference added to links (cc_ref). */
+    ref: text("ref").notNull().unique(),
+    sequenceConversationId: uuid("sequence_conversation_id").references((): AnyPgColumn => conversations.id, {
+      onDelete: "set null",
+    }),
+    sequenceStartedAt: timestamp("sequence_started_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("contacts_site_email_idx").on(t.siteId, t.email)],
+);
+
+export const emailMessages = pgTable(
+  "email_messages",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+    step: integer("step").notNull(),
+    status: text("status", {
+      enum: ["draft", "approved", "sending", "sent", "discarded", "failed", "skipped"],
+    }).notNull(),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    language: text("language").notNull(),
+    links: jsonb("links").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    scheduledFor: timestamp("scheduled_for").notNull(),
+    sentAt: timestamp("sent_at"),
+    providerId: text("provider_id"),
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    clickedAt: timestamp("clicked_at"),
+    clicks: integer("clicks").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("email_messages_status_scheduled_idx").on(t.status, t.scheduledFor),
+    index("email_messages_contact_idx").on(t.contactId, t.createdAt),
+  ],
+);
+
 export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   windowStart: timestamp("window_start").notNull(),
@@ -304,3 +389,5 @@ export type Message = typeof messages.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
 export type SiteInsight = typeof siteInsights.$inferSelect;
 export type PromptImpression = typeof promptImpressions.$inferSelect;
+export type Contact = typeof contacts.$inferSelect;
+export type EmailMessage = typeof emailMessages.$inferSelect;

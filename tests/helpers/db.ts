@@ -3,6 +3,8 @@ import { db } from "@/db/client";
 import { clearEnqueuedJobs } from "@/lib/jobs";
 
 const TABLES = [
+  "email_messages",
+  "contacts",
   "rate_limits",
   "site_insights",
   "prompt_cache",

@@ -15,7 +15,7 @@ vi.mock("@/lib/session", () => ({ requireUser: async () => current.user }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { deleteSiteAction, saveSiteDetailsAction } from "@/app/app/sites/[siteId]/settings/actions";
+import { deleteSiteAction, saveEmailSettingsAction, saveSiteDetailsAction } from "@/app/app/sites/[siteId]/settings/actions";
 import SettingsPage from "@/app/app/sites/[siteId]/settings/page";
 
 beforeEach(async () => {
@@ -179,5 +179,48 @@ describe("settings page", () => {
     expect(html.match(/<textarea name="allowedOrigins"[^>]*>([^<]*)</)?.[1]).toBe(site.allowedOrigins.join("\n"));
     expect(html).toContain('name="confirmName"');
     expect(html).toContain("Delete website");
+  });
+});
+
+describe("email & privacy settings", () => {
+  const emailForm = (patch: Record<string, string> = {}) =>
+    form({
+      emailMode: "approval",
+      emailIntervalDays: "6",
+      emailMaxPerPerson: "2",
+      emailFromName: "",
+      emailFromLocal: "Shop",
+      retentionMonths: "12",
+      consentMode: "required",
+      ...patch,
+    });
+
+  it("shows automatic sending as needing the Growth plan on starter", async () => {
+    const { site } = await setup("starter");
+    const html = renderToStaticMarkup(await SettingsPage({ params: Promise.resolve({ siteId: site.id }) } as never));
+    expect(html).toContain("Email &amp; privacy");
+    expect(html).toContain("Needs the Growth plan");
+    expect(html).toMatch(/<input(?=[^>]*value="automatic")(?=[^>]*disabled)[^>]*>/);
+    expect(html).toContain("@your domain");
+  });
+
+  it("saves through the action and reports errors", async () => {
+    const { site } = await setup("starter");
+    expect(await saveEmailSettingsAction(site.id, {}, emailForm())).toEqual({ saved: true });
+    expect(await reload(site.id)).toMatchObject({
+      emailIntervalDays: 6,
+      emailMaxPerPerson: 2,
+      emailFromLocal: "shop",
+      retentionMonths: 12,
+      consentMode: "required",
+    });
+    expect(await saveEmailSettingsAction(site.id, {}, emailForm({ emailMode: "automatic" }))).toEqual({
+      error: "Automatic sending needs the Growth plan or higher",
+    });
+  });
+
+  it("refuses another account's site", async () => {
+    const { foreign } = await setup("starter");
+    expect((await outcome(saveEmailSettingsAction(foreign.id, {}, emailForm()))).digest).toMatch(/404/);
   });
 });

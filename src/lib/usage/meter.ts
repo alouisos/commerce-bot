@@ -21,10 +21,23 @@ export async function countConversation(accountId: string, now: Date = new Date(
   return row.conversations;
 }
 
+/** One marketing email handed to the provider this month. */
+export async function countEmailSent(accountId: string, now: Date = new Date()): Promise<number> {
+  const [row] = await db
+    .insert(monthlyUsage)
+    .values({ accountId, month: monthKey(now), emails: 1 })
+    .onConflictDoUpdate({
+      target: [monthlyUsage.accountId, monthlyUsage.month],
+      set: { emails: sql`${monthlyUsage.emails} + 1` },
+    })
+    .returning({ emails: monthlyUsage.emails });
+  return row.emails;
+}
+
 export async function recordModelUsage(input: {
   accountId: string;
   siteId: string | null;
-  kind: "chat" | "image_description" | "insights" | "prompt";
+  kind: "chat" | "image_description" | "insights" | "prompt" | "email";
   model: string;
   usage: TokenUsage;
   now?: Date;
@@ -56,12 +69,16 @@ export async function recordModelUsage(input: {
 export async function getMonthUsage(
   accountId: string,
   now: Date = new Date(),
-): Promise<{ conversations: number; aiCostMicros: number }> {
+): Promise<{ conversations: number; aiCostMicros: number; emails: number }> {
   const [row] = await db
-    .select({ conversations: monthlyUsage.conversations, aiCostMicros: monthlyUsage.aiCostMicros })
+    .select({
+      conversations: monthlyUsage.conversations,
+      aiCostMicros: monthlyUsage.aiCostMicros,
+      emails: monthlyUsage.emails,
+    })
     .from(monthlyUsage)
     .where(and(eq(monthlyUsage.accountId, accountId), eq(monthlyUsage.month, monthKey(now))));
-  return row ?? { conversations: 0, aiCostMicros: 0 };
+  return row ?? { conversations: 0, aiCostMicros: 0, emails: 0 };
 }
 
 export type Quota = {

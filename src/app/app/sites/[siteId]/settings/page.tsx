@@ -1,8 +1,10 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { siteGreetings } from "@/db/schema";
+import { accounts, siteGreetings } from "@/db/schema";
+import { planStatus } from "@/lib/plans";
 import { loadSite } from "../load-site";
 import { DeleteSiteForm } from "./delete-site-form";
+import { EmailSettingsForm } from "./email-settings-form";
 import { GreetingImageForm } from "./greeting-image-form";
 import { SettingsForm } from "./settings-form";
 import { SiteDetailsForm } from "./site-details-form";
@@ -15,6 +17,8 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
     .from(siteGreetings)
     .where(eq(siteGreetings.siteId, site.id))
     .orderBy(asc(siteGreetings.language));
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, site.accountId));
+  const canAutoSend = planStatus(account, new Date()).limits.autoSendEmails;
   const byLang = new Map(rows.map((r) => [r.language, r.message]));
   const defaults = ["el", "en"].map((language) => ({ language, message: byLang.get(language) ?? "" }));
   const extra = rows.filter((r) => !["el", "en"].includes(r.language)).map((r) => ({ language: r.language, message: r.message }));
@@ -35,6 +39,21 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
           guardrails: site.guardrails,
           allowedOrigins: site.allowedOrigins,
           greetings: [...defaults, ...extra],
+        }}
+      />
+      <EmailSettingsForm
+        siteId={site.id}
+        siteName={site.name}
+        canAutoSend={canAutoSend}
+        domain={site.sendingDomain}
+        initial={{
+          emailMode: site.emailMode,
+          emailIntervalDays: site.emailIntervalDays,
+          emailMaxPerPerson: site.emailMaxPerPerson,
+          emailFromName: site.emailFromName ?? "",
+          emailFromLocal: site.emailFromLocal,
+          retentionMonths: site.retentionMonths,
+          consentMode: site.consentMode,
         }}
       />
       <GreetingImageForm siteId={site.id} hasImage={!!site.greetingImageKey} version={site.greetingImageKey ?? ""} />

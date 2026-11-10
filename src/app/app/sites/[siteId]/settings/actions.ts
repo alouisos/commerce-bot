@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { requireSiteAccess } from "@/lib/access";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { removeGreetingImage, setGreetingImage, updateSiteSettings } from "@/lib/site-settings";
+import { removeGreetingImage, setGreetingImage, updateEmailSettings, updateSiteSettings } from "@/lib/site-settings";
 import { deleteSite, updateSiteDetails } from "@/lib/sites";
 import { requireUser } from "@/lib/session";
 
@@ -56,6 +56,25 @@ export async function saveSettingsAction(
       greetings,
       allowedOrigins,
       proactivity: String(formData.get("proactivity") ?? ""),
+    }),
+  );
+}
+
+export async function saveEmailSettingsAction(
+  siteId: string,
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  await authorize(siteId);
+  return run(siteId, () =>
+    updateEmailSettings(siteId, {
+      emailMode: String(formData.get("emailMode") ?? "approval"),
+      emailIntervalDays: String(formData.get("emailIntervalDays") ?? ""),
+      emailMaxPerPerson: String(formData.get("emailMaxPerPerson") ?? ""),
+      emailFromName: String(formData.get("emailFromName") ?? ""),
+      emailFromLocal: String(formData.get("emailFromLocal") ?? ""),
+      retentionMonths: String(formData.get("retentionMonths") ?? ""),
+      consentMode: String(formData.get("consentMode") ?? ""),
     }),
   );
 }
