@@ -130,10 +130,12 @@ fi
 # ---------------------------------------------------------------- 3. ship
 say "syncing to $APP_DIR"
 # node_modules is installed on the server (native packages must match its Node).
-# Excluded paths are also protected from --delete.
+# Excluded paths are also protected from --delete. Every pattern is anchored with a
+# leading / (top level only): an unanchored `node_modules` would also drop
+# .next/node_modules, the links Turbopack uses to load server externals such as pg.
 retry rsync -az --delete --partial -e "$SSH_CMD" \
-  --exclude node_modules --exclude .lock-hash --exclude .storage \
-  --exclude .next/cache --exclude tests --exclude e2e --exclude docs \
+  --exclude /node_modules --exclude /.lock-hash --exclude /.storage \
+  --exclude /.next/cache --exclude /tests --exclude /e2e --exclude /docs \
   "$BUILD/" "$USER@$HOST:$APP_DIR/"
 
 say "install, migrate, restart"
