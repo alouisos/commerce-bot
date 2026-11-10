@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { requireSiteAccess } from "@/lib/access";
+import { addSendingDomain, refreshSendingDomain, removeSendingDomain } from "@/lib/email/domain";
+import { EmailNotConfiguredError } from "@/lib/email/provider";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { removeGreetingImage, setGreetingImage, updateEmailSettings, updateSiteSettings } from "@/lib/site-settings";
 import { deleteSite, updateSiteDetails } from "@/lib/sites";
@@ -24,7 +26,7 @@ async function run(siteId: string, fn: () => Promise<void>): Promise<SettingsSta
   try {
     await fn();
   } catch (err) {
-    if (err instanceof ValidationError) return { error: err.message };
+    if (err instanceof ValidationError || err instanceof EmailNotConfiguredError) return { error: err.message };
     throw err;
   }
   revalidatePath(`/app/sites/${siteId}/settings`);
@@ -124,4 +126,28 @@ export async function deleteSiteAction(siteId: string, _prev: SettingsState, for
   await deleteSite(site.id);
   revalidatePath("/app");
   redirect("/app");
+}
+
+export async function addSendingDomainAction(
+  siteId: string,
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  await authorize(siteId);
+  return run(siteId, async () => {
+    await addSendingDomain(siteId, String(formData.get("domain") ?? ""));
+  });
+}
+
+export async function refreshSendingDomainAction(siteId: string, _prev: SettingsState): Promise<SettingsState> {
+  await authorize(siteId);
+  return run(siteId, async () => {
+    await refreshSendingDomain(siteId);
+  });
+}
+
+export async function removeSendingDomainAction(siteId: string): Promise<void> {
+  await authorize(siteId);
+  await removeSendingDomain(siteId);
+  revalidatePath(`/app/sites/${siteId}/settings`);
 }

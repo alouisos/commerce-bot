@@ -1,11 +1,13 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { accounts, siteGreetings } from "@/db/schema";
+import { registrableHost, sendingDomainRecords } from "@/lib/email/domain";
 import { planStatus } from "@/lib/plans";
 import { loadSite } from "../load-site";
 import { DeleteSiteForm } from "./delete-site-form";
 import { EmailSettingsForm } from "./email-settings-form";
 import { GreetingImageForm } from "./greeting-image-form";
+import { SendingDomain } from "./sending-domain";
 import { SettingsForm } from "./settings-form";
 import { SiteDetailsForm } from "./site-details-form";
 
@@ -19,6 +21,10 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
     .orderBy(asc(siteGreetings.language));
   const [account] = await db.select().from(accounts).where(eq(accounts.id, site.accountId));
   const canAutoSend = planStatus(account, new Date()).limits.autoSendEmails;
+  const records =
+    site.sendingDomainStatus === "pending" || site.sendingDomainStatus === "failed"
+      ? await sendingDomainRecords(site)
+      : [];
   const byLang = new Map(rows.map((r) => [r.language, r.message]));
   const defaults = ["el", "en"].map((language) => ({ language, message: byLang.get(language) ?? "" }));
   const extra = rows.filter((r) => !["el", "en"].includes(r.language)).map((r) => ({ language: r.language, message: r.message }));
@@ -55,6 +61,14 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
           retentionMonths: site.retentionMonths,
           consentMode: site.consentMode,
         }}
+      />
+      <SendingDomain
+        siteId={site.id}
+        domain={site.sendingDomain}
+        status={site.sendingDomainStatus}
+        suggested={registrableHost(site.baseUrl)}
+        fromLocal={site.emailFromLocal}
+        records={records}
       />
       <GreetingImageForm siteId={site.id} hasImage={!!site.greetingImageKey} version={site.greetingImageKey ?? ""} />
       <DeleteSiteForm siteId={site.id} name={site.name} />
