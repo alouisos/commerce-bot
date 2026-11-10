@@ -77,6 +77,17 @@ export async function restartAfterClick(contactId: string, conversationId: strin
   return true;
 }
 
+/** They bought: no more follow-ups in this series. A later chat after an email click can start a new one. */
+export async function stopSequence(contactId: string, now: Date = new Date()): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.update(contacts).set({ sequenceConversationId: null }).where(eq(contacts.id, contactId));
+    await tx
+      .update(emailMessages)
+      .set({ status: "discarded", updatedAt: now })
+      .where(and(eq(emailMessages.contactId, contactId), inArray(emailMessages.status, ["draft", "approved"])));
+  });
+}
+
 async function sequenceHistory(contact: Contact, conversationId: string) {
   return db
     .select({

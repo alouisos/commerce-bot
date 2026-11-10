@@ -9,6 +9,7 @@ export const JOBS = {
   dailyInsights: "daily-insights",
   emailTick: "email-tick",
   retention: "retention",
+  verifyOrder: "verify-order",
 } as const;
 
 export type JobName = (typeof JOBS)[keyof typeof JOBS];
@@ -21,6 +22,18 @@ export type JobData = {
   "daily-insights": Record<string, never>;
   "email-tick": Record<string, never>;
   retention: Record<string, never>;
+  "verify-order": {
+    siteId: string;
+    sid: string;
+    url: string;
+    orderId: string;
+    orderKey: string;
+    ref: string | null;
+    /** ISO time the widget saw the order page. */
+    seenAt: string;
+    /** Re-checks of a pending order so far. */
+    attempt?: number;
+  };
 };
 
 /** Longest a crawl may run before pg-boss expires it; a "crawling" site older than this is stale. */
