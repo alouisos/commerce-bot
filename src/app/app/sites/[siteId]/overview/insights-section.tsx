@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { plural, relativeTime } from "@/lib/format";
 import { latestInsight } from "@/lib/insights/schedule";
+import { pausedKinds } from "@/lib/prompts/backoff";
+import { PROMPT_KIND_LABELS } from "./prompt-performance";
 import { RefreshInsightsButton } from "./refresh-button";
 
 function List<T>({ title, items, render }: { title: string; items: T[]; render: (item: T) => ReactNode }) {
@@ -16,13 +18,18 @@ function List<T>({ title, items, render }: { title: string; items: T[]; render: 
 
 /** The site's latest AI insights. Callers must have checked access to the site. */
 export async function InsightsSection({ siteId }: { siteId: string }) {
-  const insight = await latestInsight(siteId);
+  const [insight, paused] = await Promise.all([latestInsight(siteId), pausedKinds(siteId)]);
   return (
     <section id="insights" className="flex flex-col gap-3 border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">Insights</h3>
         <RefreshInsightsButton siteId={siteId} />
       </div>
+      <List
+        title="Prompts visitors keep dismissing"
+        items={paused}
+        render={(k) => <>{PROMPT_KIND_LABELS[k]}: paused for now, so visitors stop seeing them.</>}
+      />
       {!insight ? (
         <p className="text-sm">Insights appear after your bot&apos;s first conversations. They refresh every day.</p>
       ) : (

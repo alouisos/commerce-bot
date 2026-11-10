@@ -65,7 +65,7 @@ describe("site overview", () => {
     expect(html).toContain("Average messages per conversation: –");
     expect(html).toContain("Conversations per day (UTC)");
     expect(html).toContain("<svg");
-    expect((html.match(/<td>0<\/td>/g) ?? []).length).toBe(7);
+    expect((html.match(/<th scope="row">\d{4}-\d{2}-\d{2}<\/th><td>0<\/td>/g) ?? []).length).toBe(7);
     expect(html).toContain('aria-current="page"');
   });
 

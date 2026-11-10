@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getConversation } from "@/lib/conversations/detail";
 import { httpUrl, relativeTime } from "@/lib/format";
+import { INTENT_LABELS } from "@/shared/intent";
 import { loadSite } from "../../load-site";
 
 const utc = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
@@ -14,7 +15,8 @@ export default async function ConversationPage({
   const site = await loadSite(siteId);
   const found = await getConversation(site.id, conversationId);
   if (!found) notFound();
-  const { conversation, messages, leads } = found;
+  const { conversation, messages, leads, prompt } = found;
+  const visitPages = conversation.visit?.pages ?? [];
   const page = httpUrl(conversation.firstPageUrl);
   const now = new Date();
 
@@ -42,7 +44,37 @@ export default async function ConversationPage({
             </>
           )}
         </p>
+        {conversation.intent && (
+          <p className="text-sm">
+            Intent: {INTENT_LABELS[conversation.intent]}
+            {conversation.intentConfidence !== null && ` (${Math.round(conversation.intentConfidence * 100)}%)`}
+          </p>
+        )}
+        {prompt && <p className="text-sm">Started from a suggestion: “{prompt.text}”</p>}
       </header>
+      {visitPages.length > 0 && (
+        <section>
+          <h3 className="font-medium">Pages this visit</h3>
+          <ol className="text-sm">
+            {visitPages.map((p, i) => {
+              const href = httpUrl(p.url);
+              const title = p.title || p.url;
+              return (
+                <li key={i}>
+                  {href ? (
+                    <a href={href} className="underline" target="_blank" rel="noreferrer">
+                      {title}
+                    </a>
+                  ) : (
+                    title
+                  )}{" "}
+                  · {p.seconds}s
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
       <section className="border p-3">
         <h3 className="font-medium">Email</h3>
         {leads.length === 0 ? (

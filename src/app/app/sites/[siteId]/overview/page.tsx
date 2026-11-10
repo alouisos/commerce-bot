@@ -6,6 +6,7 @@ import { getDailyConversations, getTopStartPages, getTotals } from "@/lib/stats/
 import { parseRange } from "@/lib/stats/range";
 import { loadSite } from "../load-site";
 import { InsightsSection } from "./insights-section";
+import { PromptPerformance } from "./prompt-performance";
 
 export default async function OverviewPage({ params, searchParams }: PageProps<"/app/sites/[siteId]/overview">) {
   const { siteId } = await params;
@@ -15,11 +16,12 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
   const ids = [site.id];
   // The insights section is awaited here rather than rendered as an async child, so the whole page
   // renders in one pass (and in tests with renderToStaticMarkup).
-  const [totals, daily, starts, insights] = await Promise.all([
+  const [totals, daily, starts, insights, suggestions] = await Promise.all([
     getTotals(ids, range),
     getDailyConversations(ids, range),
     getTopStartPages(ids, range),
     InsightsSection({ siteId: site.id }),
+    PromptPerformance({ siteId: site.id, proactivity: site.proactivity, range }),
   ]);
   const average = totals.conversations > 0 ? (totals.visitorMessages / totals.conversations).toFixed(1) : "–";
 
@@ -67,6 +69,7 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
           </ol>
         )}
       </section>
+      {suggestions}
       {insights}
     </div>
   );

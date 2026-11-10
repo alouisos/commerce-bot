@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, lte, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { conversations } from "@/db/schema";
 import type { StatsRange } from "@/lib/stats/range";
+import type { Intent } from "@/shared/widget-protocol";
 
 export type ConversationFilter = "all" | "email" | "unanswered";
 
@@ -15,6 +16,7 @@ export type ConversationRow = {
   preview: string;
   hasEmail: boolean;
   unanswered: boolean;
+  intent: Intent | null;
 };
 
 export const PAGE_SIZE = 25;
@@ -74,6 +76,7 @@ export async function listConversations(
       lastMessageAt: conversations.lastMessageAt,
       language: conversations.language,
       firstPageUrl: conversations.firstPageUrl,
+      intent: conversations.intent,
       visitorMessages: sql<number>`(select count(*) from messages m where m.conversation_id = ${convId} and m.role = 'visitor')`.mapWith(
         Number,
       ),

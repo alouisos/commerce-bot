@@ -3,6 +3,7 @@ import { RangePicker } from "@/components/RangePicker";
 import { FILTERS, listConversations, parseFilter, type ConversationFilter } from "@/lib/conversations/list";
 import { relativeTime } from "@/lib/format";
 import { parseRange } from "@/lib/stats/range";
+import { INTENT_LABELS } from "@/shared/intent";
 import { loadSite } from "../load-site";
 
 /** The path of a stored page URL, for a compact column; the raw text if it doesn't parse. */
@@ -78,6 +79,7 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
               <th>Started</th>
               <th>First page</th>
               <th>Messages</th>
+              <th>Intent</th>
               <th>Preview</th>
               <th>Email</th>
               <th>Unanswered</th>
@@ -93,6 +95,7 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
                 </td>
                 <td className="max-w-48 truncate">{pathOf(r.firstPageUrl)}</td>
                 <td>{r.visitorMessages}</td>
+                <td>{r.intent ? INTENT_LABELS[r.intent] : ""}</td>
                 <td className="whitespace-pre-wrap">{r.preview}</td>
                 <td>{r.hasEmail ? "✓" : ""}</td>
                 <td>{r.unanswered ? "✓" : ""}</td>
