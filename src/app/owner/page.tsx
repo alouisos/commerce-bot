@@ -2,7 +2,7 @@ import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db/client";
-import { accounts, memberships, user } from "@/db/schema";
+import { accounts, memberships, monthlyUsage, user } from "@/db/schema";
 import { RangePicker } from "@/components/RangePicker";
 import { StatTile } from "@/components/StatTile";
 import { isPlatformOwner } from "@/lib/access";
@@ -10,6 +10,7 @@ import { usd } from "@/lib/format";
 import { getAccountStats, getPlatformTotals } from "@/lib/stats/platform";
 import { parseRange } from "@/lib/stats/range";
 import { requireUser } from "@/lib/session";
+import { monthKey } from "@/lib/usage/meter";
 import { PlanSelect } from "./plan-select";
 
 type Search = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
@@ -19,7 +20,7 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
   const currentUser = await requireUser();
   if (!isPlatformOwner(currentUser)) notFound();
   const range = parseRange((await searchParams)?.range);
-  const [accountRows, ownerRows, stats, total] = await Promise.all([
+  const [accountRows, ownerRows, stats, total, monthRows] = await Promise.all([
     db.select().from(accounts).orderBy(asc(accounts.createdAt)),
     db
       .select({ accountId: memberships.accountId, email: user.email })
@@ -28,7 +29,9 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
       .where(eq(memberships.role, "owner")),
     getAccountStats(range),
     getPlatformTotals(range),
+    db.select().from(monthlyUsage).where(eq(monthlyUsage.month, monthKey(new Date()))),
   ]);
+  const month = new Map(monthRows.map((r) => [r.accountId, r]));
   const ownerOf = new Map(ownerRows.map((r) => [r.accountId, r.email]));
   const statsOf = new Map(stats.map((s) => [s.accountId, s]));
   return (
@@ -58,6 +61,8 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
             <th>Emails</th>
             <th>Unanswered</th>
             <th>AI cost</th>
+            <th>Conversations (month)</th>
+            <th>AI cost (month)</th>
             <th>Change plan</th>
           </tr>
         </thead>
@@ -77,6 +82,8 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
               <td>{statsOf.get(a.id)?.emailsCaptured ?? 0}</td>
               <td>{statsOf.get(a.id)?.unanswered ?? 0}</td>
               <td>{usd(statsOf.get(a.id)?.aiCostMicros ?? 0)}</td>
+              <td>{month.get(a.id)?.conversations ?? 0}</td>
+              <td>{usd(month.get(a.id)?.aiCostMicros ?? 0)}</td>
               <td>
                 <PlanSelect accountId={a.id} plan={a.plan} />
               </td>

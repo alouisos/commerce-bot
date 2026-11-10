@@ -32,10 +32,10 @@ export function parseFilter(v: string | string[] | undefined): ConversationFilte
   return raw === "email" || raw === "unanswered" ? raw : "all";
 }
 
-/** `%text%` for ILIKE, with LIKE's wildcards and the escape character taken literally. */
 // Spelled out: inside a select list Drizzle renders a column without its table, which would bind to `m.id`.
 const convId = sql.raw(`"conversations"."id"`);
 
+/** `%text%` for ILIKE, with LIKE's wildcards and the escape character taken literally. */
 const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 const hasEmail = sql<boolean>`exists (select 1 from leads l where l.conversation_id = ${convId})`;
@@ -53,7 +53,8 @@ export async function listConversations(
   ];
   if (opts.filter === "email") where.push(hasEmail);
   if (opts.filter === "unanswered") where.push(unanswered);
-  const q = (opts.q ?? "").trim().slice(0, MAX_QUERY);
+  // NUL can't be sent to Postgres in a text parameter; drop it rather than fail the page.
+  const q = (opts.q ?? "").replace(/\u0000/g, "").trim().slice(0, MAX_QUERY);
   if (q) {
     where.push(
       sql`exists (select 1 from messages m where m.conversation_id = ${convId} and m.content ilike ${likePattern(q)} escape '\\')`,

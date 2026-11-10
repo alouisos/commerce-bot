@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import { requireSiteAccess } from "@/lib/access";
 import { NotFoundError } from "@/lib/errors";
-import { enqueueInsights, latestInsight } from "@/lib/insights/schedule";
+import { enqueueInsights, lastInsightsAttempt } from "@/lib/insights/schedule";
 import { requireUser } from "@/lib/session";
 
 const REFRESH_GAP_MS = 60 * 60 * 1000;
@@ -21,8 +21,9 @@ export async function refreshInsightsAction(siteId: string): Promise<RefreshResu
     if (err instanceof NotFoundError) notFound();
     throw err;
   }
-  const latest = await latestInsight(site.id);
-  if (latest && Date.now() - latest.createdAt.getTime() < REFRESH_GAP_MS) {
+  // Counts failed runs too: each one called the model and was metered.
+  const last = await lastInsightsAttempt(site.id);
+  if (last && Date.now() - last.getTime() < REFRESH_GAP_MS) {
     return { ok: false, error: "Insights were refreshed less than an hour ago." };
   }
   await enqueueInsights(site.id);

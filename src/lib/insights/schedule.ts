@@ -1,6 +1,6 @@
-import { desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, max } from "drizzle-orm";
 import { db } from "@/db/client";
-import { conversations, siteInsights, type SiteInsight } from "@/db/schema";
+import { conversations, siteInsights, usageEvents, type SiteInsight } from "@/db/schema";
 import { enqueue, JOBS } from "@/lib/jobs";
 
 const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -29,4 +29,17 @@ export async function latestInsight(siteId: string): Promise<SiteInsight | null>
     .orderBy(desc(siteInsights.createdAt))
     .limit(1);
   return row ?? null;
+}
+
+/** When insights were last generated or attempted for the site (a failed run is metered but stores nothing). */
+export async function lastInsightsAttempt(siteId: string): Promise<Date | null> {
+  const [[insight], [attempt]] = await Promise.all([
+    db.select({ at: max(siteInsights.createdAt) }).from(siteInsights).where(eq(siteInsights.siteId, siteId)),
+    db
+      .select({ at: max(usageEvents.createdAt) })
+      .from(usageEvents)
+      .where(and(eq(usageEvents.siteId, siteId), eq(usageEvents.kind, "insights"))),
+  ]);
+  const times = [insight?.at, attempt?.at].filter((d): d is Date => d instanceof Date);
+  return times.length ? new Date(Math.max(...times.map((d) => d.getTime()))) : null;
 }

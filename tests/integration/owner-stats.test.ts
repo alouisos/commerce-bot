@@ -109,6 +109,9 @@ describe("owner pages", () => {
     expect(html).toContain("AI cost");
     expect(html).toContain(`href="/owner/accounts/${a.id}?range=90d"`);
     expect(html).toContain('aria-current="page"');
+    // Plan quotas are per calendar month, so the month-to-date numbers stay next to "Change plan".
+    expect(html).toContain("Conversations (month)");
+    expect(html).toContain("AI cost (month)");
   });
 
   it("the account page shows its sites' numbers but no lead emails or transcripts", async () => {

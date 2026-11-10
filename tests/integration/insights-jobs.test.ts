@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
-import { siteInsights } from "@/db/schema";
+import { siteInsights, usageEvents } from "@/db/schema";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeConversation, makeMembership, makeSite, makeUser } from "../helpers/factories";
 
@@ -86,6 +86,23 @@ describe("refreshInsightsAction", () => {
   it("refuses within an hour of the last insight", async () => {
     const site = await memberSite();
     await insightAt(site.id, new Date(Date.now() - 10 * 60_000));
+    expect(await refreshInsightsAction(site.id)).toEqual({
+      ok: false,
+      error: "Insights were refreshed less than an hour ago.",
+    });
+    expect(enqueuedJobs()).toHaveLength(0);
+  });
+
+  it("also counts a failed attempt in the last hour (it was metered but stored nothing)", async () => {
+    const site = await memberSite();
+    await insightAt(site.id, new Date(Date.now() - 5 * 3600_000));
+    await db.insert(usageEvents).values({
+      accountId: site.accountId,
+      siteId: site.id,
+      kind: "insights",
+      model: "claude-opus-5-5",
+      createdAt: new Date(Date.now() - 10 * 60_000),
+    });
     expect(await refreshInsightsAction(site.id)).toEqual({
       ok: false,
       error: "Insights were refreshed less than an hour ago.",

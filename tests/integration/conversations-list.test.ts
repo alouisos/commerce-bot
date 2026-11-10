@@ -84,6 +84,8 @@ describe("listConversations", () => {
     expect((await listConversations(a.id, { range, q: "%" })).total).toBe(1);
     expect((await listConversations(a.id, { range, q: "it's \"quoted\"" })).total).toBe(0);
     expect((await listConversations(a.id, { range, q: "x".repeat(5000) })).total).toBe(0);
+    // Postgres rejects NUL in text parameters; a hand-edited ?q=%00 must not 500.
+    expect((await listConversations(a.id, { range, q: "100\u0000%" })).rows.map((r) => r.id)).toEqual([percent.id]);
   });
 
   it("never returns another site's conversations", async () => {
