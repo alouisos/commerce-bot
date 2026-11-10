@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { sites, type Account, type Site } from "@/db/schema";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { planStatus } from "@/lib/plans";
+import { atMonthlyLimit } from "@/lib/usage/levels";
 import { getMonthUsage } from "@/lib/usage/meter";
 import { EmailNotConfiguredError, createDomain, getDomain, verifyDomain, type DnsRecord } from "./provider";
 
@@ -94,6 +95,15 @@ export async function canSendEmail(
   if (status.expired) return false;
   const { emails } = await getMonthUsage(account.id, now);
   return emails < status.limits.emailsPerMonth;
+}
+
+/** Whether to offer emails or write new ones: sendable, and this month's conversations and emails aren't used up. */
+export async function canDraftEmail(
+  site: Pick<Site, "sendingDomain" | "sendingDomainStatus">,
+  account: Account,
+  now: Date = new Date(),
+): Promise<boolean> {
+  return (await canSendEmail(site, account, now)) && !(await atMonthlyLimit(account, now));
 }
 
 /** `{local}@{domain}` for a verified site, with the shop's name in front. */

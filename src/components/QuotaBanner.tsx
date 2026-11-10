@@ -1,11 +1,18 @@
+import Link from "next/link";
+import { contactEmail } from "@/lib/brand";
+import { usageLevels } from "@/lib/usage/levels";
 import { getQuota } from "@/lib/usage/meter";
 import type { Account } from "@/db/schema";
 
 export const AI_LIMIT_TEXT =
   "Your bot has reached this month's AI usage limit: visitors can leave their email but get no AI replies until next month.";
 
+const pct = (ratio: number) => Math.floor(ratio * 100);
+
 export async function QuotaBanner({ account }: { account: Account }) {
-  const q = await getQuota(account);
+  const now = new Date();
+  const [q, levels] = await Promise.all([getQuota(account, now), usageLevels(account, now)]);
+  const contact = contactEmail();
   let text: string | null = null;
   let role: "status" | "alert" = "status";
   if (q.expired) {
@@ -17,15 +24,25 @@ export async function QuotaBanner({ account }: { account: Account }) {
   } else if (q.aiBudgetReached) {
     text = AI_LIMIT_TEXT;
     role = "alert";
-  } else if (q.state === "limit") {
-    text = "You've reached this month's conversation limit. Visitors can still chat for now.";
-  } else if (q.state === "warning") {
-    text = `You've used ${Math.floor((q.used / q.limit) * 100)}% of this month's conversations.`;
+  } else if (levels.conversations.level === "full" || levels.emails.level === "full") {
+    const what = levels.conversations.level === "full" ? "conversations" : "emails";
+    text = `You've reached this month's ${what}. Your bot keeps answering, but makes no new suggestions or emails until next month.${
+      contact ? ` Contact ${contact} to raise your limit.` : ""
+    }`;
+  } else if (levels.conversations.level === "warning") {
+    text = `You've used ${pct(levels.conversations.ratio)} % of this month's conversations.`;
+  } else if (levels.emails.level === "warning") {
+    text = `You've used ${pct(levels.emails.ratio)} % of this month's emails.`;
+  } else if (levels.storage.level !== "ok") {
+    text = `You've used ${pct(Math.min(1, levels.storage.ratio))} % of your knowledge-base storage.`;
   }
   if (!text) return null;
   return (
     <div role={role} className="border-b px-6 py-2">
-      {text}
+      {text}{" "}
+      <Link href="/app/usage" className="underline">
+        Usage
+      </Link>
     </div>
   );
 }

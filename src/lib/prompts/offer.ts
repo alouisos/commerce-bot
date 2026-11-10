@@ -6,6 +6,7 @@ import { meteredModel, type TokenUsage } from "@/lib/ai/pricing";
 import { buildContext } from "@/lib/chat/prompt";
 import { env } from "@/lib/env";
 import { searchKnowledge } from "@/lib/kb/search";
+import { atMonthlyLimit } from "@/lib/usage/levels";
 import { aiBlocked, getQuota, recordModelUsage } from "@/lib/usage/meter";
 import { siteLanguages } from "@/lib/widget/config";
 import type { WidgetSite } from "@/lib/widget/guard";
@@ -112,6 +113,7 @@ export async function offerPrompt(
   if (site.proactivity === "off" || input.page.kind === "checkout") return null;
   if ((await pausedKinds(site.id, now)).includes(kind)) return null;
   if (aiBlocked(await getQuota(site.account, now))) return null;
+  if (await atMonthlyLimit(site.account, now)) return null;
 
   const crawled = await crawledPage(site.id, input.page.url);
   if (!crawled) return null;

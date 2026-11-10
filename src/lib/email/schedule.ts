@@ -17,7 +17,7 @@ import {
 import { effectiveEmailMode } from "@/lib/site-settings";
 import { countEmailSent } from "@/lib/usage/meter";
 import { appBaseUrl } from "@/lib/widget/config";
-import { canSendEmail, fromAddress } from "./domain";
+import { canDraftEmail, canSendEmail, fromAddress } from "./domain";
 import { sendMail } from "./provider";
 import { oneClickUrl, renderEmail, unsubscribePageUrl } from "./render";
 import { writeEmail, type CallModel } from "./writer";
@@ -155,7 +155,7 @@ async function draftDueEmails(now: Date, callModel: CallModel | undefined): Prom
   for (const { contact, site: s, account } of rows) {
     if (attempts >= MAX_WRITES_PER_TICK) break;
     const site: SiteWithAccount = { ...s, account };
-    if (!sendable.has(site.id)) sendable.set(site.id, await canSendEmail(site, account, now));
+    if (!sendable.has(site.id)) sendable.set(site.id, await canDraftEmail(site, account, now));
     if (!sendable.get(site.id)) continue;
     const next = await nextEmail(site, contact, now);
     if (!next) continue;

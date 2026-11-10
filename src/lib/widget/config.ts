@@ -3,7 +3,8 @@ import { eq, or, isNull, lt, and, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { siteGreetings, sites, type Account, type Site } from "@/db/schema";
 import { COPY, copyFor, fillSite } from "@/lib/copy/defaults";
-import { canSendEmail } from "@/lib/email/domain";
+import { canDraftEmail } from "@/lib/email/domain";
+import { atMonthlyLimit } from "@/lib/usage/levels";
 import { env } from "@/lib/env";
 import { planStatus } from "@/lib/plans";
 import { pausedKinds } from "@/lib/prompts/backoff";
@@ -62,6 +63,9 @@ export async function buildWidgetConfig(
     ? `${appBaseUrl()}/api/widget/greeting-image?key=${encodeURIComponent(site.publicKey)}&v=${greetingImageVersion(site.greetingImageKey)}`
     : null;
 
+  // This month's conversations or emails are used up: keep answering, but no suggestions or email offers.
+  const atLimit = await atMonthlyLimit(site.account, now);
+  const proactivity = atLimit ? "off" : site.proactivity;
   return {
     botName: site.botName,
     accentColor: site.accentColor,
@@ -71,9 +75,9 @@ export async function buildWidgetConfig(
     strings: { ...(strings as WidgetStrings), consentFine: fillSite(strings.consentFine, site.name) },
     showBadge: !status.limits.removeBadge,
     mode,
-    proactivity: site.proactivity,
-    pausedKinds: site.proactivity === "off" ? [] : await pausedKinds(site.id, now),
-    emailCapture: await canSendEmail(site, site.account, now),
+    proactivity,
+    pausedKinds: proactivity === "off" ? [] : await pausedKinds(site.id, now),
+    emailCapture: !atLimit && (await canDraftEmail(site, site.account, now)),
     consentMode: site.consentMode,
   };
 }
