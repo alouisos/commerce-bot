@@ -25,16 +25,27 @@ describe("plans", () => {
     expect(MAX_VISITOR_MESSAGES_PER_CONVERSATION).toBe(40);
   });
   it("planStatus handles trial expiry", () => {
-    expect(planStatus({ plan: "trial", trialEndsAt: new Date("2026-11-20") }, new Date("2026-11-21")).expired).toBe(true);
-    expect(planStatus({ plan: "trial", trialEndsAt: new Date("2026-11-20") }, new Date("2026-11-20")).expired).toBe(true);
-    expect(planStatus({ plan: "trial", trialEndsAt: new Date("2026-11-20") }, new Date("2026-11-19")).expired).toBe(false);
-    expect(planStatus({ plan: "trial", trialEndsAt: null }, new Date()).expired).toBe(false);
-    expect(planStatus({ plan: "complimentary", trialEndsAt: null }, new Date()).expired).toBe(false);
-    expect(planStatus({ plan: "starter", trialEndsAt: new Date("2020-01-01") }, new Date()).expired).toBe(false);
-    expect(planStatus({ plan: "pro", trialEndsAt: null }, new Date()).limits).toBe(PLAN_LIMITS.pro);
+    expect(planStatus({ plan: "trial", trialEndsAt: new Date("2026-11-20"), limitOverrides: null }, new Date("2026-11-21")).expired).toBe(true);
+    expect(planStatus({ plan: "trial", trialEndsAt: new Date("2026-11-20"), limitOverrides: null }, new Date("2026-11-20")).expired).toBe(true);
+    expect(planStatus({ plan: "trial", trialEndsAt: new Date("2026-11-20"), limitOverrides: null }, new Date("2026-11-19")).expired).toBe(false);
+    expect(planStatus({ plan: "trial", trialEndsAt: null, limitOverrides: null }, new Date()).expired).toBe(false);
+    expect(planStatus({ plan: "complimentary", trialEndsAt: null, limitOverrides: null }, new Date()).expired).toBe(false);
+    expect(planStatus({ plan: "starter", trialEndsAt: new Date("2020-01-01"), limitOverrides: null }, new Date()).expired).toBe(false);
+    expect(planStatus({ plan: "pro", trialEndsAt: null, limitOverrides: null }, new Date()).limits).toBe(PLAN_LIMITS.pro);
   });
   it("quotaState thresholds", () => {
     expect([0, 399, 400, 499, 500, 749, 750].map((u) => quotaState(u, 500))).toEqual(["ok", "ok", "warning", "warning", "limit", "limit", "ceiling"]);
     expect(quotaState(0, 0)).toBe("ceiling");
+  });
+  it("planStatus merges the account's limit overrides over the plan", () => {
+    const now = new Date();
+    const s = planStatus({ plan: "starter", trialEndsAt: null, limitOverrides: { conversationsPerMonth: 2000 } }, now);
+    expect(s.limits).toEqual({ ...PLAN_LIMITS.starter, conversationsPerMonth: 2000 });
+    expect(planStatus({ plan: "starter", trialEndsAt: null, limitOverrides: null }, now).limits).toEqual(PLAN_LIMITS.starter);
+    expect(planStatus({ plan: "starter", trialEndsAt: null, limitOverrides: { autoSendEmails: true } }, now).limits.autoSendEmails).toBe(true);
+    // An undefined key keeps the plan's value.
+    expect(
+      planStatus({ plan: "starter", trialEndsAt: null, limitOverrides: { websites: undefined } }, now).limits.websites,
+    ).toBe(1);
   });
 });

@@ -99,7 +99,7 @@ export async function updateEmailSettings(siteId: string, input: unknown): Promi
   const s = parsed.data;
   if (s.emailMode === "automatic") {
     const [row] = await db
-      .select({ plan: accounts.plan, trialEndsAt: accounts.trialEndsAt })
+      .select({ plan: accounts.plan, trialEndsAt: accounts.trialEndsAt, limitOverrides: accounts.limitOverrides })
       .from(sites)
       .innerJoin(accounts, eq(accounts.id, sites.accountId))
       .where(eq(sites.id, siteId));
@@ -124,7 +124,7 @@ export async function updateEmailSettings(siteId: string, input: unknown): Promi
 /** "automatic" only while the plan allows it; a downgraded site goes back to the approval queue. */
 export function effectiveEmailMode(
   site: Pick<Site, "emailMode">,
-  account: Pick<Account, "plan" | "trialEndsAt">,
+  account: Pick<Account, "plan" | "trialEndsAt" | "limitOverrides">,
   now: Date = new Date(),
 ): "approval" | "automatic" {
   return site.emailMode === "automatic" && planStatus(account, now).limits.autoSendEmails ? "automatic" : "approval";

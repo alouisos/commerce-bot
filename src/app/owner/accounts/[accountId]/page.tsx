@@ -13,6 +13,8 @@ import { parseRange } from "@/lib/stats/range";
 import { requireUser } from "@/lib/session";
 import { isUuid } from "@/lib/widget/conversation";
 import { getAccountStats } from "@/lib/stats/platform";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { LimitsForm } from "./limits-form";
 
 /** One account's numbers for the platform owner. Numbers only: no transcripts, no visitors' emails. */
 export default async function OwnerAccountPage({ params, searchParams }: PageProps<"/owner/accounts/[accountId]">) {
@@ -53,6 +55,12 @@ export default async function OwnerAccountPage({ params, searchParams }: PagePro
           {owners.map((o) => o.email).join(", ") || "none"}
         </p>
       </header>
+      <LimitsForm
+        accountId={account.id}
+        plan={PLAN_LIMITS[account.plan]}
+        overrides={account.limitOverrides ?? {}}
+        trialEndsOn={account.plan === "trial" ? (account.trialEndsAt?.toISOString().slice(0, 10) ?? "") : null}
+      />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">{range.label}</h2>
         <RangePicker basePath={`/owner/accounts/${account.id}`} current={range.key} />

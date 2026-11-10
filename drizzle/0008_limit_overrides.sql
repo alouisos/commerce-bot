@@ -1,0 +1,1 @@
+ALTER TABLE "accounts" ADD COLUMN "limit_overrides" jsonb;

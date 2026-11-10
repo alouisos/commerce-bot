@@ -60,11 +60,26 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   complimentary: { ...pro },
 };
 
+/** What the platform owner set for one account; an unset key means the plan's value. */
+export type LimitOverrides = Partial<
+  Pick<
+    PlanLimits,
+    "websites" | "conversationsPerMonth" | "emailsPerMonth" | "storageBytes" | "aiCostCeilingMicros" | "autoSendEmails" | "removeBadge"
+  >
+>;
+
+/**
+ * The account's plan, its limits (the plan's, with the account's overrides on top) and whether a trial ended.
+ * `limitOverrides` is required so every caller passes the account's own row, not just its plan.
+ */
 export function planStatus(
-  account: { plan: PlanId; trialEndsAt: Date | null },
+  account: { plan: PlanId; trialEndsAt: Date | null; limitOverrides: LimitOverrides | null },
   now: Date,
 ): { plan: PlanId; limits: PlanLimits; expired: boolean } {
   const expired =
     account.plan === "trial" && account.trialEndsAt !== null && now.getTime() >= account.trialEndsAt.getTime();
-  return { plan: account.plan, limits: PLAN_LIMITS[account.plan], expired };
+  const base = PLAN_LIMITS[account.plan];
+  const set = Object.entries(account.limitOverrides ?? {}).filter(([, v]) => v !== undefined && v !== null);
+  const limits = set.length ? { ...base, ...Object.fromEntries(set) } : base;
+  return { plan: account.plan, limits, expired };
 }

@@ -16,6 +16,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import type { InsightsContent } from "@/lib/insights/prompt";
+import type { LimitOverrides } from "@/lib/plans";
 import type { VisitSummary } from "@/shared/widget-protocol";
 import { user } from "./auth-schema";
 
@@ -31,6 +32,8 @@ export const accounts = pgTable("accounts", {
     .notNull()
     .default("trial"),
   trialEndsAt: timestamp("trial_ends_at"),
+  /** Set by the platform owner; unset keys use the plan's limits. */
+  limitOverrides: jsonb("limit_overrides").$type<LimitOverrides>(),
   createdAt: createdAt(),
 });
 
