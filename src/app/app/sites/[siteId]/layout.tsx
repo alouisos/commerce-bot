@@ -14,11 +14,13 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/app
         <h1 className="text-xl font-semibold">{site.name}</h1>
         <p className="text-sm">{site.baseUrl}</p>
       </header>
-      <nav aria-label="Website" className="flex gap-4 border-b pb-2">
-        <Link href={`/app/sites/${siteId}/settings`}>Settings</Link>
+      <nav aria-label="Website" className="flex flex-wrap gap-4 border-b pb-2">
+        <Link href={`/app/sites/${siteId}/overview`}>Overview</Link>
+        <Link href={`/app/sites/${siteId}/conversations`}>Conversations</Link>
         <Link href={`/app/sites/${siteId}/knowledge`}>Knowledge</Link>
-        <Link href={`/app/sites/${siteId}/install`}>Install</Link>
         <Link href={`/app/sites/${siteId}/leads`}>Leads</Link>
+        <Link href={`/app/sites/${siteId}/settings`}>Settings</Link>
+        <Link href={`/app/sites/${siteId}/install`}>Install</Link>
       </nav>
       <CrawlBanner siteId={site.id} host={new URL(site.baseUrl).host} notice={notice} />
       {children}

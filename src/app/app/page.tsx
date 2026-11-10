@@ -5,7 +5,9 @@ import { sites } from "@/db/schema";
 import { getAccountForUser } from "@/lib/accounts";
 import { Poller } from "@/components/Poller";
 import { crawlNotice, noticeIsLive, pageCounts, type CrawlNotice } from "@/lib/crawl/notice";
-import { relativeTime } from "@/lib/format";
+import { plural, relativeTime } from "@/lib/format";
+import { getTotalsBySite } from "@/lib/stats/queries";
+import { parseRange } from "@/lib/stats/range";
 import { requireUser } from "@/lib/session";
 import { AddSiteForm } from "./add-site-form";
 
@@ -31,6 +33,10 @@ export default async function WebsitesPage() {
   const counts = await pageCounts(list.map((s) => s.id));
   const notices = new Map(list.map((s) => [s.id, crawlNotice(s, counts.get(s.id)!)]));
   const live = [...notices.values()].some(noticeIsLive);
+  const totals = await getTotalsBySite(
+    list.map((s) => s.id),
+    parseRange("30d"),
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -43,10 +49,14 @@ export default async function WebsitesPage() {
           <ul className="flex flex-col gap-3">
             {list.map((s) => (
               <li key={s.id} className="border p-3">
-                <Link href={`/app/sites/${s.id}/settings`} className="font-medium underline">
+                <Link href={`/app/sites/${s.id}/overview`} className="font-medium underline">
                   {s.name}
                 </Link>
                 <div>{s.baseUrl}</div>
+                <div className="text-sm">
+                  Last 30 days: {plural(totals.get(s.id)!.conversations, "conversation")} ·{" "}
+                  {plural(totals.get(s.id)!.emailsCaptured, "email captured", "emails captured")}
+                </div>
                 <div className="text-sm">
                   Website: {crawlSummary(notices.get(s.id) ?? null, counts.get(s.id)!.ready)} · Last seen on site:{" "}
                   {s.lastSeenAt ? relativeTime(s.lastSeenAt) : "Not installed yet"}

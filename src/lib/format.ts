@@ -8,3 +8,17 @@ export function relativeTime(date: Date, now: Date = new Date()): string {
   if (s < 86400) return rtf.format(-Math.floor(s / 3600), "hour");
   return rtf.format(-Math.floor(s / 86400), "day");
 }
+
+/** The URL if it is http(s), for use as a link target; null for anything else (javascript:, data:, junk). */
+export function httpUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** "1 conversation", "3 conversations". */
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
