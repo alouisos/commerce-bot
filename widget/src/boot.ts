@@ -1,6 +1,7 @@
 import { h, render } from "preact";
 import { fetchConfig } from "./api";
 import { detectConsent, onConsentChange } from "./consent";
+import { reportOrderOnce } from "./orders";
 import { setRef } from "./session";
 import css from "./styles.css";
 import { App, type ConciergeApi } from "./ui/App";
@@ -143,6 +144,7 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     // suggestion request. Tracked whatever the dial says, so conversations show their intent and pages.
     if (!tracker && mayTrack()) {
       tracker = createVisitTracker({ doc, win, store: store! });
+      reportOrderOnce({ doc, win, store: store!, apiBase, siteKey: key });
     } else if (tracker && !mayTrack()) {
       tracker.dispose();
       tracker = undefined;

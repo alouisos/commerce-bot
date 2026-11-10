@@ -2,6 +2,7 @@ import type {
   ChatEvent,
   ChatRequest,
   LeadRequest,
+  OrderRequest,
   PromptEventRequest,
   PromptOffer,
   PromptRequest,
@@ -86,6 +87,16 @@ export async function fetchPrompt(apiBase: string, req: PromptRequest): Promise<
 /** Fire and forget; `keepalive` lets a dismissal be reported while the page unloads. */
 export function sendPromptEvent(apiBase: string, req: PromptEventRequest): void {
   fetch(url(apiBase, "prompt-event", { key: req.key }), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+/** Fire and forget; `keepalive` lets it finish if the visitor leaves the page at once. */
+export function sendOrder(apiBase: string, req: OrderRequest): void {
+  fetch(url(apiBase, "order", { key: req.key }), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),

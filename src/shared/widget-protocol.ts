@@ -125,6 +125,16 @@ export type SubscribeRequest = {
   language: string;
 };
 
+/** Sent once from an order-confirmation page, when tracking is allowed. */
+export type OrderRequest = {
+  key: string;
+  sid: string;
+  url: string;
+  orderId: string | null;
+  orderKey: string | null;
+  ref: string | null;
+};
+
 export type PromptRequest = {
   key: string;
   sid: string;
