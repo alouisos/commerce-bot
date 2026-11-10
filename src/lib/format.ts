@@ -27,3 +27,10 @@ const usdFormat = new Intl.NumberFormat("en-US", { style: "currency", currency: 
 
 /** Micro-dollars as "$1.50". */
 export const usd = (micros: number) => usdFormat.format(micros / 1e6);
+
+/** 3490 EUR → "€34.90". */
+export function money(minor: number, currency: string): string {
+  const f = new Intl.NumberFormat("en", { style: "currency", currency });
+  const decimals = f.resolvedOptions().maximumFractionDigits ?? 2;
+  return f.format(minor / 10 ** decimals);
+}

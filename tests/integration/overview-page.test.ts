@@ -51,8 +51,8 @@ describe("site overview", () => {
     expect(tile(html, "Conversations")).toBe("3");
     expect(tile(html, "Emails captured")).toBe("1");
     expect(tile(html, "Unanswered")).toBe("1");
-    expect(tile(html, "Sales")).toBe("–");
-    expect(html).toContain("Sales tracking arrives with the WooCommerce connection.");
+    expect(tile(html, "Sales")).toBe("0");
+    expect(html).toContain("Connect WooCommerce in Settings to see amounts.");
     expect(html).toContain("Average messages per conversation: 1.3");
     expect(html).toContain('href="https://example.com/shampoo"');
     expect(html).toContain('id="insights"');

@@ -83,6 +83,7 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
               <th>Preview</th>
               <th>Email</th>
               <th>Unanswered</th>
+              <th>Sale</th>
             </tr>
           </thead>
           <tbody>
@@ -99,6 +100,7 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
                 <td className="whitespace-pre-wrap">{r.preview}</td>
                 <td>{r.hasEmail ? "✓" : ""}</td>
                 <td>{r.unanswered ? "✓" : ""}</td>
+                <td>{r.hasSale ? "✓" : ""}</td>
               </tr>
             ))}
           </tbody>

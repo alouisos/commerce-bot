@@ -87,6 +87,7 @@ async function Sent({ siteId, page, base }: { siteId: string; page: number; base
             <th>To</th>
             <th>Subject</th>
             <th>Clicks</th>
+            <th>Sales</th>
           </tr>
         </thead>
         <tbody>
@@ -96,6 +97,7 @@ async function Sent({ siteId, page, base }: { siteId: string; page: number; base
               <td>{r.email}</td>
               <td>{r.subject}</td>
               <td>{r.clicks}</td>
+              <td>{r.sales}</td>
             </tr>
           ))}
         </tbody>

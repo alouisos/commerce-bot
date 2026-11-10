@@ -4,7 +4,7 @@ import { conversations } from "@/db/schema";
 import type { StatsRange } from "@/lib/stats/range";
 import type { Intent } from "@/shared/widget-protocol";
 
-export type ConversationFilter = "all" | "email" | "unanswered";
+export type ConversationFilter = "all" | "email" | "unanswered" | "sale";
 
 export type ConversationRow = {
   id: string;
@@ -16,6 +16,7 @@ export type ConversationRow = {
   preview: string;
   hasEmail: boolean;
   unanswered: boolean;
+  hasSale: boolean;
   intent: Intent | null;
 };
 
@@ -27,11 +28,12 @@ export const FILTERS: Record<ConversationFilter, string> = {
   all: "All",
   email: "Email captured",
   unanswered: "Unanswered",
+  sale: "Sale followed",
 };
 
 export function parseFilter(v: string | string[] | undefined): ConversationFilter {
   const raw = Array.isArray(v) ? v[0] : v;
-  return raw === "email" || raw === "unanswered" ? raw : "all";
+  return raw === "email" || raw === "unanswered" || raw === "sale" ? raw : "all";
 }
 
 // Spelled out: inside a select list Drizzle renders a column without its table, which would bind to `m.id`.
@@ -41,6 +43,7 @@ const convId = sql.raw(`"conversations"."id"`);
 const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 const hasEmail = sql<boolean>`exists (select 1 from leads l where l.conversation_id = ${convId})`;
+const hasSale = sql<boolean>`exists (select 1 from sales s where s.conversation_id = ${convId})`;
 const unanswered = sql<boolean>`exists (select 1 from messages m where m.conversation_id = ${convId} and m.kind = 'fallback')`;
 
 /** One site's conversations started in the range, newest activity first, optionally searched and filtered. */
@@ -55,6 +58,7 @@ export async function listConversations(
   ];
   if (opts.filter === "email") where.push(hasEmail);
   if (opts.filter === "unanswered") where.push(unanswered);
+  if (opts.filter === "sale") where.push(hasSale);
   // NUL can't be sent to Postgres in a text parameter; drop it rather than fail the page.
   const q = (opts.q ?? "").replace(/\u0000/g, "").trim().slice(0, MAX_QUERY);
   if (q) {
@@ -83,6 +87,7 @@ export async function listConversations(
       first: sql<string | null>`(select m.content from messages m where m.conversation_id = ${convId} and m.role = 'visitor' order by m.created_at, m.id limit 1)`,
       hasEmail,
       unanswered,
+      hasSale,
     })
     .from(conversations)
     .where(cond)

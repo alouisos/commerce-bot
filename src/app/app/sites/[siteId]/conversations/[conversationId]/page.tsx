@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getConversation } from "@/lib/conversations/detail";
-import { httpUrl, relativeTime } from "@/lib/format";
+import { httpUrl, relativeTime, money } from "@/lib/format";
 import { INTENT_LABELS } from "@/shared/intent";
 import { loadSite } from "../../load-site";
 
@@ -15,7 +15,7 @@ export default async function ConversationPage({
   const site = await loadSite(siteId);
   const found = await getConversation(site.id, conversationId);
   if (!found) notFound();
-  const { conversation, messages, leads, prompt } = found;
+  const { conversation, messages, leads, prompt, sales } = found;
   const visitPages = conversation.visit?.pages ?? [];
   const page = httpUrl(conversation.firstPageUrl);
   const now = new Date();
@@ -51,6 +51,14 @@ export default async function ConversationPage({
           </p>
         )}
         {prompt && <p className="text-sm">Started from a suggestion: “{prompt.text}”</p>}
+        {sales.map((s) => (
+          <p key={s.id} className="text-sm font-medium">
+            {s.amountMinor !== null && s.currency
+              ? `Sale followed: ${money(s.amountMinor, s.currency)}`
+              : "Sale followed (amount unknown)"}
+            {s.externalId ? ` · order #${s.externalId}` : ""}
+          </p>
+        ))}
       </header>
       {visitPages.length > 0 && (
         <section>

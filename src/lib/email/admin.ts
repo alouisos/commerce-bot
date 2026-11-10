@@ -34,6 +34,7 @@ export async function listSent(siteId: string, page: number) {
       subject: emailMessages.subject,
       sentAt: emailMessages.sentAt,
       clicks: emailMessages.clicks,
+      sales: sql<number>`(select count(*)::int from sales s where s.email_message_id = ${sql.raw('"email_messages"."id"')})`,
       email: contacts.email,
     })
     .from(emailMessages)
