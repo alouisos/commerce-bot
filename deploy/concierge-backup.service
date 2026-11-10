@@ -1,0 +1,7 @@
+[Unit]
+Description=Concierge - nightly database and uploads backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/concierge-backup

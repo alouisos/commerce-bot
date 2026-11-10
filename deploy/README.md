@@ -73,7 +73,7 @@ Do every item; several have never been verified against the live services.
 2. **Embeddings.** With a real `VOYAGE_API_KEY` and `FAKE_EMBEDDINGS=false`, upload one document under Knowledge and confirm it reaches "ready".
 3. `CRAWL_ALLOW_PRIVATE_HOSTS` is unset or `false` in production (it disables the SSRF guard).
 4. `BETTER_AUTH_SECRET` is a long random value (`openssl rand -base64 48`).
-5. `PLATFORM_OWNER_EMAILS` is set, and each owner has **signed up and then been verified on the server**: owner access needs a verified email (sign-up is open and does not verify addresses, so an unverified listed address proves nothing). After signing up: `cd /srv/concierge && set -a && . /etc/concierge.env && set +a && npm run user:verify-email -- <email>`. Check the printed creation time is yours; if the address already had an account you did not create, delete that user instead.
+5. `PLATFORM_OWNER_EMAILS` is set, and each owner has **an account that was then verified on the server**: owner access needs a verified email. Public sign-up is closed (invite-only), so a further owner is invited from `/owner` like a customer, accepts the invite, and is then verified. After accepting: `cd /srv/concierge && set -a && . /etc/concierge.env && set +a && npm run user:verify-email -- <email>`. Check the printed creation time is yours; if the address already had an account you did not create, delete that user instead.
 6. Migrations have run (`npm run db:migrate`, with `/etc/concierge.env` loaded).
 7. The worker service is running (`systemctl status concierge-worker`) and the weekly re-crawl schedule is registered (check the worker logs).
 8. TLS works, and the nginx `X-Forwarded-For` overwrite (`proxy_set_header X-Forwarded-For $remote_addr;`) is in place: rate limiting trusts the leftmost entry.
@@ -86,3 +86,22 @@ Do every item; several have never been verified against the live services.
 ## Operations
 - Logs: `journalctl -u concierge-web -u concierge-worker`.
 - Update: pull, then `set -a; . /etc/concierge.env; set +a; npm ci && npm run build && npm run db:migrate`, then `sudo systemctl restart concierge-web concierge-worker`.
+
+## Hardening in place (security review, 2026-11-11)
+
+`./deploy/deploy.sh` applies these on every run (idempotent):
+
+- **Service user.** Both services run as the unprivileged system user `concierge`, not `ubuntu` (which has
+  passwordless sudo). The code under `/srv/concierge` stays owned by `ubuntu` and is group-readable by
+  `concierge` only, never writable by it: a bug in the app can't change what the next deploy runs. Writable
+  for the service: `.next/cache`, `.next/server/route-cache` (Next's runtime page cache) and
+  `/srv/concierge-data`. `/etc/concierge.env` (and any `.bak-*` copies) is `root:concierge 640`.
+- **Units.** `MemoryMax` (web 600M, worker 900M) and `OOMScoreAdjust=300`, so under memory pressure the
+  kernel kills Concierge before Milian Jo, plus the usual systemd sandboxing (see the unit files).
+- **Backups.** A database dump in `/var/backups/concierge` before every migration (the last 10 are kept), and
+  a nightly `concierge-backup.timer` (02:45 UTC: database + uploads, kept 14 days). They are on the same disk:
+  also enable EBS snapshots (AWS Data Lifecycle Manager) or copy them off the host.
+
+Set by hand in the certbot-managed `/etc/nginx/sites-available/concierge` (the template is
+`deploy/nginx-concierge.conf`): `server_tokens off`, `client_max_body_size 1m` at server level with
+`25m` only under `/app/` and `256k` for `/api/widget/`, and `X-Forwarded-Host $host`.
