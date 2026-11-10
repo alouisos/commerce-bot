@@ -53,7 +53,7 @@ export function createVisitTracker(opts: {
   let lastScroll: number | null = null;
   let scrolls: { t: number; dy: number }[] = [];
   let lastY = win.scrollY;
-  let href = win.location.href;
+  let current_ = pageUrl(win);
 
   const save = () => {
     if (!canWrite) return;
@@ -109,10 +109,12 @@ export function createVisitTracker(opts: {
     const form = e.target instanceof HTMLFormElement ? e.target : null;
     if (form && /\/cart\/add/.test(form.getAttribute("action") ?? "")) markAdded();
   };
-  /** True when the URL changed (a single-page navigation) and a new page view started. */
+  /** True when the page changed without a reload (a single-page navigation) and a new view started. */
   const onUrlChange = () => {
-    if (win.location.href === href) return false;
-    href = win.location.href;
+    // Same page when only the query or the #fragment changes (e.g. a "#reviews" link).
+    const url = pageUrl(win);
+    if (url === current_) return false;
+    current_ = url;
     startView();
     return true;
   };
@@ -137,7 +139,10 @@ export function createVisitTracker(opts: {
     const recent = scrolls.filter((s) => t - s.t <= SKIM_WINDOW_MS);
     scrolls = recent;
     const distance = recent.reduce((sum, s) => sum + s.dy, 0);
-    const earlier = state.pages.slice(0, -1);
+    // A return visit needs another page in between: a reload of the same page is not one.
+    let lastOther = state.pages.length - 2;
+    while (lastOther >= 0 && state.pages[lastOther].url === view.url) lastOther--;
+    const earlier = state.pages.slice(0, Math.max(0, lastOther));
     return {
       pageKind: view.kind,
       seconds: view.seconds,

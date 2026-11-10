@@ -25,13 +25,11 @@ function productPage(path = "/product/shampoo/", bodyClass = "single-product") {
   Object.defineProperty(document.documentElement, "scrollHeight", { configurable: true, value: 2000 });
 }
 
-function mount(cfg: Partial<WidgetConfig> = {}, path?: string, bodyClass?: string) {
+function mount(cfg: Partial<WidgetConfig> = {}, path?: string, bodyClass?: string, store: Storage = sessionStorage) {
   productPage(path, bodyClass);
-  const tracker = createVisitTracker({ doc: document, win: window, store: sessionStorage });
+  const tracker = createVisitTracker({ doc: document, win: window, store });
   trackers.push(tracker);
-  return render(
-    <App config={{ ...config, ...cfg }} apiBase={API} siteKey="pk_test" store={sessionStorage} tracker={tracker} />,
-  );
+  return render(<App config={{ ...config, ...cfg }} apiBase={API} siteKey="pk_test" store={store} tracker={tracker} />);
 }
 
 function remount(cfg: Partial<WidgetConfig> = {}, path?: string) {
@@ -59,7 +57,8 @@ function setup(prompt: PromptOffer | null = offer, chat = [{ type: "start" as co
     m.calls
       .filter((c) => c.url.pathname.endsWith("/chat"))
       .map((c) => JSON.parse(String(c.init?.body)) as { message: string; promptId?: string | null; visit?: unknown });
-  return { promptCalls, events, chats };
+  const eventCalls = () => m.calls.filter((c) => c.url.pathname.endsWith("/prompt-event"));
+  return { promptCalls, events, chats, eventCalls };
 }
 
 beforeEach(() => {

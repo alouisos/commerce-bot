@@ -81,4 +81,17 @@ describe("boot", () => {
     await boot(document, window, script());
     expect(document.querySelectorAll("#concierge-root").length).toBe(1);
   });
+
+  it("tracks the visit even when suggestions are off (intent and pages for the admin)", async () => {
+    stubConfig({ ...config, proactivity: "off" });
+    // Its own storage: trackers left running by earlier tests write to the shared sessionStorage.
+    const data = new Map<string, string>();
+    const store = {
+      getItem: (k: string) => data.get(k) ?? null,
+      setItem: (k: string, v: string) => void data.set(k, v),
+    } as unknown as Storage;
+    const win = Object.create(window, { sessionStorage: { value: store } }) as Window;
+    await boot(document, win, script());
+    await waitFor(() => expect(data.get("concierge.visit")).toBeTruthy());
+  });
 });

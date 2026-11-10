@@ -17,13 +17,15 @@ function read(store: Storage, key: string): string | null | undefined {
   }
 }
 
-// Once a write fails (quota, private mode) memory is the source of truth for the page's life,
-// so the sid and cid stay stable even though getItem still works.
+// Once a write fails (quota, private mode, blocked site data) memory is the source of truth for the
+// page's life, so the sid, cid and suggestion state stay stable. A store that accepts a write but
+// doesn't keep it (the fallback used when sessionStorage itself is blocked) counts as failing.
 let memoryOnly = false;
 
 function write(store: Storage, key: string, value: string): void {
   try {
     store.setItem(key, value);
+    if (store.getItem(key) !== value) memoryOnly = true;
   } catch {
     memoryOnly = true;
   }
@@ -70,12 +72,15 @@ export function getPromptState(store: Storage): PromptState {
   if (raw === null) return { ...EMPTY, requestedPages: [] };
   try {
     const v = JSON.parse(raw) as Partial<PromptState>;
-    return {
+    const state: PromptState = {
       shown: typeof v.shown === "number" ? v.shown : 0,
       lastShownAt: typeof v.lastShownAt === "number" ? v.lastShownAt : null,
       silenced: v.silenced === true,
       requestedPages: Array.isArray(v.requestedPages) ? v.requestedPages.filter((p) => typeof p === "string") : [],
     };
+    // Kept in memory too, so a later failing write can't forget a dismissal read from storage.
+    promptMemory = state;
+    return { ...state, requestedPages: [...state.requestedPages] };
   } catch {
     return { ...EMPTY };
   }

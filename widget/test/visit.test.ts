@@ -76,17 +76,43 @@ describe("visit tracker", () => {
     t.dispose();
   });
 
-  it("remembers the visit across page loads", async () => {
+  it("remembers the visit across page loads; a reload is not a return visit", async () => {
     const first = createVisitTracker({ doc: document, win: window, store: sessionStorage, now });
     await tick(3);
     first.dispose();
-    const second = createVisitTracker({ doc: document, win: window, store: sessionStorage, now });
-    expect(second.signals()).toMatchObject({ pageKind: "product", revisitedProduct: true, productPages: 1, seconds: 0 });
-    expect(second.summary().pages.map((p) => p.url)).toEqual([
+    const reload = createVisitTracker({ doc: document, win: window, store: sessionStorage, now });
+    expect(reload.signals()).toMatchObject({ pageKind: "product", revisitedProduct: false, productPages: 1, seconds: 0 });
+    expect(reload.summary().pages.map((p) => p.url)).toEqual([
       "http://localhost:3000/product/shampoo/",
       "http://localhost:3000/product/shampoo/",
     ]);
-    second.dispose();
+    reload.dispose();
+  });
+
+  it("coming back to a product after another page is a return visit", () => {
+    createVisitTracker({ doc: document, win: window, store: sessionStorage, now }).dispose();
+    window.history.replaceState(null, "", "/product/conditioner/");
+    createVisitTracker({ doc: document, win: window, store: sessionStorage, now }).dispose();
+    window.history.replaceState(null, "", "/product/shampoo/");
+    const back = createVisitTracker({ doc: document, win: window, store: sessionStorage, now });
+    expect(back.signals()).toMatchObject({ revisitedProduct: true, productPages: 2 });
+    createVisitTracker({ doc: document, win: window, store: sessionStorage, now }).dispose(); // and a reload of it
+    back.dispose();
+    const again = createVisitTracker({ doc: document, win: window, store: sessionStorage, now });
+    expect(again.signals().revisitedProduct).toBe(true);
+    again.dispose();
+  });
+
+  it("an in-page link (#reviews) is the same page view", async () => {
+    const t = createVisitTracker({ doc: document, win: window, store: sessionStorage, now });
+    await tick(10);
+    window.history.pushState(null, "", "/product/shampoo/#reviews");
+    window.dispatchEvent(new Event("popstate"));
+    await tick(25);
+    expect(t.signals()).toMatchObject({ seconds: 35, revisitedProduct: false });
+    expect(t.summary().pages).toHaveLength(1);
+    expect(t.summary().intent).toBe("exploring");
+    t.dispose();
   });
 
   it("a URL change without reload starts a new page view", async () => {

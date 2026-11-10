@@ -66,7 +66,7 @@ export async function boot(doc: Document, win: Window, current: Element | null):
   };
 
   // Behaviour stays in this tab's sessionStorage for this visit; only a summary is sent, with a chat or a
-  // suggestion request. Not started at all when suggestions are off.
-  const tracker = config.proactivity === "off" ? undefined : createVisitTracker({ doc, win, store });
+  // suggestion request. Tracked whatever the dial says, so conversations show their intent and pages.
+  const tracker = createVisitTracker({ doc, win, store });
   render(h(App, { config, apiBase, siteKey: key, store, register, tracker }), mountPoint);
 }

@@ -95,7 +95,7 @@ export function detectPageKind(doc: Document, win: Window): PageKind {
   const body = doc.body?.classList;
   const has = (c: string) => !!body?.contains(c);
   const path = win.location.pathname.toLowerCase();
-  if (has("woocommerce-checkout") || /\/checkouts?(\/|$)/.test(path)) return "checkout";
+  if (has("woocommerce-checkout") || path.includes("/checkout")) return "checkout";
   if (has("woocommerce-cart") || /\/(cart|basket)\/?$/.test(path)) return "cart";
   if (has("single-product") || meta(doc, "og:type") === "product" || hasProductJsonLd(doc)) return "product";
   if (has("home") || path === "/") return "home";

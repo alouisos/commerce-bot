@@ -115,6 +115,10 @@ describe("detectPageKind", () => {
   it("falls back to the path and to page text", () => {
     at("/checkout/");
     expect(detectPageKind(document, window)).toBe("checkout");
+    at("/checkout-2/");
+    expect(detectPageKind(document, window)).toBe("checkout");
+    at("/en/checkouts/abc");
+    expect(detectPageKind(document, window)).toBe("checkout");
     at("/en/cart");
     expect(detectPageKind(document, window)).toBe("cart");
     at("/guide");
