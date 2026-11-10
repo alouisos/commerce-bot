@@ -12,6 +12,8 @@ import { resetDb } from "../helpers/db";
 type Email = { to: string; subject: string; text: string };
 const email = vi.hoisted(() => ({ sent: [] as Email[] }));
 vi.mock("@/lib/email", () => ({ sendEmail: async (m: Email) => void email.sent.push(m) }));
+const server = vi.hoisted(() => ({ connection: vi.fn(async () => {}) }));
+vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), connection: server.connection }));
 
 import { POST as authPOST } from "@/app/api/auth/[...all]/route";
 import InvitePage from "@/app/invite/[token]/page";
@@ -53,8 +55,10 @@ describe("public sign-up is closed", () => {
     expect(await db.select().from(memberships)).toHaveLength(0);
   });
 
-  it("the sign-up page says it's invite-only", () => {
-    const html = renderToStaticMarkup(SignUpPage());
+  it("the sign-up page says it's invite-only, rendered per request so the contact comes from the server's settings", async () => {
+    server.connection.mockClear();
+    const html = renderToStaticMarkup(await SignUpPage());
+    expect(server.connection).toHaveBeenCalled();
     expect(html).toContain("Concierge is invite-only for now. Contact help@example.com.");
     expect(html).toContain('href="/sign-in"');
   });

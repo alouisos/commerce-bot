@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { contactEmail } from "@/lib/brand";
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  // Rendered per request: the contact address comes from the server's settings, which a build doesn't have.
+  await connection();
   const contact = contactEmail();
   return (
     <main className="mx-auto max-w-sm p-6">
