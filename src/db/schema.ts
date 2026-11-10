@@ -4,6 +4,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -12,6 +13,7 @@ import {
   uuid,
   vector,
 } from "drizzle-orm/pg-core";
+import type { InsightsContent } from "@/lib/insights/prompt";
 import { user } from "./auth-schema";
 
 export * from "./auth-schema";
@@ -177,7 +179,7 @@ export const usageEvents = pgTable("usage_events", {
     .notNull()
     .references(() => accounts.id, { onDelete: "cascade" }),
   siteId: uuid("site_id").references(() => sites.id, { onDelete: "set null" }),
-  kind: text("kind", { enum: ["chat", "image_description"] }).notNull(),
+  kind: text("kind", { enum: ["chat", "image_description", "insights"] }).notNull(),
   model: text("model").notNull(),
   inputTokens: integer("input_tokens").notNull().default(0),
   outputTokens: integer("output_tokens").notNull().default(0),
@@ -215,6 +217,23 @@ export const leads = pgTable("leads", {
   createdAt: createdAt(),
 });
 
+export const siteInsights = pgTable(
+  "site_insights",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    periodFrom: timestamp("period_from").notNull(),
+    periodTo: timestamp("period_to").notNull(),
+    conversationCount: integer("conversation_count").notNull(),
+    content: jsonb("content").$type<InsightsContent>().notNull(),
+    model: text("model").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("site_insights_site_created_idx").on(t.siteId, t.createdAt)],
+);
+
 export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   windowStart: timestamp("window_start").notNull(),
@@ -229,3 +248,4 @@ export type KbSource = typeof kbSources.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
+export type SiteInsight = typeof siteInsights.$inferSelect;

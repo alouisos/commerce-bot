@@ -4,6 +4,7 @@ import { clearEnqueuedJobs } from "@/lib/jobs";
 
 const TABLES = [
   "rate_limits",
+  "site_insights",
   "leads",
   "monthly_usage",
   "usage_events",

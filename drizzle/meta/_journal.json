@@ -15,6 +15,13 @@
       "when": 1793971270703,
       "tag": "0001_crawl_started_at",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794317773199,
+      "tag": "0002_site_insights",
+      "breakpoints": true
     }
   ]
 }
