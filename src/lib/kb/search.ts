@@ -1,4 +1,4 @@
-import { and, cosineDistance, eq, sql } from "drizzle-orm";
+import { and, cosineDistance, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { kbChunks, kbSources } from "@/db/schema";
 import { getEmbedder } from "@/lib/ai/embed";
@@ -13,6 +13,9 @@ export type KnowledgeHit = {
   score: number;
 };
 
+/** Sites with up to this many chunks are searched exactly (a few ms), bigger ones through the index. */
+export const EXACT_SEARCH_MAX_CHUNKS = 20_000;
+
 /** Anything that can open a transaction: the db, or an outer transaction (tests). */
 type Executor = Pick<typeof db, "transaction">;
 
@@ -26,6 +29,11 @@ export async function searchKnowledge(
   const [qv] = await getEmbedder().embed([query], "query");
   const distance = cosineDistance(kbChunks.embedding, qv);
   const rows = await executor.transaction(async (tx) => {
+    // Most sites are small: rank all of their chunks exactly. `+ 0` keeps the planner off the shared
+    // HNSW index, which (being approximate and shared by every site) can return nothing for a small site
+    // next to a big one. Only big sites use the index, with iterative scan.
+    const [{ n }] = await tx.select({ n: count() }).from(kbChunks).where(eq(kbChunks.siteId, siteId));
+    const exact = n <= EXACT_SEARCH_MAX_CHUNKS;
     // HNSW returns its ef_search nearest candidates before the site filter applies, so a small site
     // among big ones can get nothing back. Iterative scan keeps scanning until enough rows pass the
     // filter (pgvector >= 0.8). relaxed_order may return rows slightly out of order: re-sorted below.
@@ -55,7 +63,7 @@ export async function searchKnowledge(
           eq(kbSources.excluded, false),
         ),
       )
-      .orderBy(distance)
+      .orderBy(exact ? sql`(${distance}) + 0` : distance)
       .limit(k * 4);
   });
   rows.sort((a, b) => Number(b.score) - Number(a.score));

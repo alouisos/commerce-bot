@@ -61,4 +61,39 @@ describe("knowledge search through the HNSW index", () => {
     expect(hits[0].sourceId).toBe(smallSrc.id);
     expect(hits[0].content).toMatch(/argan oil/i);
   });
+
+  it("a small site is searched exactly, whatever the index scan's limits", { timeout: 120_000 }, async () => {
+    const acc = await makeAccount();
+    const big = await makeSite(acc.id);
+    const small = await makeSite(acc.id);
+    const bigSrc = await makeSource(big.id, { title: "Big" });
+    const smallSrc = await makeSource(small.id, { title: "Small" });
+    const [qv] = await fakeEmbedder.embed(["argan oil"], "query");
+    await replaceChunks({ sourceId: smallSrc.id, siteId: small.id, texts: ["Argan oil is great for dry hair"] });
+
+    let hits: Awaited<ReturnType<typeof searchKnowledge>> = [];
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`
+          INSERT INTO kb_chunks (source_id, site_id, ordinal, content, embedding)
+          SELECT ${bigSrc.id}::uuid, ${big.id}::uuid, g, 'noise ' || g,
+            (SELECT array_agg(q.v + (random() - 0.5) * 0.05 + 0 * g ORDER BY q.i)
+               FROM unnest(${`{${qv.join(",")}}`}::real[]) WITH ORDINALITY AS q(v, i))::vector
+          FROM generate_series(1, 2000) AS g`);
+        // As in the test above: leave the planner only the HNSW index for the ORDER BY.
+        await tx.execute(sql`DROP INDEX kb_chunks_site_idx`);
+        await tx.execute(sql`DROP INDEX kb_chunks_source_idx`);
+        await tx.execute(sql`ANALYZE kb_chunks`);
+        // Starve the HNSW iterative scan: through the index, the small site would get nothing back.
+        await tx.execute(sql`SET LOCAL hnsw.max_scan_tuples = 50`);
+        await tx.execute(sql`SET LOCAL enable_seqscan = off`);
+        hits = await searchKnowledge(small.id, "argan oil", 6, tx);
+        throw new Rollback();
+      });
+    } catch (e) {
+      if (!(e instanceof Rollback)) throw e;
+    }
+    expect(hits.map((h) => h.sourceId)).toEqual([smallSrc.id]);
+  });
 });
+
