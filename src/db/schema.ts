@@ -453,6 +453,22 @@ export const accountInvites = pgTable("account_invites", {
   createdAt: createdAt(),
 });
 
+/** Warnings already emailed to an account's owners, once per period. */
+export const accountNotices = pgTable(
+  "account_notices",
+  {
+    id: id(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    /** `YYYY-MM` for usage notices, `trial` for trial reminders. */
+    period: text("period").notNull(),
+    kind: text("kind").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("account_notices_once_idx").on(t.accountId, t.period, t.kind)],
+);
+
 export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   windowStart: timestamp("window_start").notNull(),

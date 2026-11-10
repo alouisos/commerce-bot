@@ -14,6 +14,7 @@ async function main() {
   await boss.schedule(JOBS.dailyInsights, "0 4 * * *");
   await boss.schedule(JOBS.emailTick, "*/15 * * * *");
   await boss.schedule(JOBS.retention, "30 3 * * *");
+  await boss.schedule(JOBS.usageNotices, "0 9 * * *");
   console.log("[worker] started");
   const stop = async () => {
     await boss.stop();

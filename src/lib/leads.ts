@@ -16,7 +16,7 @@ export function listLeads(siteId: string, limit = LEADS_PAGE_LIMIT): Promise<Lea
     .limit(limit);
 }
 
-async function ownerEmails(accountId: string): Promise<string[]> {
+export async function ownerEmails(accountId: string): Promise<string[]> {
   const rows = await db
     .select({ email: user.email })
     .from(memberships)

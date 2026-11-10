@@ -10,6 +10,7 @@ export const JOBS = {
   emailTick: "email-tick",
   retention: "retention",
   verifyOrder: "verify-order",
+  usageNotices: "usage-notices",
 } as const;
 
 export type JobName = (typeof JOBS)[keyof typeof JOBS];
@@ -22,6 +23,7 @@ export type JobData = {
   "daily-insights": Record<string, never>;
   "email-tick": Record<string, never>;
   retention: Record<string, never>;
+  "usage-notices": Record<string, never>;
   "verify-order": {
     siteId: string;
     sid: string;

@@ -71,6 +71,13 @@
       "when": 1794337181748,
       "tag": "0009_account_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794337767896,
+      "tag": "0010_account_notices",
+      "breakpoints": true
     }
   ]
 }

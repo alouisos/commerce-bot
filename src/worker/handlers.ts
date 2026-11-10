@@ -8,6 +8,7 @@ import { dailyInsights } from "@/lib/insights/schedule";
 import { ingestSource } from "@/lib/kb/ingest";
 import { applyRetention } from "@/lib/privacy/retention";
 import { verifyOrder } from "@/lib/sales/verify";
+import { sendUsageNotices } from "@/lib/usage/notices";
 
 export type Handlers = Partial<{ [N in JobName]: (data: JobData[N]) => Promise<void> }>;
 
@@ -32,6 +33,10 @@ export const handlers: Handlers = {
   [JOBS.verifyOrder]: async (data) => {
     const out = await verifyOrder(data);
     console.log(`[sales] order ${data.orderId} on ${data.siteId}: ${out}`);
+  },
+  [JOBS.usageNotices]: async () => {
+    const n = await sendUsageNotices();
+    if (n) console.log(`[notices] sent ${n}`);
   },
   [JOBS.retention]: async () => {
     const out = await applyRetention();
