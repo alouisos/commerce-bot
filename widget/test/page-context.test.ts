@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { collectPageContext } from "../src/page-context";
+import { collectPageContext, detectPageKind } from "../src/page-context";
 
 function visible(...els: Element[]) {
   for (const el of els) {
@@ -88,5 +88,52 @@ describe("collectPageContext", () => {
     const ctx = collectPageContext(document, window);
     expect(ctx.visibleText).toBe("seen");
     expect(ctx.headings).toEqual([]);
+  });
+});
+
+describe("detectPageKind", () => {
+  const at = (path: string) => window.history.replaceState(null, "", path);
+
+  beforeEach(() => {
+    document.body.className = "";
+    at("/somewhere");
+  });
+
+  it("reads WooCommerce body classes", () => {
+    document.body.className = "single-product woocommerce";
+    expect(detectPageKind(document, window)).toBe("product");
+    document.body.className = "woocommerce-cart";
+    expect(detectPageKind(document, window)).toBe("cart");
+    document.body.className = "woocommerce-checkout";
+    expect(detectPageKind(document, window)).toBe("checkout");
+    document.body.className = "home page";
+    expect(detectPageKind(document, window)).toBe("home");
+    document.body.className = "archive tax-product_cat";
+    expect(detectPageKind(document, window)).toBe("listing");
+  });
+
+  it("falls back to the path and to page text", () => {
+    at("/checkout/");
+    expect(detectPageKind(document, window)).toBe("checkout");
+    at("/en/cart");
+    expect(detectPageKind(document, window)).toBe("cart");
+    at("/guide");
+    document.body.innerHTML = `<p>${"word ".repeat(400)}</p>`;
+    expect(detectPageKind(document, window)).toBe("content");
+  });
+
+  it("an empty page is other", () => {
+    expect(detectPageKind(document, window)).toBe("other");
+  });
+});
+
+describe("WooCommerce product without JSON-LD", () => {
+  it("reads the product title and price from the page", () => {
+    document.body.className = "single-product";
+    document.body.innerHTML = `<h1 class="product_title">Shampoo</h1>
+      <div class="summary"><p class="price"><span class="woocommerce-Price-amount amount"><bdi>22,00&nbsp;<span class="woocommerce-Price-currencySymbol">€</span></bdi></span></p></div>`;
+    const ctx = collectPageContext(document, window);
+    expect(ctx.kind).toBe("product");
+    expect(ctx.product).toEqual({ name: "Shampoo", price: "22,00 €", currency: "EUR" });
   });
 });
