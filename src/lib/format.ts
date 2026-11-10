@@ -22,3 +22,8 @@ export function httpUrl(value: string | null | undefined): string | null {
 
 /** "1 conversation", "3 conversations". */
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+const usdFormat = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+
+/** Micro-dollars as "$1.50". */
+export const usd = (micros: number) => usdFormat.format(micros / 1e6);

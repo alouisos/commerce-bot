@@ -1,20 +1,11 @@
 import { DailyBarChart } from "@/components/DailyBarChart";
 import { RangePicker } from "@/components/RangePicker";
+import { StatTile } from "@/components/StatTile";
 import { httpUrl } from "@/lib/format";
 import { getDailyConversations, getTopStartPages, getTotals } from "@/lib/stats/queries";
 import { parseRange } from "@/lib/stats/range";
 import { loadSite } from "../load-site";
 import { InsightsSection } from "./insights-section";
-
-function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div className="border p-3">
-      <dt className="text-sm">{label}</dt>
-      <dd className="text-2xl font-semibold">{value}</dd>
-      {note && <dd className="text-xs opacity-70">{note}</dd>}
-    </div>
-  );
-}
 
 export default async function OverviewPage({ params, searchParams }: PageProps<"/app/sites/[siteId]/overview">) {
   const { siteId } = await params;
@@ -40,14 +31,14 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
       </div>
       <section aria-label="Numbers">
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Tile label="Conversations" value={String(totals.conversations)} />
-          <Tile label="Emails captured" value={String(totals.emailsCaptured)} />
-          <Tile
+          <StatTile label="Conversations" value={String(totals.conversations)} />
+          <StatTile label="Emails captured" value={String(totals.emailsCaptured)} />
+          <StatTile
             label="Unanswered"
             value={String(totals.unanswered)}
             note="conversations where the bot couldn't reply"
           />
-          <Tile label="Sales" value="–" note="Sales tracking arrives with the WooCommerce connection." />
+          <StatTile label="Sales" value="–" note="Sales tracking arrives with the WooCommerce connection." />
         </dl>
         <p className="mt-2 text-sm">Average messages per conversation: {average}</p>
       </section>
