@@ -14,6 +14,12 @@ export const COPY: Record<"en" | "el", WidgetStrings & { defaultGreeting: string
     questionLabel: "Your question",
     poweredBy: "Powered by Concierge",
     dismissPrompt: "Dismiss suggestion",
+    consentAsk: "Want me to email you personalised recommendations based on what we talked about?",
+    consentFine:
+      "By sending your email you agree to receive personalised emails from {site} based on this chat and the pages you viewed. You can unsubscribe at any time.",
+    consentYes: "Yes, email me",
+    consentNo: "No thanks",
+    consentThanks: "Thanks! Check your inbox to confirm.",
   },
   el: {
     disclosure: "Συνομιλείτε με έναν βοηθό τεχνητής νοημοσύνης. Μπορεί να κάνει λάθη, γι' αυτό ελέγξτε τις σημαντικές πληροφορίες.",
@@ -28,9 +34,52 @@ export const COPY: Record<"en" | "el", WidgetStrings & { defaultGreeting: string
     questionLabel: "Η ερώτησή σας",
     poweredBy: "Με την υποστήριξη του Concierge",
     dismissPrompt: "Απόρριψη πρότασης",
+    consentAsk: "Θέλετε να σας στείλω με email εξατομικευμένες προτάσεις με βάση όσα συζητήσαμε;",
+    consentFine:
+      "Στέλνοντας το email σας, συμφωνείτε να λαμβάνετε εξατομικευμένα email από το {site} με βάση αυτή τη συζήτηση και τις σελίδες που είδατε. Μπορείτε να διαγραφείτε όποτε θέλετε.",
+    consentYes: "Ναι, στείλτε μου",
+    consentNo: "Όχι, ευχαριστώ",
+    consentThanks: "Ευχαριστούμε! Ελέγξτε τα εισερχόμενά σας για επιβεβαίωση.",
   },
 };
 
 export function copyFor(language: string): (typeof COPY)["en"] {
   return language in COPY ? COPY[language as "en" | "el"] : COPY.en;
 }
+
+/** Server-side copy for the emails and pages a subscriber sees. `{site}` is the site's name. */
+export const EMAIL_COPY = {
+  en: {
+    confirmSubject: "Please confirm your email for {site}",
+    confirmBody: "Please confirm that you'd like personalised recommendations from {site} by email:",
+    confirmButton: "Confirm my email",
+    confirmPrompt: "Confirm that you'd like personalised recommendations from {site} by email.",
+    confirmed: "You're subscribed to {site}.",
+    invalidLink: "This link has expired or isn't valid.",
+    unsubscribeButton: "Unsubscribe",
+    unsubscribePrompt: "Stop receiving emails from {site}?",
+    unsubscribed: "You're unsubscribed from {site}.",
+    footer: "You're getting this because you asked {site} for recommendations. Unsubscribe:",
+  },
+  el: {
+    confirmSubject: "Επιβεβαιώστε το email σας για το {site}",
+    confirmBody: "Επιβεβαιώστε ότι θέλετε να λαμβάνετε εξατομικευμένες προτάσεις από το {site} με email:",
+    confirmButton: "Επιβεβαίωση του email μου",
+    confirmPrompt: "Επιβεβαιώστε ότι θέλετε να λαμβάνετε εξατομικευμένες προτάσεις από το {site} με email.",
+    confirmed: "Η εγγραφή σας στο {site} ολοκληρώθηκε.",
+    invalidLink: "Ο σύνδεσμος έχει λήξει ή δεν είναι έγκυρος.",
+    unsubscribeButton: "Διαγραφή",
+    unsubscribePrompt: "Να σταματήσετε να λαμβάνετε email από το {site};",
+    unsubscribed: "Διαγραφήκατε από το {site}.",
+    footer: "Λαμβάνετε αυτό το email επειδή ζητήσατε προτάσεις από το {site}. Διαγραφή:",
+  },
+} as const;
+
+export type EmailCopy = (typeof EMAIL_COPY)["en"];
+
+export function emailCopyFor(language: string): { language: "en" | "el"; copy: Record<keyof EmailCopy, string> } {
+  const l = language === "el" ? "el" : "en";
+  return { language: l, copy: EMAIL_COPY[l] };
+}
+
+export const fillSite = (text: string, site: string) => text.replaceAll("{site}", site);

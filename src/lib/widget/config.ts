@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { eq, or, isNull, lt, and, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { siteGreetings, sites, type Account, type Site } from "@/db/schema";
-import { COPY, copyFor } from "@/lib/copy/defaults";
+import { COPY, copyFor, fillSite } from "@/lib/copy/defaults";
+import { canSendEmail } from "@/lib/email/domain";
 import { env } from "@/lib/env";
 import { planStatus } from "@/lib/plans";
 import { pausedKinds } from "@/lib/prompts/backoff";
@@ -67,10 +68,11 @@ export async function buildWidgetConfig(
     corner: site.corner,
     language,
     greeting: { message, imageUrl },
-    strings: strings as WidgetStrings,
+    strings: { ...(strings as WidgetStrings), consentFine: fillSite(strings.consentFine, site.name) },
     showBadge: !status.limits.removeBadge,
     mode,
     proactivity: site.proactivity,
     pausedKinds: site.proactivity === "off" ? [] : await pausedKinds(site.id, now),
+    emailCapture: await canSendEmail(site, site.account, now),
   };
 }

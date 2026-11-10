@@ -1,11 +1,18 @@
 /** @jsxImportSource preact */
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type { StoredMessage, WidgetConfig } from "../../../src/shared/widget-protocol";
-import { fetchConversation, sendChat, sendLead } from "../api";
+import { fetchConversation, sendChat, sendLead, sendSubscribe } from "../api";
 import { onColor } from "../color";
 import { collectPageContext } from "../page-context";
 import { usePrompts } from "../prompts";
-import { getSession, hasTeased, markTeased, setConversationId } from "../session";
+import {
+  consentAsked,
+  getSession,
+  hasTeased,
+  markConsentAsked,
+  markTeased,
+  setConversationId,
+} from "../session";
 import type { VisitTracker } from "../visit";
 import { Launcher } from "./Launcher";
 import { Panel, type UiMessage } from "./Panel";
@@ -15,6 +22,8 @@ import { Teaser } from "./Teaser";
 export type ConciergeApi = { open(): void; close(): void };
 
 const TEASER_DELAY_MS = 1500;
+/** The email offer comes only after this many completed bot replies in the conversation. */
+const CONSENT_AFTER_REPLIES = 2;
 let localId = 0;
 const nextId = () => `local-${++localId}`;
 
@@ -46,6 +55,10 @@ export function App({
   const [pending, setPending] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [fallback, setFallback] = useState(forcedFallback);
+  // "open" while offered, "thanks" after yes, "closed" when asked before this visit or after no.
+  const [consent, setConsent] = useState<"open" | "thanks" | "closed">(() =>
+    consentAsked(store) ? "closed" : "open",
+  );
   const launcherRef = useRef<HTMLButtonElement>(null);
   const cidRef = useRef<string | null>(null);
   const restoredRef = useRef(false);
@@ -187,6 +200,28 @@ export function App({
     [apiBase, siteKey, store],
   );
 
+  const botReplies = messages.filter((m) => m.role === "bot").length;
+  const offerConsent =
+    config.emailCapture && !fallback && consent !== "closed" && botReplies >= CONSENT_AFTER_REPLIES;
+  const consentYes = useCallback(
+    async (email: string) => {
+      markConsentAsked(store);
+      const { sid } = getSession(store);
+      try {
+        await sendSubscribe(apiBase, { key: siteKey, sid, cid: cidRef.current, email, language: config.language });
+        setConsent("thanks");
+      } catch {
+        // A missed email is fine; the offer just goes away.
+        setConsent("closed");
+      }
+    },
+    [apiBase, siteKey, store, config.language],
+  );
+  const consentNo = useCallback(() => {
+    markConsentAsked(store);
+    setConsent("closed");
+  }, [store]);
+
   return (
     <div
       class={`cc ${config.corner === "bottom-left" ? "left" : "right"}`}
@@ -224,6 +259,7 @@ export function App({
           onSend={(text) => void send(text)}
           onLead={lead}
           onClose={closePanel}
+          consent={offerConsent ? { done: consent === "thanks", onYes: consentYes, onNo: consentNo } : null}
         />
       )}
       <Launcher

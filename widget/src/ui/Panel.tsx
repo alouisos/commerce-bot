@@ -3,6 +3,7 @@ import type { RefObject } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { LIMITS, type WidgetConfig, type WidgetImage } from "../../../src/shared/widget-protocol";
 import { renderMessage } from "../render";
+import { ConsentCard } from "./ConsentCard";
 import { FallbackForm } from "./FallbackForm";
 
 export type UiMessage = { id: string; role: "visitor" | "bot"; content: string; images: WidgetImage[] };
@@ -28,6 +29,7 @@ export function Panel({
   onSend,
   onLead,
   onClose,
+  consent,
 }: {
   config: WidgetConfig;
   apiBase: string;
@@ -39,6 +41,8 @@ export function Panel({
   onSend: (text: string) => void;
   onLead: (email: string, message: string) => Promise<void>;
   onClose: () => void;
+  /** The email offer, when it should be shown. */
+  consent?: { done: boolean; onYes: (email: string) => Promise<void>; onNo: () => void } | null;
 }) {
   const { strings } = config;
   const panelRef = useRef<HTMLDivElement>(null);
@@ -124,6 +128,7 @@ export function Panel({
         )}
         <div ref={endRef} />
       </div>
+      {consent && !fallback && <ConsentCard strings={strings} {...consent} />}
       {fallback ? (
         <FallbackForm strings={strings} onSubmit={onLead} />
       ) : (

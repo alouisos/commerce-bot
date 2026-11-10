@@ -53,6 +53,12 @@ export type WidgetStrings = {
   questionLabel: string;
   poweredBy: string;
   dismissPrompt: string;
+  consentAsk: string;
+  /** Contains `{site}` until the server fills in the site's name. */
+  consentFine: string;
+  consentYes: string;
+  consentNo: string;
+  consentThanks: string;
 };
 
 export type WidgetConfig = {
@@ -67,6 +73,8 @@ export type WidgetConfig = {
   proactivity: Proactivity;
   /** Suggestion types paused on this site because visitors keep dismissing them. */
   pausedKinds: PromptKind[];
+  /** The bot may offer personalised emails: the site has a verified sending domain and emails left. */
+  emailCapture: boolean;
 };
 
 export type WidgetImage = { id: string; url: string; caption: string };
@@ -103,6 +111,14 @@ export type LeadRequest = {
   cid: string | null;
   email: string;
   message: string;
+};
+
+export type SubscribeRequest = {
+  key: string;
+  sid: string;
+  cid: string | null;
+  email: string;
+  language: string;
 };
 
 export type PromptRequest = {

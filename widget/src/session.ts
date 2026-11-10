@@ -4,8 +4,14 @@
 const SID = "concierge.sid";
 const CID = "concierge.cid";
 const TEASED = "concierge.teased";
+const CONSENT_ASKED = "concierge.consentAsked";
 
-const memory: { sid: string | null; cid: string | null; teased: boolean } = { sid: null, cid: null, teased: false };
+const memory: { sid: string | null; cid: string | null; teased: boolean; consentAsked: boolean } = {
+  sid: null,
+  cid: null,
+  teased: false,
+  consentAsked: false,
+};
 
 /** undefined means storage threw (use memory); null means storage works and has no value. */
 function read(store: Storage, key: string): string | null | undefined {
@@ -56,6 +62,17 @@ export function hasTeased(store: Storage): boolean {
 export function markTeased(store: Storage): void {
   memory.teased = true;
   write(store, TEASED, "1");
+}
+
+/** The email offer is made at most once per visit, whatever the answer. */
+export function consentAsked(store: Storage): boolean {
+  const v = read(store, CONSENT_ASKED);
+  return v === undefined ? memory.consentAsked : v === "1";
+}
+
+export function markConsentAsked(store: Storage): void {
+  memory.consentAsked = true;
+  write(store, CONSENT_ASKED, "1");
 }
 
 // Suggestion state for the visit: survives page loads so the cap and the silence hold.

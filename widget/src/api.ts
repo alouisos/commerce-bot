@@ -6,6 +6,7 @@ import type {
   PromptOffer,
   PromptRequest,
   StoredMessage,
+  SubscribeRequest,
   WidgetConfig,
 } from "../../src/shared/widget-protocol";
 import { parseSSE } from "./sse";
@@ -53,6 +54,15 @@ export async function sendLead(apiBase: string, req: LeadRequest): Promise<void>
     body: JSON.stringify(req),
   });
   if (!res.ok) throw new Error(`lead ${res.status}`);
+}
+
+export async function sendSubscribe(apiBase: string, req: SubscribeRequest): Promise<void> {
+  const res = await fetch(url(apiBase, "subscribe", { key: req.key }), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new Error(`subscribe ${res.status}`);
 }
 
 /** A suggestion for this page, or null (none, or any failure: suggestions are optional). */

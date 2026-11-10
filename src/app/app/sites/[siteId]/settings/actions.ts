@@ -139,7 +139,7 @@ export async function addSendingDomainAction(
   });
 }
 
-export async function refreshSendingDomainAction(siteId: string, _prev: SettingsState): Promise<SettingsState> {
+export async function refreshSendingDomainAction(siteId: string): Promise<SettingsState> {
   await authorize(siteId);
   return run(siteId, async () => {
     await refreshSendingDomain(siteId);

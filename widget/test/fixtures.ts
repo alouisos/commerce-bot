@@ -20,11 +20,17 @@ export const config: WidgetConfig = {
     questionLabel: "Your question",
     poweredBy: "Powered by Concierge",
     dismissPrompt: "Dismiss suggestion",
+    consentAsk: "Want personalised recommendations by email?",
+    consentFine: "By sending your email you agree to emails from Shop. Unsubscribe any time.",
+    consentYes: "Yes, email me",
+    consentNo: "No thanks",
+    consentThanks: "Thanks! Check your inbox to confirm.",
   },
   showBadge: true,
   mode: "ai",
   proactivity: "gentle",
   pausedKinds: [],
+  emailCapture: false,
 };
 
 export function sseBody(events: ChatEvent[]): ReadableStream<Uint8Array> {
@@ -48,6 +54,7 @@ export function mockFetch(routes: {
   lead?: number;
   /** null answers 204 (no suggestion). */
   prompt?: PromptOffer | null;
+  subscribe?: number;
 }) {
   const calls: { url: URL; init?: RequestInit }[] = [];
   const handler: Handler = (url) => {
@@ -62,6 +69,7 @@ export function mockFetch(routes: {
     if (url.pathname.endsWith("/prompt")) {
       return routes.prompt ? new Response(JSON.stringify(routes.prompt), { status: 200 }) : new Response(null, { status: 204 });
     }
+    if (url.pathname.endsWith("/subscribe")) return new Response("{}", { status: routes.subscribe ?? 201 });
     if (url.pathname.endsWith("/prompt-event")) return new Response(null, { status: 204 });
     return new Response("{}", { status: 404 });
   };
