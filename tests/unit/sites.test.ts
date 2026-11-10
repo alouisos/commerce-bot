@@ -16,6 +16,7 @@ const valid = {
   guardrails: "",
   greetings: [{ language: "el", message: "Γεια" }],
   allowedOrigins: ["https://milianjo.com"],
+  proactivity: "gentle",
 };
 
 describe("sites helpers", () => {

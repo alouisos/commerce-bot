@@ -55,6 +55,7 @@ export async function saveSettingsAction(
       guardrails: String(formData.get("guardrails") ?? ""),
       greetings,
       allowedOrigins,
+      proactivity: String(formData.get("proactivity") ?? ""),
     }),
   );
 }

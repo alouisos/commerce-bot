@@ -52,6 +52,7 @@ export type WidgetStrings = {
   emailLabel: string;
   questionLabel: string;
   poweredBy: string;
+  dismissPrompt: string;
 };
 
 export type WidgetConfig = {
@@ -63,6 +64,9 @@ export type WidgetConfig = {
   strings: WidgetStrings;
   showBadge: boolean;
   mode: "ai" | "fallback";
+  proactivity: Proactivity;
+  /** Suggestion types paused on this site because visitors keep dismissing them. */
+  pausedKinds: PromptKind[];
 };
 
 export type WidgetImage = { id: string; url: string; caption: string };

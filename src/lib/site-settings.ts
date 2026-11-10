@@ -31,6 +31,7 @@ export const siteSettingsSchema = z.object({
     .max(10)
     .refine((g) => new Set(g.map((x) => x.language)).size === g.length, "Each language can only appear once"),
   allowedOrigins: z.array(origin).max(10, "At most 10 allowed origins"),
+  proactivity: z.enum(["off", "gentle", "active"], { error: "Choose how proactive the bot should be" }),
 });
 
 export type SiteSettingsInput = z.infer<typeof siteSettingsSchema>;
@@ -51,6 +52,7 @@ export async function updateSiteSettings(siteId: string, input: unknown): Promis
         defaultLanguage: s.defaultLanguage,
         guardrails: s.guardrails,
         allowedOrigins: [...new Set(s.allowedOrigins)],
+        proactivity: s.proactivity,
       })
       .where(eq(sites.id, siteId));
     await tx.delete(siteGreetings).where(eq(siteGreetings.siteId, siteId));

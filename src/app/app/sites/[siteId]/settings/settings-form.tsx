@@ -11,7 +11,14 @@ type Initial = {
   guardrails: string;
   allowedOrigins: string[];
   greetings: { language: string; message: string }[];
+  proactivity: "off" | "gentle" | "active";
 };
+
+const PROACTIVITY = [
+  { value: "off", label: "Off", help: "Only answers when a visitor opens the chat." },
+  { value: "gentle", label: "Gentle (recommended)", help: "Occasional, well-timed suggestions. At most 2 per visit." },
+  { value: "active", label: "Active", help: "Suggests a little sooner, up to 3 times per visit." },
+] as const;
 
 export function SettingsForm({ siteId, initial }: { siteId: string; initial: Initial }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveSettingsAction.bind(null, siteId), {});
@@ -46,6 +53,25 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
           className="w-20 border p-2"
         />
       </label>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="font-medium">How proactive should the bot be?</legend>
+        {PROACTIVITY.map((o) => (
+          <label key={o.value} className="flex items-start gap-2">
+            <input
+              type="radio"
+              name="proactivity"
+              value={o.value}
+              defaultChecked={initial.proactivity === o.value}
+              className="mt-1"
+            />
+            <span>
+              {o.label}
+              <span className="block text-sm opacity-80">{o.help}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="font-medium">Greeting message per language</legend>

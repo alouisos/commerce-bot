@@ -5,6 +5,7 @@ import { siteGreetings, sites, type Account, type Site } from "@/db/schema";
 import { COPY, copyFor } from "@/lib/copy/defaults";
 import { env } from "@/lib/env";
 import { planStatus } from "@/lib/plans";
+import { pausedKinds } from "@/lib/prompts/backoff";
 import { aiBlocked, getQuota } from "@/lib/usage/meter";
 import { resolveLanguage } from "@/lib/widget/language";
 import type { WidgetConfig, WidgetStrings } from "@/shared/widget-protocol";
@@ -69,5 +70,7 @@ export async function buildWidgetConfig(
     strings: strings as WidgetStrings,
     showBadge: !status.limits.removeBadge,
     mode,
+    proactivity: site.proactivity,
+    pausedKinds: site.proactivity === "off" ? [] : await pausedKinds(site.id, now),
   };
 }

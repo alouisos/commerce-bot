@@ -30,6 +30,7 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
           botName: site.botName,
           accentColor: site.accentColor,
           corner: site.corner,
+          proactivity: site.proactivity,
           defaultLanguage: site.defaultLanguage,
           guardrails: site.guardrails,
           allowedOrigins: site.allowedOrigins,

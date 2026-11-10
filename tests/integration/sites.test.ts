@@ -19,6 +19,7 @@ const settings = (greetings: { language: string; message: string }[]) => ({
   guardrails: "No medical advice",
   greetings,
   allowedOrigins: ["https://a.com"],
+  proactivity: "gentle",
 });
 
 beforeEach(resetDb);
@@ -67,6 +68,15 @@ describe("updateSiteSettings", () => {
     const account = await makeAccount();
     const site = await makeSite(account.id);
     await expect(updateSiteSettings(site.id, { ...settings([]), accentColor: "red" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(updateSiteSettings(site.id, { ...settings([]), proactivity: "loud" })).rejects.toBeInstanceOf(ValidationError);
+  });
+  it("saves the proactivity dial (gentle by default)", async () => {
+    const account = await makeAccount();
+    const site = await makeSite(account.id);
+    expect(site.proactivity).toBe("gentle");
+    await updateSiteSettings(site.id, { ...settings([]), proactivity: "off" });
+    const [s] = await db.select().from(sites).where(eq(sites.id, site.id));
+    expect(s.proactivity).toBe("off");
   });
 });
 

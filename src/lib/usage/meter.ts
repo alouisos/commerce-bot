@@ -24,7 +24,7 @@ export async function countConversation(accountId: string, now: Date = new Date(
 export async function recordModelUsage(input: {
   accountId: string;
   siteId: string | null;
-  kind: "chat" | "image_description" | "insights";
+  kind: "chat" | "image_description" | "insights" | "prompt";
   model: string;
   usage: TokenUsage;
   now?: Date;

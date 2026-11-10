@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db/client";
-import { accounts, conversations, kbSources, leads, memberships, messages, sites, user } from "@/db/schema";
+import { accounts, conversations, kbSources, leads, memberships, messages, promptImpressions, sites, user } from "@/db/schema";
 
 export async function makeUser(email?: string) {
   const id = randomUUID();
@@ -67,6 +67,28 @@ export async function makeLead(siteId: string, overrides: Partial<typeof leads.$
   const [row] = await db
     .insert(leads)
     .values({ siteId, email: `lead-${randomUUID()}@example.com`, message: "Please follow up", ...overrides })
+    .returning();
+  return row;
+}
+
+export async function makeImpression(
+  siteId: string,
+  overrides: Partial<typeof promptImpressions.$inferInsert> = {},
+) {
+  const [row] = await db
+    .insert(promptImpressions)
+    .values({
+      siteId,
+      visitorSessionId: `sid-${randomUUID()}`,
+      kind: "question",
+      intent: "exploring",
+      confidence: 0.8,
+      language: "en",
+      pageUrl: "https://example.com/product/shampoo/",
+      text: "Want to know how to use it?",
+      question: "How do I use it?",
+      ...overrides,
+    })
     .returning();
   return row;
 }

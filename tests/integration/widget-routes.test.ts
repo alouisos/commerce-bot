@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { leads, monthlyUsage, siteGreetings, sites } from "@/db/schema";
+import { leads, monthlyUsage, promptImpressions, siteGreetings, sites } from "@/db/schema";
 import { getStorage } from "@/lib/storage";
 import { monthKey } from "@/lib/usage/meter";
 import { COPY } from "@/lib/copy/defaults";
@@ -45,6 +45,32 @@ describe("config", () => {
     const cfg = (await res.json()) as WidgetConfig;
     expect(cfg.mode).toBe("ai");
     expect(cfg.botName).toBe(site.botName);
+    expect(cfg.proactivity).toBe("gentle");
+    expect(cfg.pausedKinds).toEqual([]);
+    expect(cfg.strings.dismissPrompt).toBe("Dismiss suggestion");
+  });
+
+  it("lists suggestion types visitors keep dismissing", async () => {
+    const { site } = await setup("starter", { proactivity: "active" });
+    const shownAt = new Date(Date.now() - 3600_000);
+    await db.insert(promptImpressions).values(
+      Array.from({ length: 20 }, (_, i) => ({
+        siteId: site.id,
+        visitorSessionId: `sid-${i}`,
+        kind: "pairing" as const,
+        intent: "buying" as const,
+        confidence: 0.9,
+        language: "en",
+        pageUrl: "https://example.com/p",
+        text: "t",
+        question: "q",
+        shownAt,
+        outcome: i < 10 ? ("dismissed" as const) : null,
+      })),
+    );
+    const cfg = (await (await configGET(get(`/api/widget/config?key=${site.publicKey}`, ORIGIN))).json()) as WidgetConfig;
+    expect(cfg.proactivity).toBe("active");
+    expect(cfg.pausedKinds).toEqual(["pairing"]);
   });
 
   it("error responses carry CORS when origin allowed", async () => {

@@ -13,6 +13,7 @@ export const COPY: Record<"en" | "el", WidgetStrings & { defaultGreeting: string
     emailLabel: "Your email",
     questionLabel: "Your question",
     poweredBy: "Powered by Concierge",
+    dismissPrompt: "Dismiss suggestion",
   },
   el: {
     disclosure: "Συνομιλείτε με έναν βοηθό τεχνητής νοημοσύνης. Μπορεί να κάνει λάθη, γι' αυτό ελέγξτε τις σημαντικές πληροφορίες.",
@@ -26,6 +27,7 @@ export const COPY: Record<"en" | "el", WidgetStrings & { defaultGreeting: string
     emailLabel: "Το email σας",
     questionLabel: "Η ερώτησή σας",
     poweredBy: "Με την υποστήριξη του Concierge",
+    dismissPrompt: "Απόρριψη πρότασης",
   },
 };
 

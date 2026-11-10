@@ -7,6 +7,7 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -14,6 +15,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import type { InsightsContent } from "@/lib/insights/prompt";
+import type { VisitSummary } from "@/shared/widget-protocol";
 import { user } from "./auth-schema";
 
 export * from "./auth-schema";
@@ -71,6 +73,9 @@ export const sites = pgTable("sites", {
   crawlStartedAt: timestamp("crawl_started_at"),
   lastCrawledAt: timestamp("last_crawled_at"),
   lastSeenAt: timestamp("last_seen_at"),
+  proactivity: text("proactivity", { enum: ["off", "gentle", "active"] })
+    .notNull()
+    .default("gentle"),
   createdAt: createdAt(),
 });
 
@@ -150,9 +155,58 @@ export const conversations = pgTable(
     language: text("language").notNull(),
     firstPageUrl: text("first_page_url"),
     lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+    intent: text("intent", { enum: ["learning", "exploring", "buying"] }),
+    intentConfidence: real("intent_confidence"),
+    visit: jsonb("visit").$type<VisitSummary>(),
+    promptImpressionId: uuid("prompt_impression_id").references(() => promptImpressions.id, {
+      onDelete: "set null",
+    }),
     createdAt: createdAt(),
   },
   (t) => [index("conversations_site_idx").on(t.siteId, t.lastMessageAt)],
+);
+
+/** One suggestion offered to a visitor. `shownAt` is set when the widget actually displayed it. */
+export const promptImpressions = pgTable(
+  "prompt_impressions",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    visitorSessionId: text("visitor_session_id").notNull(),
+    kind: text("kind", { enum: ["question", "pairing"] }).notNull(),
+    intent: text("intent", { enum: ["learning", "exploring", "buying"] }).notNull(),
+    confidence: real("confidence").notNull(),
+    language: text("language").notNull(),
+    pageUrl: text("page_url").notNull(),
+    text: text("text").notNull(),
+    question: text("question").notNull(),
+    shownAt: timestamp("shown_at"),
+    outcome: text("outcome", { enum: ["tapped", "dismissed"] }),
+    outcomeAt: timestamp("outcome_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("prompt_impressions_site_shown_idx").on(t.siteId, t.shownAt)],
+);
+
+/** Written suggestions per page, reused for a week. A null text means "nothing useful to suggest here". */
+export const promptCache = pgTable(
+  "prompt_cache",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    urlKey: text("url_key").notNull(),
+    kind: text("kind", { enum: ["question", "pairing"] }).notNull(),
+    language: text("language").notNull(),
+    text: text("text"),
+    question: text("question"),
+    model: text("model").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("prompt_cache_key_idx").on(t.siteId, t.urlKey, t.kind, t.language)],
 );
 
 export const messages = pgTable(
@@ -179,7 +233,7 @@ export const usageEvents = pgTable("usage_events", {
     .notNull()
     .references(() => accounts.id, { onDelete: "cascade" }),
   siteId: uuid("site_id").references(() => sites.id, { onDelete: "set null" }),
-  kind: text("kind", { enum: ["chat", "image_description", "insights"] }).notNull(),
+  kind: text("kind", { enum: ["chat", "image_description", "insights", "prompt"] }).notNull(),
   model: text("model").notNull(),
   inputTokens: integer("input_tokens").notNull().default(0),
   outputTokens: integer("output_tokens").notNull().default(0),
@@ -249,3 +303,4 @@ export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
 export type SiteInsight = typeof siteInsights.$inferSelect;
+export type PromptImpression = typeof promptImpressions.$inferSelect;

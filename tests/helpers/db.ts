@@ -5,11 +5,13 @@ import { clearEnqueuedJobs } from "@/lib/jobs";
 const TABLES = [
   "rate_limits",
   "site_insights",
+  "prompt_cache",
   "leads",
   "monthly_usage",
   "usage_events",
   "messages",
   "conversations",
+  "prompt_impressions",
   "kb_chunks",
   "kb_sources",
   "site_greetings",
