@@ -21,8 +21,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-# STORAGE_DRIVER=local writes under the app dir; with s3 this can stay as is.
-ReadWritePaths=/srv/concierge
+# The app dir (npm/next caches) and, for STORAGE_DRIVER=local, STORAGE_LOCAL_DIR=/srv/concierge-data/storage.
+ReadWritePaths=/srv/concierge /srv/concierge-data
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
