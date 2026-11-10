@@ -12,6 +12,7 @@ const page: PageContext = {
   headings: ["Argan Oil", "How to use"],
   visibleText: "Cold-pressed argan oil for dry hair.",
   product: { name: "Argan Oil", price: "24.00", currency: "EUR" },
+  kind: "product",
 };
 
 const hits: KnowledgeHit[] = [

@@ -113,5 +113,6 @@ export function collectPageContext(doc: Document, win: Window): PageContext {
     headings,
     visibleText: parts.join("\n").slice(0, LIMITS.visibleTextMaxChars),
     product: findProduct(doc),
+    kind: "other",
   };
 }

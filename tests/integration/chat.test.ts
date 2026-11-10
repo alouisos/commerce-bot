@@ -46,6 +46,7 @@ const page: PageContext = {
   headings: ["Argan Oil"],
   visibleText: "Cold-pressed argan oil.",
   product: { name: "Argan Oil", price: "24.00", currency: "EUR" },
+  kind: "product",
 };
 
 function chatRequest(

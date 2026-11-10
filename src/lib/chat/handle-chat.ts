@@ -41,6 +41,8 @@ const pageSchema = z.object({
     })
     .nullish()
     .transform((v) => v ?? null),
+  // Older widget bundles don't send it.
+  kind: z.enum(["product", "cart", "checkout", "content", "listing", "home", "other"]).default("other"),
 });
 
 const chatSchema = z.object({

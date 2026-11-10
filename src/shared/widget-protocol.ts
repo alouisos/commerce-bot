@@ -14,7 +14,22 @@ export const LIMITS = {
   visibleTextMaxChars: 4000,
   titleMaxChars: 300,
   urlMaxChars: 2000,
+  visitPagesMax: 10,
 } as const;
+
+export type PageKind = "product" | "cart" | "checkout" | "content" | "listing" | "home" | "other";
+export type Intent = "learning" | "exploring" | "buying";
+export type PromptKind = "question" | "pairing";
+export type Proactivity = "off" | "gentle" | "active";
+
+/** What the visitor did this visit, sent with chats so the bot (and the admin) see the context. */
+export type VisitSummary = {
+  intent: Intent | null;
+  confidence: number;
+  pages: { url: string; title: string; seconds: number }[];
+  addedToCart: boolean;
+  cartSeen: boolean;
+};
 
 export type PageContext = {
   url: string;
@@ -23,6 +38,7 @@ export type PageContext = {
   headings: string[];
   visibleText: string;
   product: { name: string; price: string | null; currency: string | null } | null;
+  kind: PageKind;
 };
 
 export type WidgetStrings = {
