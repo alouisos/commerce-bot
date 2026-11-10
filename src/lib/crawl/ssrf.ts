@@ -1,8 +1,10 @@
 import { isIP } from "node:net";
 
-function v4Blocked(a: number, b: number): boolean {
+function v4Blocked(a: number, b: number, c = -1): boolean {
   return (
     a === 0 ||
+    (a === 192 && b === 0 && c === 0) || // 192.0.0.0/24 (IETF protocol assignments)
+    (a === 198 && (b === 18 || b === 19)) || // 198.18.0.0/15 (benchmarking, sometimes internal)
     a === 10 ||
     a === 127 ||
     (a === 100 && b >= 64 && b <= 127) ||
@@ -36,15 +38,16 @@ export function isBlockedAddress(ip: string): boolean {
   const kind = isIP(ip.replace(/^\[|\]$/g, ""));
   const bare = ip.replace(/^\[|\]$/g, "");
   if (kind === 4) {
-    const [a, b] = bare.split(".").map(Number);
-    return v4Blocked(a, b);
+    const [a, b, c] = bare.split(".").map(Number);
+    return v4Blocked(a, b, c);
   }
   if (kind === 6) {
     const g = groups6(bare);
     if (!g) return true;
     if (g.every((n) => n === 0)) return true; // ::
     if (g.slice(0, 7).every((n) => n === 0) && g[7] === 1) return true; // ::1
-    if (g.slice(0, 5).every((n) => n === 0) && g[5] === 0xffff) return v4Blocked(g[6] >> 8, g[6] & 255); // ::ffff:a.b.c.d
+    if (g.slice(0, 5).every((n) => n === 0) && g[5] === 0xffff) return v4Blocked(g[6] >> 8, g[6] & 255, g[7] >> 8); // ::ffff:a.b.c.d
+    if (g[0] === 0x64 && g[1] === 0xff9b) return true; // 64:ff9b::/96 and 64:ff9b:1::/48 (NAT64 can reach IPv4 inside)
     if (g.slice(0, 6).every((n) => n === 0)) return true; // deprecated IPv4-compatible
     if ((g[0] & 0xffc0) === 0xfe80) return true; // fe80::/10
     if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7

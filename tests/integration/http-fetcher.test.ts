@@ -33,6 +33,11 @@ describe("createHttpFetcher", () => {
     expect(r.status).toBe(0);
     expect(hits).toBe(0);
   });
+  it("refuses ports other than 80 and 443 when the guard is on", async () => {
+    const r = await createHttpFetcher({ allowPrivate: false })("http://example.com:3000/");
+    expect(r.status).toBe(0);
+  });
+
   it("follows up to 5 redirects and reports the final URL; 6 hops fail", async () => {
     const f = createHttpFetcher({ allowPrivate: true });
     const ok = await f(`${base}/r2`);
