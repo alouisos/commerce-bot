@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, conversations, emailMessages, leads, messages, promptImpressions } from "@/db/schema";
+import { contacts, conversations, emailMessages, leads, messages, promptImpressions, sales } from "@/db/schema";
 import { applyRetention } from "@/lib/privacy/retention";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeConversation, makeImpression, makeLead, makeMessage, makeSite } from "../helpers/factories";
@@ -75,7 +75,7 @@ describe("applyRetention", () => {
       .returning();
 
     const res = await applyRetention(now);
-    expect(res).toEqual({ conversations: 2, impressions: 1, leads: 1, emails: 1, contacts: 2 });
+    expect(res).toEqual({ conversations: 2, impressions: 1, leads: 1, emails: 1, contacts: 2, sales: 0 });
 
     expect(await ids(db.select({ id: conversations.id }).from(conversations))).toEqual([keep24.id, keep6.id, mid24.id].sort());
     expect(await db.select().from(messages).where(eq(messages.conversationId, old24.id))).toHaveLength(0);
@@ -95,5 +95,15 @@ describe("applyRetention", () => {
     await makeLead(site.id, { email: "gone@example.com", source: "consent", createdAt: monthsAgo(12) });
     await applyRetention(now);
     expect(await ids(db.select({ id: leads.id }).from(leads))).toEqual([kept.id]);
+  });
+
+  it("deletes sales older than the site's retention", async () => {
+    const account = await makeAccount();
+    const site = await makeSite(account.id);
+    const base = { siteId: site.id, source: "page" as const, verified: false, visitorSessionId: "sid", viaChat: true };
+    await db.insert(sales).values({ ...base, orderedAt: monthsAgo(25), pageUrl: "https://example.com/a" });
+    const [kept] = await db.insert(sales).values({ ...base, orderedAt: monthsAgo(23), pageUrl: "https://example.com/b" }).returning();
+    expect((await applyRetention(now)).sales).toBe(1);
+    expect(await ids(db.select({ id: sales.id }).from(sales))).toEqual([kept.id]);
   });
 });

@@ -52,6 +52,8 @@ export const QUEUE_OPTIONS: Partial<Record<JobName, Omit<Queue, "name">>> = {
   // longer than 15 minutes (up to 50 model calls plus throttled sends), so it isn't expired at pg-boss's
   // 15-minute default, which would let the next tick start beside it.
   [JOBS.emailTick]: { policy: "singleton", retryLimit: 0, expireInSeconds: 3600 },
+  // One WooCommerce request; retried with backoff while the shop is unreachable.
+  [JOBS.verifyOrder]: { retryLimit: 3, retryDelay: 120, retryBackoff: true, expireInSeconds: 300 },
 };
 
 type Recorded = { name: JobName; data: JobData[JobName]; options: SendOptions };

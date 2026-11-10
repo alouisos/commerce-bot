@@ -16,6 +16,7 @@ export async function applyRetention(now: Date = new Date()): Promise<{
   leads: number;
   emails: number;
   contacts: number;
+  sales: number;
 }> {
   const at = sql`${now.toISOString()}::timestamp`;
   const cutoff = sql`(${at} - make_interval(months => s.retention_months))`;
@@ -42,5 +43,8 @@ export async function applyRetention(now: Date = new Date()): Promise<{
     WHERE k.site_id = s.id AND (
       (k.status = 'unsubscribed' AND k.unsubscribed_at < ${cutoff})
       OR (k.status = 'pending' AND k.consented_at < ${at} - make_interval(days => ${PENDING_KEEP_DAYS})))`);
-  return { conversations, impressions, leads, emails, contacts };
+  const sales = await deleted(sql`
+    DELETE FROM sales x USING sites s
+    WHERE x.site_id = s.id AND x.ordered_at < ${cutoff}`);
+  return { conversations, impressions, leads, emails, contacts, sales };
 }
