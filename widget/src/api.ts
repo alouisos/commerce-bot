@@ -2,6 +2,9 @@ import type {
   ChatEvent,
   ChatRequest,
   LeadRequest,
+  PromptEventRequest,
+  PromptOffer,
+  PromptRequest,
   StoredMessage,
   WidgetConfig,
 } from "../../src/shared/widget-protocol";
@@ -50,4 +53,32 @@ export async function sendLead(apiBase: string, req: LeadRequest): Promise<void>
     body: JSON.stringify(req),
   });
   if (!res.ok) throw new Error(`lead ${res.status}`);
+}
+
+/** A suggestion for this page, or null (none, or any failure: suggestions are optional). */
+export async function fetchPrompt(apiBase: string, req: PromptRequest): Promise<PromptOffer | null> {
+  try {
+    const res = await fetch(url(apiBase, "prompt", { key: req.key }), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    });
+    if (res.status !== 200) return null;
+    const body = (await res.json()) as PromptOffer;
+    return typeof body?.id === "string" && typeof body.text === "string" && typeof body.question === "string"
+      ? body
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Fire and forget; `keepalive` lets a dismissal be reported while the page unloads. */
+export function sendPromptEvent(apiBase: string, req: PromptEventRequest): void {
+  fetch(url(apiBase, "prompt-event", { key: req.key }), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    keepalive: true,
+  }).catch(() => {});
 }

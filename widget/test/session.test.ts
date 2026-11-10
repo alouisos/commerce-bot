@@ -41,3 +41,27 @@ describe("session", () => {
     expect(getSession(bad).cid).toBe("c-q");
   });
 });
+
+describe("prompt state", () => {
+  it("starts empty and keeps updates for the visit", async () => {
+    const { getPromptState, updatePromptState } = await import("../src/session");
+    expect(getPromptState(sessionStorage)).toEqual({ shown: 0, lastShownAt: null, silenced: false, requestedPages: [] });
+    updatePromptState(sessionStorage, { shown: 1, lastShownAt: 5, requestedPages: ["https://x/p"] });
+    updatePromptState(sessionStorage, { silenced: true });
+    expect(getPromptState(sessionStorage)).toEqual({ shown: 1, lastShownAt: 5, silenced: true, requestedPages: ["https://x/p"] });
+  });
+
+  it("works in memory when storage throws", async () => {
+    const { getPromptState, updatePromptState } = await import("../src/session");
+    const broken = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+    } as unknown as Storage;
+    updatePromptState(broken, { silenced: true });
+    expect(getPromptState(broken).silenced).toBe(true);
+  });
+});

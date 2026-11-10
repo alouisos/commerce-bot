@@ -8,12 +8,16 @@ export function Teaser({
   closeLabel,
   onOpen,
   onDismiss,
+  onClose,
 }: {
   message: string;
   imageUrl: string | null;
   closeLabel: string;
   onOpen: () => void;
+  /** Goes away on its own (the visitor scrolled, clicked or typed elsewhere). */
   onDismiss: () => void;
+  /** The visitor closed it with ×. Defaults to `onDismiss`. */
+  onClose?: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +46,7 @@ export function Teaser({
         {imageUrl && <img src={imageUrl} alt="" />}
         <span>{message}</span>
       </button>
-      <button type="button" class="teaser-close" aria-label={closeLabel} onClick={onDismiss}>
+      <button type="button" class="teaser-close" aria-label={closeLabel} onClick={onClose ?? onDismiss}>
         <span aria-hidden="true">×</span>
       </button>
     </div>

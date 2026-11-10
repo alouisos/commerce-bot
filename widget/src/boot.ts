@@ -2,6 +2,7 @@ import { h, render } from "preact";
 import { fetchConfig } from "./api";
 import css from "./styles.css";
 import { App, type ConciergeApi } from "./ui/App";
+import { createVisitTracker } from "./visit";
 
 type Queued = unknown[];
 type Win = Window & { Concierge?: { q?: Queued[] } | ConciergeApi };
@@ -64,5 +65,8 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     }
   };
 
-  render(h(App, { config, apiBase, siteKey: key, store, register }), mountPoint);
+  // Behaviour stays in this tab's sessionStorage for this visit; only a summary is sent, with a chat or a
+  // suggestion request. Not started at all when suggestions are off.
+  const tracker = config.proactivity === "off" ? undefined : createVisitTracker({ doc, win, store });
+  render(h(App, { config, apiBase, siteKey: key, store, register, tracker }), mountPoint);
 }

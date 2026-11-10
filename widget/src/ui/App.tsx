@@ -4,9 +4,12 @@ import type { StoredMessage, WidgetConfig } from "../../../src/shared/widget-pro
 import { fetchConversation, sendChat, sendLead } from "../api";
 import { onColor } from "../color";
 import { collectPageContext } from "../page-context";
+import { usePrompts } from "../prompts";
 import { getSession, hasTeased, markTeased, setConversationId } from "../session";
+import type { VisitTracker } from "../visit";
 import { Launcher } from "./Launcher";
 import { Panel, type UiMessage } from "./Panel";
+import { Prompt } from "./Prompt";
 import { Teaser } from "./Teaser";
 
 export type ConciergeApi = { open(): void; close(): void };
@@ -25,12 +28,15 @@ export function App({
   siteKey,
   store,
   register,
+  tracker,
 }: {
   config: WidgetConfig;
   apiBase: string;
   siteKey: string;
   store: Storage;
   register?: (api: ConciergeApi) => void;
+  /** Behaviour for intent and suggestions; without it there are no suggestions. */
+  tracker?: VisitTracker;
 }) {
   const { strings } = config;
   const forcedFallback = config.mode === "fallback";
@@ -45,10 +51,15 @@ export function App({
   const restoredRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  const prompts = usePrompts({ tracker, config, apiBase, siteKey, store, busy: open || teaser });
+  const { silence } = prompts;
+
   const openPanel = useCallback(() => {
+    // Opening the chat, by any route, ends suggestions for the visit.
+    silence();
     setTeaser(false);
     setOpen(true);
-  }, []);
+  }, [silence]);
   const closePanel = useCallback(() => {
     setOpen(false);
     launcherRef.current?.focus();
@@ -106,7 +117,7 @@ export function App({
   }, [open, store, apiBase, siteKey, forcedFallback, strings.fallback]);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, promptId: string | null = null) => {
       const { sid, cid } = getSession(store);
       cidRef.current = cid;
       setMessages((m) => [...m, { id: nextId(), role: "visitor", content: text, images: [] }]);
@@ -118,7 +129,15 @@ export function App({
       let outcome: "done" | "fallback" | null = null;
       let images: UiMessage["images"] = [];
       try {
-        const req = { key: siteKey, sid, cid, message: text, page: collectPageContext(document, window) };
+        const req = {
+          key: siteKey,
+          sid,
+          cid,
+          message: text,
+          page: collectPageContext(document, window),
+          visit: tracker?.summary() ?? null,
+          promptId,
+        };
         for await (const ev of sendChat(apiBase, req, ctrl.signal)) {
           if (ev.type === "start") {
             // The cid is stored only here. A navigation before `start` arrives cannot be restored;
@@ -150,8 +169,15 @@ export function App({
         setFallback(true);
       }
     },
-    [apiBase, siteKey, store, strings.fallback],
+    [apiBase, siteKey, store, strings.fallback, tracker],
   );
+
+  const tapPrompt = useCallback(() => {
+    const o = prompts.tap();
+    if (!o) return;
+    openPanel();
+    void send(o.question, o.id);
+  }, [prompts, openPanel, send]);
 
   const lead = useCallback(
     async (email: string, message: string) => {
@@ -173,6 +199,18 @@ export function App({
           closeLabel={strings.close}
           onOpen={openPanel}
           onDismiss={() => setTeaser(false)}
+          onClose={() => {
+            silence();
+            setTeaser(false);
+          }}
+        />
+      )}
+      {prompts.offer && !open && !teaser && (
+        <Prompt
+          text={prompts.offer.text}
+          dismissLabel={strings.dismissPrompt}
+          onTap={tapPrompt}
+          onDismiss={prompts.dismiss}
         />
       )}
       {open && (
@@ -183,7 +221,7 @@ export function App({
           pending={pending}
           streaming={streaming}
           fallback={fallback}
-          onSend={send}
+          onSend={(text) => void send(text)}
           onLead={lead}
           onClose={closePanel}
         />

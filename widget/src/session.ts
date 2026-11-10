@@ -55,3 +55,36 @@ export function markTeased(store: Storage): void {
   memory.teased = true;
   write(store, TEASED, "1");
 }
+
+// Suggestion state for the visit: survives page loads so the cap and the silence hold.
+const PROMPTS = "concierge.prompts";
+
+export type PromptState = { shown: number; lastShownAt: number | null; silenced: boolean; requestedPages: string[] };
+
+const EMPTY: PromptState = { shown: 0, lastShownAt: null, silenced: false, requestedPages: [] };
+let promptMemory: PromptState = { ...EMPTY };
+
+export function getPromptState(store: Storage): PromptState {
+  const raw = read(store, PROMPTS);
+  if (raw === undefined) return { ...promptMemory, requestedPages: [...promptMemory.requestedPages] };
+  if (raw === null) return { ...EMPTY, requestedPages: [] };
+  try {
+    const v = JSON.parse(raw) as Partial<PromptState>;
+    return {
+      shown: typeof v.shown === "number" ? v.shown : 0,
+      lastShownAt: typeof v.lastShownAt === "number" ? v.lastShownAt : null,
+      silenced: v.silenced === true,
+      requestedPages: Array.isArray(v.requestedPages) ? v.requestedPages.filter((p) => typeof p === "string") : [],
+    };
+  } catch {
+    return { ...EMPTY };
+  }
+}
+
+export function updatePromptState(store: Storage, patch: Partial<PromptState>): PromptState {
+  const next = { ...getPromptState(store), ...patch };
+  next.requestedPages = next.requestedPages.slice(-50);
+  promptMemory = next;
+  write(store, PROMPTS, JSON.stringify(next));
+  return next;
+}

@@ -1,4 +1,4 @@
-import type { ChatEvent, WidgetConfig } from "../../src/shared/widget-protocol";
+import type { ChatEvent, PromptOffer, WidgetConfig } from "../../src/shared/widget-protocol";
 
 export const API = "http://app.test";
 
@@ -19,9 +19,12 @@ export const config: WidgetConfig = {
     emailLabel: "Your email",
     questionLabel: "Your question",
     poweredBy: "Powered by Concierge",
+    dismissPrompt: "Dismiss suggestion",
   },
   showBadge: true,
   mode: "ai",
+  proactivity: "gentle",
+  pausedKinds: [],
 };
 
 export function sseBody(events: ChatEvent[]): ReadableStream<Uint8Array> {
@@ -39,7 +42,13 @@ export function sseBody(events: ChatEvent[]): ReadableStream<Uint8Array> {
 
 type Handler = (url: URL, init?: RequestInit) => Response | Promise<Response>;
 
-export function mockFetch(routes: { chat?: ChatEvent[] | (() => Response); conversation?: unknown; lead?: number }) {
+export function mockFetch(routes: {
+  chat?: ChatEvent[] | (() => Response);
+  conversation?: unknown;
+  lead?: number;
+  /** null answers 204 (no suggestion). */
+  prompt?: PromptOffer | null;
+}) {
   const calls: { url: URL; init?: RequestInit }[] = [];
   const handler: Handler = (url) => {
     if (url.pathname.endsWith("/chat")) {
@@ -50,6 +59,10 @@ export function mockFetch(routes: { chat?: ChatEvent[] | (() => Response); conve
       return new Response(JSON.stringify(routes.conversation ?? { messages: [] }), { status: 200 });
     }
     if (url.pathname.endsWith("/lead")) return new Response("{}", { status: routes.lead ?? 201 });
+    if (url.pathname.endsWith("/prompt")) {
+      return routes.prompt ? new Response(JSON.stringify(routes.prompt), { status: 200 }) : new Response(null, { status: 204 });
+    }
+    if (url.pathname.endsWith("/prompt-event")) return new Response(null, { status: 204 });
     return new Response("{}", { status: 404 });
   };
   const fn = async (input: RequestInfo | URL, init?: RequestInit) => {
