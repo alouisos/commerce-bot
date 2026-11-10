@@ -6,6 +6,7 @@ import { emailTick } from "@/lib/email/schedule";
 import { generateSiteInsights } from "@/lib/insights/generate";
 import { dailyInsights } from "@/lib/insights/schedule";
 import { ingestSource } from "@/lib/kb/ingest";
+import { applyRetention } from "@/lib/privacy/retention";
 
 export type Handlers = Partial<{ [N in JobName]: (data: JobData[N]) => Promise<void> }>;
 
@@ -26,6 +27,10 @@ export const handlers: Handlers = {
   [JOBS.emailTick]: async () => {
     const out = await emailTick();
     if (out.drafted || out.sent || out.skipped) console.log(`[email] drafted ${out.drafted}, sent ${out.sent}, skipped ${out.skipped}`);
+  },
+  [JOBS.retention]: async () => {
+    const out = await applyRetention();
+    console.log(`[retention] deleted ${JSON.stringify(out)}`);
   },
 };
 

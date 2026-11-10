@@ -8,6 +8,7 @@ export const JOBS = {
   generateInsights: "generate-insights",
   dailyInsights: "daily-insights",
   emailTick: "email-tick",
+  retention: "retention",
 } as const;
 
 export type JobName = (typeof JOBS)[keyof typeof JOBS];
@@ -19,6 +20,7 @@ export type JobData = {
   "generate-insights": { siteId: string };
   "daily-insights": Record<string, never>;
   "email-tick": Record<string, never>;
+  retention: Record<string, never>;
 };
 
 /** Longest a crawl may run before pg-boss expires it; a "crawling" site older than this is stale. */

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PgBoss } from "pg-boss";
 import postgres from "postgres";
 import { ensureQueues, JOBS, QUEUE_OPTIONS } from "@/lib/jobs";
+import { handlers } from "@/worker/handlers";
 import { TEST_DATABASE_URL } from "../test-env";
 
 // A real pg-boss in its own schema of the test database: checks the crawl queue's lifetime settings
@@ -57,5 +58,11 @@ describe("job queues", () => {
     expect(QUEUE_OPTIONS[JOBS.emailTick]).toEqual({ policy: "singleton", retryLimit: 0 });
     await ensureQueues(boss);
     expect(await boss.getQueue(JOBS.emailTick)).toMatchObject({ policy: "singleton", retryLimit: 0 });
+  });
+
+  it("the worker handles the email tick and the nightly retention job", () => {
+    expect(JOBS.retention).toBe("retention");
+    expect(typeof handlers[JOBS.emailTick]).toBe("function");
+    expect(typeof handlers[JOBS.retention]).toBe("function");
   });
 });

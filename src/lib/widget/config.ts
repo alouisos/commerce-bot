@@ -74,5 +74,6 @@ export async function buildWidgetConfig(
     proactivity: site.proactivity,
     pausedKinds: site.proactivity === "off" ? [] : await pausedKinds(site.id, now),
     emailCapture: await canSendEmail(site, site.account, now),
+    consentMode: site.consentMode,
   };
 }

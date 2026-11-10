@@ -75,6 +75,8 @@ export type WidgetConfig = {
   pausedKinds: PromptKind[];
   /** The bot may offer personalised emails: the site has a verified sending domain and emails left. */
   emailCapture: boolean;
+  /** auto: follow a detected consent tool for tracking; required: wait for consent to appear at all; off: never wait. */
+  consentMode: "auto" | "required" | "off";
 };
 
 export type WidgetImage = { id: string; url: string; caption: string };
