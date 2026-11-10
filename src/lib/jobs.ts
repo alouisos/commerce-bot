@@ -47,6 +47,8 @@ export const CRAWL_MAX_SECONDS = 3 * 3600;
  * one queued and one active job per singletonKey (the site id), so overlapping requests dedupe.
  */
 export const QUEUE_OPTIONS: Partial<Record<JobName, Omit<Queue, "name">>> = {
+  // A file that can't be read won't read on a third try; and a stuck parse must not hold the job for 15 min.
+  [JOBS.ingestSource]: { retryLimit: 1, expireInSeconds: 300 },
   [JOBS.crawlSite]: { policy: "stately", expireInSeconds: CRAWL_MAX_SECONDS, retryLimit: 0 },
   // One model call per site; stately dedupes the daily run and manual refreshes of the same site.
   [JOBS.generateInsights]: { policy: "stately", retryLimit: 1, expireInSeconds: 900 },
