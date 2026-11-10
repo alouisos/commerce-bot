@@ -5,6 +5,16 @@ import { relativeTime } from "@/lib/format";
 import { parseRange } from "@/lib/stats/range";
 import { loadSite } from "../load-site";
 
+/** The path of a stored page URL, for a compact column; the raw text if it doesn't parse. */
+function pathOf(url: string | null): string {
+  if (!url) return "";
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
+}
+
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function ConversationsPage({ params, searchParams }: PageProps<"/app/sites/[siteId]/conversations">) {
@@ -81,7 +91,7 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
                     <time dateTime={r.createdAt.toISOString()}>{relativeTime(r.createdAt, now)}</time>
                   </Link>
                 </td>
-                <td className="max-w-48 truncate">{r.firstPageUrl ? new URL(r.firstPageUrl, site.baseUrl).pathname : ""}</td>
+                <td className="max-w-48 truncate">{pathOf(r.firstPageUrl)}</td>
                 <td>{r.visitorMessages}</td>
                 <td className="whitespace-pre-wrap">{r.preview}</td>
                 <td>{r.hasEmail ? "✓" : ""}</td>

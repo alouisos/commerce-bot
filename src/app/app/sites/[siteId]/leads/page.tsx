@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { relativeTime } from "@/lib/format";
 import { listLeads } from "@/lib/leads";
 import { loadSite } from "../load-site";
@@ -33,7 +34,13 @@ export default async function LeadsPage({ params }: PageProps<"/app/sites/[siteI
                 <td>
                   <time dateTime={l.createdAt.toISOString()}>{relativeTime(l.createdAt, now)}</time>
                 </td>
-                <td className="font-mono">{l.conversationId ?? ""}</td>
+                <td>
+                  {l.conversationId && (
+                    <Link href={`/app/sites/${site.id}/conversations/${l.conversationId}`} className="underline">
+                      View
+                    </Link>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
