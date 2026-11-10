@@ -41,6 +41,37 @@ describe("public sign-up is closed", () => {
     expect(await db.select().from(session)).toHaveLength(0);
   });
 
+  it("the HTTP sign-up endpoint answers not found, so it can't reveal which emails have accounts", async () => {
+    const { token } = await invited();
+    await acceptInvite(token, { name: "Eleni", password: "password-12345" });
+    const res = await authPOST(
+      new Request("http://localhost:3000/api/auth/sign-up/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
+        body: JSON.stringify({ email: "eleni@shop.gr", password: "long-enough-pass", name: "Eve" }),
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("one email gets at most 30 sign-in attempts an hour, even with the right password after that", async () => {
+    const { token } = await invited("target@shop.gr");
+    await acceptInvite(token, { name: "T", password: "right-password-123" });
+    const windowMs = 3600_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / windowMs) * windowMs + 1000);
+    try {
+      for (let i = 0; i < 30; i++) {
+        await expect(auth.api.signInEmail({ body: { email: "target@shop.gr", password: `wrong-${i}-password` } })).rejects.toBeTruthy();
+      }
+      await expect(
+        auth.api.signInEmail({ body: { email: "Target@Shop.gr", password: "right-password-123" } }),
+      ).rejects.toMatchObject({ status: "TOO_MANY_REQUESTS" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("so does the HTTP endpoint, even for an invited address", async () => {
     await invited();
     const res = await authPOST(
