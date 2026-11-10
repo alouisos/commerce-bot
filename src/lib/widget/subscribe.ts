@@ -22,7 +22,10 @@ export async function handleSubscribe(site: WidgetSite, body: unknown, ip: strin
   const allowed =
     (await hit(`sub:${site.id}:${input.sid}`, 3, 3600)) &&
     (await hit(`sub:ip:${ip}`, 20, 3600)) &&
-    (await hit(`sub:email:${site.id}:${emailKey(input.email)}`, 3, 86400));
+    (await hit(`sub:email:${site.id}:${emailKey(input.email)}`, 3, 86400)) &&
+    // Confirmation emails go out from the shop's own domain: a per-site ceiling protects its reputation.
+    (await hit(`sub:site:${site.id}:hour`, 30, 3600)) &&
+    (await hit(`sub:site:${site.id}:day`, 200, 86400));
   if (!allowed) throw new WidgetError(429, "Too many requests");
   if (!(await canDraftEmail(site, site.account))) throw new WidgetError(403, "Email is not available");
   await subscribe(site, { sid: input.sid, cid: input.cid ?? null, email: input.email, language: input.language });

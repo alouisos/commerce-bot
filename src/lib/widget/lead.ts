@@ -17,7 +17,12 @@ const schema = z.object({
 export async function createLead(site: WidgetSite, body: unknown, ip: string): Promise<void> {
   const input = schema.parse(body);
   // Per session, plus a per-IP backstop against a client that rotates its sid.
-  if (!(await hit(`lead:${site.id}:${input.sid}`, 5, 3600)) || !(await hit(`lead:ip:${ip}`, 30, 3600))) {
+  // Per session, per IP, and per site: each lead emails the owners, so a script can't flood their inbox.
+  if (
+    !(await hit(`lead:${site.id}:${input.sid}`, 5, 3600)) ||
+    !(await hit(`lead:ip:${ip}`, 30, 3600)) ||
+    !(await hit(`lead:site:${site.id}`, 50, 3600))
+  ) {
     throw new WidgetError(429, "Too many requests");
   }
   const conversationId = await findOwnedConversation(site.id, input.sid, input.cid ?? null);

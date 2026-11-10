@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
@@ -7,6 +7,7 @@ import { POST as subscribePOST } from "@/app/api/widget/subscribe/route";
 import ConfirmPage from "@/app/e/confirm/[token]/page";
 import { confirmContact, consentWording } from "@/lib/email/contacts";
 import { setProviderForTests, type OutgoingEmail } from "@/lib/email/provider";
+import { hit } from "@/lib/usage/rate-limit";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeConversation, makeMessage, makeSite } from "../helpers/factories";
 
@@ -175,6 +176,36 @@ describe("subscribe", () => {
     const keys = (await db.select().from(rateLimits)).map((r) => r.key);
     expect(keys.some((k) => k.startsWith("sub:email:"))).toBe(true);
     expect(keys.join(" ")).not.toContain("secret.person");
+  });
+
+  it("a site sends at most 30 confirmation emails an hour, whatever the IP or visit", async () => {
+    const { site } = await setup();
+    const windowMs = 3600_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / windowMs) * windowMs + 1000);
+    try {
+      for (let i = 0; i < 29; i++) await hit(`sub:site:${site.id}:hour`, 30, 3600);
+      const body = (i: number) => ({ key: site.publicKey, sid: `sid-cap-${i}-xxxx`, cid: null, email: `cap${i}@example.com`, language: "en" });
+      expect((await post(site.publicKey, body(1), "203.0.113.1")).status).toBe(201);
+      expect((await post(site.publicKey, body(2), "203.0.113.2")).status).toBe(429);
+      expect(sent).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("someone else typing a pending address doesn't re-link it to their chat or cancel the first link", async () => {
+    const { site, sid, convo } = await setup();
+    await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "pending@example.com", language: "en" });
+    const first = await contactOf("pending@example.com");
+    const stranger = await makeConversation(site.id, { visitorSessionId: "sid-stranger-9" });
+    await post(site.publicKey, { key: site.publicKey, sid: "sid-stranger-9", cid: stranger.id, email: "pending@example.com", language: "en" }, "5.5.5.5");
+    const after = await contactOf("pending@example.com");
+    expect(after.token).toBe(first.token);
+    const [row] = await db.select().from(conversations).where(eq(conversations.id, stranger.id));
+    expect(row.contactId).toBeNull();
+    expect(await confirmContact(first.token)).not.toBeNull();
+    expect((await contactOf("pending@example.com")).sequenceConversationId).toBe(convo.id);
   });
 
   it("a cid from another visit links nothing", async () => {

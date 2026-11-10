@@ -83,8 +83,13 @@ export async function subscribe(
       contact = existing;
       needsConfirmation = false;
       linkConversation = false;
+    } else if (existing.status === "pending" && now.getTime() - existing.consentedAt.getTime() < CONFIRM_VALID_MS) {
+      // Still waiting for confirmation: send the same link again. Typing the address proves nothing, so a
+      // stranger can't re-link it to their own chat or cancel the link the owner already has.
+      contact = existing;
+      linkConversation = false;
     } else {
-      // Pending or unsubscribed: consent again, with a fresh link.
+      // Expired or unsubscribed: consent again, with a fresh link.
       [contact] = await tx.update(contacts).set(consent).where(eq(contacts.id, existing.id)).returning();
     }
     await tx.insert(leads).values({
