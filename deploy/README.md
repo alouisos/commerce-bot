@@ -73,7 +73,7 @@ Do every item; several have never been verified against the live services.
 2. **Embeddings.** With a real `VOYAGE_API_KEY` and `FAKE_EMBEDDINGS=false`, upload one document under Knowledge and confirm it reaches "ready".
 3. `CRAWL_ALLOW_PRIVATE_HOSTS` is unset or `false` in production (it disables the SSRF guard).
 4. `BETTER_AUTH_SECRET` is a long random value (`openssl rand -base64 48`).
-5. `PLATFORM_OWNER_EMAILS` is set.
+5. `PLATFORM_OWNER_EMAILS` is set, and each owner has **signed up and then been verified on the server**: owner access needs a verified email (sign-up is open and does not verify addresses, so an unverified listed address proves nothing). After signing up: `cd /srv/concierge && set -a && . /etc/concierge.env && set +a && npm run user:verify-email -- <email>`. Check the printed creation time is yours; if the address already had an account you did not create, delete that user instead.
 6. Migrations have run (`npm run db:migrate`, with `/etc/concierge.env` loaded).
 7. The worker service is running (`systemctl status concierge-worker`) and the weekly re-crawl schedule is registered (check the worker logs).
 8. TLS works, and the nginx `X-Forwarded-For` overwrite (`proxy_set_header X-Forwarded-For $remote_addr;`) is in place: rate limiting trusts the leftmost entry.

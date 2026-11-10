@@ -52,8 +52,19 @@ describe("accounts and access", () => {
   });
 
   it("isPlatformOwner is case-insensitive", () => {
-    expect(isPlatformOwner("A@X.com", ["a@x.com"])).toBe(true);
-    expect(isPlatformOwner("b@x.com", ["a@x.com"])).toBe(false);
+    expect(isPlatformOwner({ email: "A@X.com", emailVerified: true }, ["a@x.com"])).toBe(true);
+    expect(isPlatformOwner({ email: "b@x.com", emailVerified: true }, ["a@x.com"])).toBe(false);
+  });
+
+  it("isPlatformOwner requires a verified email (sign-up does not verify, so a listed address can be claimed)", () => {
+    expect(isPlatformOwner({ email: "a@x.com", emailVerified: false }, ["a@x.com"])).toBe(false);
+  });
+
+  it("a fresh sign-up with a listed owner address is not an owner", async () => {
+    const email = `owner-${Date.now()}@example.com`;
+    const res = await auth.api.signUpEmail({ body: { email, password: "long-enough-password", name: "x" } });
+    expect(res.user.emailVerified).toBe(false);
+    expect(isPlatformOwner(res.user, [email])).toBe(false);
   });
 
   it("sign-up through Better Auth creates a trial account and owner membership", async () => {

@@ -22,9 +22,14 @@ export async function requireSiteAccess(userId: string, siteId: string): Promise
   return row.site;
 }
 
+/**
+ * Platform-owner access needs the listed address AND a verified email. Sign-up is open and does
+ * not verify addresses, so the address alone proves nothing: anyone could register a listed owner
+ * address that has no account yet. Verification is set with `npm run user:verify-email` on the server.
+ */
 export function isPlatformOwner(
-  email: string,
+  user: { email: string; emailVerified: boolean },
   owners: readonly string[] = env.PLATFORM_OWNER_EMAILS,
 ): boolean {
-  return owners.includes(email.trim().toLowerCase());
+  return user.emailVerified === true && owners.includes(user.email.trim().toLowerCase());
 }

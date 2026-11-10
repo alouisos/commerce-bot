@@ -4,6 +4,6 @@ import { requireUser } from "@/lib/session";
 
 export default async function OwnerLayout({ children }: LayoutProps<"/owner">) {
   const user = await requireUser();
-  if (!isPlatformOwner(user.email)) notFound();
+  if (!isPlatformOwner(user)) notFound();
   return <main className="p-6">{children}</main>;
 }

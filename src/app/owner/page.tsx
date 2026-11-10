@@ -12,7 +12,7 @@ const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" 
 export default async function OwnerPage() {
   // Checked here as well as in the layout: a page must not rely on its layout for authorization.
   const currentUser = await requireUser();
-  if (!isPlatformOwner(currentUser.email)) notFound();
+  if (!isPlatformOwner(currentUser)) notFound();
   const month = monthKey(new Date());
   const [accountRows, ownerRows, siteRows, usageRows] = await Promise.all([
     db.select().from(accounts).orderBy(asc(accounts.createdAt)),

@@ -6,13 +6,16 @@ import { resetDb } from "../helpers/db";
 import { makeAccount, makeMembership, makeUser } from "../helpers/factories";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 
-const session = vi.hoisted(() => ({ email: "nobody@example.com" }));
+const session = vi.hoisted(() => ({ email: "nobody@example.com", emailVerified: true }));
 vi.mock("@/lib/session", () => ({
-  requireUser: async () => ({ id: "u", email: session.email }),
+  requireUser: async () => ({ id: "u", email: session.email, emailVerified: session.emailVerified }),
 }));
 vi.mock("@/lib/access", async (orig) => {
   const mod = await orig<typeof import("@/lib/access")>();
-  return { ...mod, isPlatformOwner: (email: string) => mod.isPlatformOwner(email, ["boss@example.com"]) };
+  return {
+    ...mod,
+    isPlatformOwner: (u: { email: string; emailVerified: boolean }) => mod.isPlatformOwner(u, ["boss@example.com"]),
+  };
 });
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
@@ -22,6 +25,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 beforeEach(async () => {
   await resetDb();
+  session.emailVerified = true;
 });
 
 describe("setAccountPlan", () => {
@@ -41,6 +45,15 @@ describe("setAccountPlan", () => {
     const [row] = await db.select().from(accounts).where(eq(accounts.id, account.id));
     expect(row.plan).toBe("complimentary");
     expect(row.trialEndsAt).toBeNull();
+  });
+
+  it("rejects a listed owner address whose email is not verified", async () => {
+    const account = await makeAccount({ plan: "trial", trialEndsAt: new Date("2030-01-01") });
+    session.email = "boss@example.com";
+    session.emailVerified = false;
+    await expect(setAccountPlan(account.id, "pro")).rejects.toBeInstanceOf(NotFoundError);
+    const [row] = await db.select().from(accounts).where(eq(accounts.id, account.id));
+    expect(row.plan).toBe("trial");
   });
 
   it("rejects an unknown plan", async () => {

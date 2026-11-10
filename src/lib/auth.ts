@@ -15,6 +15,8 @@ const createAuth = () =>
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 10,
+      // A password reset must also end every other session (e.g. one an attacker holds).
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         await sendEmail({
           to: user.email,
