@@ -20,18 +20,19 @@ export function RangePicker({
     return `${basePath}?${q}`;
   };
   return (
-    <nav aria-label="Date range" className="flex items-center gap-3 text-sm">
+    <div className="flex flex-wrap items-center gap-2">
+    <nav aria-label="Date range" className="seg">
       {RANGE_KEYS.map((key) => (
         <Link
           key={key}
           href={href(key)}
           aria-current={key === current ? "page" : undefined}
-          className={key === current ? "font-semibold underline" : "underline-offset-2 hover:underline"}
         >
           {LABELS[key]}
         </Link>
       ))}
-      <span className="opacity-70">(days in UTC)</span>
     </nav>
+      <span className="text-xs text-ink-subtle">Days in UTC</span>
+    </div>
   );
 }

@@ -25,44 +25,44 @@ export function DraftEditor({
   );
   const error = saveState.error ?? approveState.error ?? discardState.error;
   return (
-    <article className="flex flex-col gap-2 border p-4">
-      <p className="text-sm">
+    <article className="panel">
+      <p className="panel-head">
         To {draft.email} · email {draft.step}
         {draft.conversationId && (
           <>
             {" · "}
-            <Link href={`/app/sites/${siteId}/conversations/${draft.conversationId}`} className="underline">
+            <Link href={`/app/sites/${siteId}/conversations/${draft.conversationId}`}>
               View conversation
             </Link>
           </>
         )}
       </p>
-      <form action={save} className="flex flex-col gap-2">
+      <form action={save} className="panel-body form-stack">
         <label className="flex flex-col gap-1">
           Subject
-          <input name="subject" defaultValue={draft.subject} maxLength={120} required className="border p-2" />
+          <input name="subject" defaultValue={draft.subject} maxLength={120} required />
         </label>
         <label className="flex flex-col gap-1">
           Email
-          <textarea name="body" defaultValue={draft.body} maxLength={6000} rows={10} required className="border p-2" />
+          <textarea name="body" defaultValue={draft.body} maxLength={6000} rows={10} required />
         </label>
-        <p className="text-xs opacity-80">
+        <p className="field-hint">
           Links to your own site, written as [text](https://…), are kept and tracked; other links are removed.
         </p>
         {error && (
-          <p role="alert" className="text-red-700">
+          <p role="alert" className="text-danger">
             {error}
           </p>
         )}
-        {saveState.saved && <p role="status">Saved.</p>}
-        <div className="flex gap-2">
-          <button type="submit" disabled={saving} className="border p-2">
+        {saveState.saved && <p role="status" className="text-ok">Saved.</p>}
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" disabled={saving}>
             Save
           </button>
-          <button type="submit" formAction={approve} disabled={approving} className="border p-2">
+          <button type="submit" formAction={approve} disabled={approving} className="btn-primary">
             Approve &amp; send
           </button>
-          <button type="submit" formAction={discard} formNoValidate disabled={discarding} className="border p-2">
+          <button type="submit" formAction={discard} formNoValidate disabled={discarding} className="btn-danger ml-auto">
             Discard
           </button>
         </div>

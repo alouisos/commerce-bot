@@ -38,7 +38,7 @@ function ResetPasswordForm() {
 
   return (
     <main className="mx-auto max-w-sm p-6">
-      <h1 className="mb-4 text-xl font-semibold">{token ? "Choose a new password" : "Reset your password"}</h1>
+      <h1 className="mb-5 text-3xl">{token ? "Choose a new password" : "Reset your password"}</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {token ? (
           <label className="flex flex-col gap-1">
@@ -49,22 +49,22 @@ function ResetPasswordForm() {
               autoComplete="new-password"
               minLength={10}
               required
-              className="border p-2"
+             
             />
           </label>
         ) : (
           <label className="flex flex-col gap-1">
             Email
-            <input name="email" type="email" autoComplete="email" required className="border p-2" />
+            <input name="email" type="email" autoComplete="email" required />
           </label>
         )}
         {error && (
-          <p role="alert" className="text-red-700">
+          <p role="alert" className="text-danger">
             {error}
           </p>
         )}
         {message && <p role="status">{message}</p>}
-        <button type="submit" disabled={pending} className="border p-2">
+        <button type="submit" disabled={pending} className="btn-primary">
           {token ? "Set new password" : "Send reset link"}
         </button>
       </form>

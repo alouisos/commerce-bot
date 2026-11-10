@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getConversation } from "@/lib/conversations/detail";
 import { httpUrl, relativeTime, money } from "@/lib/format";
+import { ArrowLeftIcon } from "@/components/icons";
 import { INTENT_LABELS } from "@/shared/intent";
 import { loadSite } from "../../load-site";
 
@@ -20,14 +21,40 @@ export default async function ConversationPage({
   const page = httpUrl(conversation.firstPageUrl);
   const now = new Date();
 
+  const pagesVisited = visitPages.length > 0 && (
+    <section className="panel">
+      <h3 className="panel-head">Pages this visit</h3>
+      <ol className="panel-body flex flex-col gap-2 text-sm">
+        {visitPages.map((p, i) => {
+          const href = httpUrl(p.url);
+          const title = p.title || p.url;
+          return (
+            <li key={i} className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 break-words">
+                {href ? (
+                  <a href={href} target="_blank" rel="noreferrer">
+                    {title}
+                  </a>
+                ) : (
+                  title
+                )}
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-ink-subtle tabular-nums">{p.seconds}s</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+
   return (
-    <div className="flex flex-col gap-4">
-      <Link href={`/app/sites/${site.id}/conversations`} className="text-sm underline">
-        ← All conversations
+    <div className="flex flex-col gap-5">
+      <Link href={`/app/sites/${site.id}/conversations`} className="inline-flex items-center gap-1.5 self-start text-sm">
+        <ArrowLeftIcon /> All conversations
       </Link>
-      <header>
-        <h2 className="text-lg font-semibold">Conversation</h2>
-        <p className="text-sm">
+      <header className="flex flex-col gap-1.5">
+        <h2 className="text-2xl">Conversation</h2>
+        <p className="text-sm text-ink-muted">
           Started <time dateTime={conversation.createdAt.toISOString()}>{utc(conversation.createdAt)}</time> ·
           Language: {conversation.language}
           {conversation.firstPageUrl && (
@@ -35,7 +62,7 @@ export default async function ConversationPage({
               {" "}
               · First page:{" "}
               {page ? (
-                <a href={page} className="underline" target="_blank" rel="noreferrer">
+                <a href={page} className="break-all" target="_blank" rel="noreferrer">
                   {conversation.firstPageUrl}
                 </a>
               ) : (
@@ -45,14 +72,14 @@ export default async function ConversationPage({
           )}
         </p>
         {conversation.intent && (
-          <p className="text-sm">
+          <p className="text-sm text-ink-muted">
             Intent: {INTENT_LABELS[conversation.intent]}
             {conversation.intentConfidence !== null && ` (${Math.round(conversation.intentConfidence * 100)}%)`}
           </p>
         )}
-        {prompt && <p className="text-sm">Started from a suggestion: “{prompt.text}”</p>}
+        {prompt && <p className="text-sm text-ink-muted">Started from a suggestion: “{prompt.text}”</p>}
         {sales.map((s) => (
-          <p key={s.id} className="text-sm font-medium">
+          <p key={s.id} className="text-sm font-semibold text-sodium">
             {s.amountMinor !== null && s.currency
               ? `Sale followed: ${money(s.amountMinor, s.currency)}`
               : "Sale followed (amount unknown)"}
@@ -60,63 +87,45 @@ export default async function ConversationPage({
           </p>
         ))}
       </header>
-      {visitPages.length > 0 && (
-        <section>
-          <h3 className="font-medium">Pages this visit</h3>
-          <ol className="text-sm">
-            {visitPages.map((p, i) => {
-              const href = httpUrl(p.url);
-              const title = p.title || p.url;
-              return (
-                <li key={i}>
-                  {href ? (
-                    <a href={href} className="underline" target="_blank" rel="noreferrer">
-                      {title}
-                    </a>
-                  ) : (
-                    title
-                  )}{" "}
-                  · {p.seconds}s
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-      )}
-      <section className="border p-3">
-        <h3 className="font-medium">Email</h3>
-        {leads.length === 0 ? (
-          <p className="text-sm">No email captured</p>
-        ) : (
-          <ul className="text-sm">
-            {leads.map((l) => (
-              <li key={l.id}>
-                <strong>{l.email}</strong> ·{" "}
-                <time dateTime={l.createdAt.toISOString()}>{relativeTime(l.createdAt, now)}</time>
-                <div className="whitespace-pre-wrap">{l.message}</div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <ol className="flex flex-col gap-3">
-        {messages.map((m) => (
-          <li key={m.id} className={m.role === "visitor" ? "border-l-4 pl-3" : "border-l-4 border-blue-400 pl-3"}>
-            <div className="text-sm font-medium">
-              {m.role === "visitor" ? "Visitor" : site.botName}
-              {m.kind === "fallback" && (
-                <span className="ml-2 border border-amber-400 bg-amber-50 px-1 text-xs text-amber-900">
-                  Couldn&apos;t answer
-                </span>
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <ol className="flex max-w-3xl flex-col gap-3" aria-label="Messages">
+          {messages.map((m) => (
+            <li key={m.id} className={m.role === "visitor" ? "msg msg-visitor" : "msg msg-bot"}>
+              <div className="msg-who">
+                {m.role === "visitor" ? "Visitor" : site.botName}
+                {m.kind === "fallback" && <span className="badge badge-warn">Couldn&apos;t answer</span>}
+                <time dateTime={m.createdAt.toISOString()} className="text-xs font-normal text-ink-subtle">
+                  {utc(m.createdAt)}
+                </time>
+              </div>
+              <div className="whitespace-pre-wrap">{m.content}</div>
+            </li>
+          ))}
+        </ol>
+        <aside className="flex flex-col gap-4">
+          <section className="panel">
+            <h3 className="panel-head">Email</h3>
+            <div className="panel-body">
+              {leads.length === 0 ? (
+                <p className="text-sm text-ink-muted">No email captured</p>
+              ) : (
+                <ul className="flex flex-col gap-3 text-sm">
+                  {leads.map((l) => (
+                    <li key={l.id}>
+                      <strong className="break-all">{l.email}</strong> ·{" "}
+                      <time dateTime={l.createdAt.toISOString()} className="text-ink-muted">
+                        {relativeTime(l.createdAt, now)}
+                      </time>
+                      <div className="mt-1 whitespace-pre-wrap text-ink-muted">{l.message}</div>
+                    </li>
+                  ))}
+                </ul>
               )}
-              <time dateTime={m.createdAt.toISOString()} className="ml-2 text-xs font-normal opacity-70">
-                {utc(m.createdAt)}
-              </time>
             </div>
-            <div className="whitespace-pre-wrap">{m.content}</div>
-          </li>
-        ))}
-      </ol>
+          </section>
+          {pagesVisited}
+        </aside>
+      </div>
     </div>
   );
 }

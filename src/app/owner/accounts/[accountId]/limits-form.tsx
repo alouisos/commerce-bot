@@ -22,7 +22,7 @@ function NumberField(props: { name: string; label: string; value: number | undef
         inputMode="numeric"
         defaultValue={props.value === undefined ? "" : String(props.value)}
         placeholder={`${props.plan} (plan)`}
-        className="w-40 border p-2"
+        className="w-40"
       />
     </label>
   );
@@ -33,7 +33,7 @@ function Toggle(props: { name: string; label: string; value: boolean | undefined
   return (
     <label className="flex flex-col gap-1">
       {props.label}
-      <select name={props.name} defaultValue={current} className="w-48 border p-2">
+      <select name={props.name} defaultValue={current} className="w-48">
         <option value="default">Plan default ({props.plan ? "on" : "off"})</option>
         <option value="on">On</option>
         <option value="off">Off</option>
@@ -47,9 +47,9 @@ export function LimitsForm({ accountId, plan, overrides, trialEndsOn }: Props) {
   const mb = (b: number | undefined) => (b === undefined ? undefined : Math.round(b / MB));
   const usd = (m: number | undefined) => (m === undefined ? undefined : m / 1_000_000);
   return (
-    <form action={action} className="flex flex-col gap-3 border p-4">
-      <h2 className="text-lg font-semibold">Limits</h2>
-      <p className="text-sm opacity-80">Leave a field empty to use the plan&apos;s value.</p>
+    <form action={action} className="card">
+      <h2>Limits</h2>
+      <p className="text-sm text-ink-muted font-normal">Leave a field empty to use the plan&apos;s value.</p>
       <div className="flex flex-wrap gap-4">
         <NumberField name="websites" label="Websites" value={overrides.websites} plan={plan.websites} />
         <NumberField
@@ -74,16 +74,16 @@ export function LimitsForm({ accountId, plan, overrides, trialEndsOn }: Props) {
       {trialEndsOn !== null && (
         <label className="flex flex-col gap-1">
           Trial ends on
-          <input type="date" name="trialEndsOn" defaultValue={trialEndsOn} className="w-48 border p-2" />
+          <input type="date" name="trialEndsOn" defaultValue={trialEndsOn} className="w-48" />
         </label>
       )}
       {state.error && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-danger">
           {state.error}
         </p>
       )}
       {state.saved && <p role="status">Limits saved.</p>}
-      <button type="submit" disabled={pending} className="w-fit border p-2">
+      <button type="submit" disabled={pending} className="btn-primary self-start">
         Save limits
       </button>
     </form>

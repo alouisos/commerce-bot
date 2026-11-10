@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { CloseIcon } from "./icons";
 
 function subscribe(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
@@ -38,11 +39,11 @@ export function DismissibleNotice({
   if (closed || dismissed) return null;
   return (
     <div role="status" className={`flex items-start justify-between gap-4 ${className ?? ""}`}>
-      <div>{children}</div>
+      <div className="flex items-start gap-3">{children}</div>
       <button
         type="button"
         aria-label="Dismiss"
-        className="px-2"
+        className="btn-ghost btn-icon"
         onClick={() => {
           try {
             window.localStorage.setItem(storageKey, "1");
@@ -52,7 +53,7 @@ export function DismissibleNotice({
           setClosed(true);
         }}
       >
-        ×
+        <CloseIcon />
       </button>
     </div>
   );

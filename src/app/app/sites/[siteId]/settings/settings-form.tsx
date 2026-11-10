@@ -26,11 +26,11 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
   const [nextId, setNextId] = useState(rows.length);
 
   return (
-    <form action={action} className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Widget settings</h2>
+    <form action={action} className="card">
+      <h2>Widget settings</h2>
       <label className="flex flex-col gap-1">
         Bot name
-        <input name="botName" defaultValue={initial.botName} required maxLength={40} className="border p-2" />
+        <input name="botName" defaultValue={initial.botName} required maxLength={40} />
       </label>
       <label className="flex flex-col gap-1">
         Accent colour
@@ -38,7 +38,7 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
       </label>
       <label className="flex flex-col gap-1">
         Corner
-        <select name="corner" defaultValue={initial.corner} className="border p-2">
+        <select name="corner" defaultValue={initial.corner}>
           <option value="bottom-right">Bottom right</option>
           <option value="bottom-left">Bottom left</option>
         </select>
@@ -50,12 +50,12 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
           defaultValue={initial.defaultLanguage}
           required
           pattern="[a-z]{2}"
-          className="w-20 border p-2"
+          className="w-20"
         />
       </label>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="font-medium">How proactive should the bot be?</legend>
+        <legend>How proactive should the bot be?</legend>
         {PROACTIVITY.map((o) => (
           <label key={o.value} className="flex items-start gap-2">
             <input
@@ -67,36 +67,36 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
             />
             <span>
               {o.label}
-              <span className="block text-sm opacity-80">{o.help}</span>
+              <span className="block text-sm text-ink-muted font-normal">{o.help}</span>
             </span>
           </label>
         ))}
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="font-medium">Greeting message per language</legend>
+        <legend>Greeting message per language</legend>
         {rows.map((r) => (
-          <div key={r.id} className="flex gap-2">
+          <div key={r.id} className="flex flex-wrap gap-2">
             <input
               name="greetingLanguage"
               defaultValue={r.language}
               aria-label="Language code"
               pattern="[a-z]{2}"
               required
-              className="w-16 border p-2"
+              className="w-16"
             />
             <input
               name="greetingMessage"
               defaultValue={r.message}
               aria-label={`Greeting (${r.language})`}
               maxLength={280}
-              className="flex-1 border p-2"
+              className="min-w-0 flex-1 basis-48"
             />
             <button
               type="button"
               onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}
               aria-label={`Remove ${r.language} greeting`}
-              className="border px-2"
+              className="btn-sm"
             >
               Remove
             </button>
@@ -108,7 +108,7 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
             setRows((rs) => [...rs, { id: nextId, language: "", message: "" }]);
             setNextId((n) => n + 1);
           }}
-          className="w-fit border p-2"
+          className="self-start"
         >
           Add language
         </button>
@@ -123,7 +123,6 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
           maxLength={2000}
           rows={4}
           placeholder="e.g. Never give medical advice; suggest seeing a dermatologist."
-          className="border p-2"
         />
       </label>
 
@@ -133,17 +132,17 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
           name="allowedOrigins"
           defaultValue={initial.allowedOrigins.join("\n")}
           rows={3}
-          className="border p-2 font-mono"
+          className="font-mono"
         />
       </label>
 
       {state.error && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-danger">
           {state.error}
         </p>
       )}
       {state.saved && <p role="status">Settings saved.</p>}
-      <button type="submit" disabled={pending} className="w-fit border p-2">
+      <button type="submit" disabled={pending} className="btn-primary self-start">
         Save settings
       </button>
     </form>

@@ -10,31 +10,31 @@ export function DeletePersonForm({ siteId, email }: { siteId: string; email: str
     deletePersonAction.bind(null, siteId),
     {},
   );
-  if (state.saved) return <span role="status">Deleted.</span>;
+  if (state.saved) return <span role="status" className="text-ink-muted">Deleted.</span>;
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="border px-2">
+      <button type="button" onClick={() => setOpen(true)} className="btn-danger-quiet btn-sm whitespace-nowrap">
         Delete all data
       </button>
     );
   }
   return (
-    <form action={action} className="flex flex-col gap-1">
+    <form action={action} className="flex min-w-64 flex-col gap-2">
       <input type="hidden" name="email" value={email} />
       <label className="flex flex-col gap-1 text-sm">
         Deletes this person&apos;s conversations, messages, emails and consent. Type {email} to confirm.
-        <input name="confirm" autoComplete="off" required className="border p-1" />
+        <input name="confirm" autoComplete="off" required />
       </label>
       {state.error && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-danger">
           {state.error}
         </p>
       )}
       <div className="flex gap-2">
-        <button type="submit" disabled={pending} className="border px-2">
+        <button type="submit" disabled={pending} className="btn-danger btn-sm">
           Delete all data
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="px-2">
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost btn-sm">
           Cancel
         </button>
       </div>

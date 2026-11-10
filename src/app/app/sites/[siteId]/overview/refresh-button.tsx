@@ -7,11 +7,11 @@ export function RefreshInsightsButton({ siteId }: { siteId: string }) {
   const [state, action, pending] = useActionState<RefreshResult | null>(() => refreshInsightsAction(siteId), null);
   return (
     <form action={action} className="flex items-center gap-2 text-sm">
-      <button type="submit" disabled={pending} className="border px-2 py-1">
+      <button type="submit" disabled={pending} className="btn-sm">
         {pending ? "Refreshing…" : "Refresh"}
       </button>
-      {state?.ok === false && <span role="alert">{state.error}</span>}
-      {state?.ok && <span role="status">Refreshing. New insights appear here in a minute or two.</span>}
+      {state?.ok === false && <span role="alert" className="text-danger">{state.error}</span>}
+      {state?.ok && <span role="status" className="text-ink-muted">Refreshing. New insights appear here in a minute or two.</span>}
     </form>
   );
 }

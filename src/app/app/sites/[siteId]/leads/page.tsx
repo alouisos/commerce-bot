@@ -13,15 +13,16 @@ export default async function LeadsPage({ params }: PageProps<"/app/sites/[siteI
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Leads</h2>
-      <p className="text-sm">
+      <h2 className="text-2xl">Leads</h2>
+      <p className="max-w-[72ch] text-sm text-ink-muted">
         Visitors who left their email when the bot couldn&apos;t answer, or asked for recommendations by email. Newest
         first.
       </p>
       {rows.length === 0 ? (
-        <p>No leads yet.</p>
+        <p className="notice">No leads yet. They appear here when a visitor leaves their email in a chat.</p>
       ) : (
-        <table className="w-full text-left text-sm">
+        <div className="panel table-wrap table-stack">
+        <table>
           <thead>
             <tr>
               <th>Email</th>
@@ -33,15 +34,15 @@ export default async function LeadsPage({ params }: PageProps<"/app/sites/[siteI
           </thead>
           <tbody>
             {rows.map((l) => (
-              <tr key={l.id} className="border-t align-top">
-                <td className="py-1">{l.email}</td>
-                <td className="whitespace-pre-wrap">{l.message}</td>
-                <td>
+              <tr key={l.id}>
+                <td className="stack-lead break-words font-medium">{l.email}</td>
+                <td className="stack-full min-w-64 whitespace-pre-wrap text-ink-muted">{l.message}</td>
+                <td data-label="Received" className="whitespace-nowrap text-ink-muted">
                   <time dateTime={l.createdAt.toISOString()}>{relativeTime(l.createdAt, now)}</time>
                 </td>
                 <td>
                   {l.conversationId && (
-                    <Link href={`/app/sites/${site.id}/conversations/${l.conversationId}`} className="underline">
+                    <Link href={`/app/sites/${site.id}/conversations/${l.conversationId}`}>
                       View
                     </Link>
                   )}
@@ -53,6 +54,7 @@ export default async function LeadsPage({ params }: PageProps<"/app/sites/[siteI
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

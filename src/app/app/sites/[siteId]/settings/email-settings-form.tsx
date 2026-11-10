@@ -45,11 +45,11 @@ export function EmailSettingsForm({
     {},
   );
   return (
-    <form action={action} className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Email &amp; privacy</h2>
+    <form action={action} className="card">
+      <h2>Email &amp; privacy</h2>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="font-medium">How are follow-up emails sent?</legend>
+        <legend>How are follow-up emails sent?</legend>
         <label className="flex items-start gap-2">
           <input
             type="radio"
@@ -60,7 +60,7 @@ export function EmailSettingsForm({
           />
           <span>
             Approval queue (recommended)
-            <span className="block text-sm opacity-80">Each email waits in Emails → Queue until you approve it.</span>
+            <span className="block text-sm text-ink-muted font-normal">Each email waits in Emails → Queue until you approve it.</span>
           </span>
         </label>
         <label className="flex items-start gap-2">
@@ -74,7 +74,7 @@ export function EmailSettingsForm({
           />
           <span>
             Automatic
-            <span className="block text-sm opacity-80">
+            <span className="block text-sm text-ink-muted font-normal">
               {canAutoSend ? "Emails go out as soon as they're written." : "Needs the Growth plan"}
             </span>
           </span>
@@ -90,7 +90,7 @@ export function EmailSettingsForm({
           max={10}
           defaultValue={initial.emailMaxPerPerson}
           aria-label="Emails per person"
-          className="w-16 border p-2"
+          className="w-16"
         />
         emails per person, every
         <input
@@ -100,7 +100,7 @@ export function EmailSettingsForm({
           max={30}
           defaultValue={initial.emailIntervalDays}
           aria-label="Days between emails"
-          className="w-16 border p-2"
+          className="w-16"
         />
         days
       </p>
@@ -112,7 +112,7 @@ export function EmailSettingsForm({
           defaultValue={initial.emailFromName}
           maxLength={60}
           placeholder={siteName}
-          className="border p-2"
+         
         />
       </label>
       <label className="flex flex-col gap-1">
@@ -124,7 +124,7 @@ export function EmailSettingsForm({
             required
             pattern="[A-Za-z0-9][A-Za-z0-9._\-]{0,63}"
             aria-label="From address, before the @"
-            className="w-40 border p-2"
+            className="w-40"
           />
           <span>@{domain ?? "your domain"}</span>
         </span>
@@ -132,19 +132,19 @@ export function EmailSettingsForm({
 
       <label className="flex flex-col gap-1">
         Keep conversations and email data for
-        <select name="retentionMonths" defaultValue={String(initial.retentionMonths)} className="w-fit border p-2">
+        <select name="retentionMonths" defaultValue={String(initial.retentionMonths)} className="self-start">
           <option value="6">6 months</option>
           <option value="12">12 months</option>
           <option value="24">24 months</option>
           <option value="36">36 months</option>
         </select>
-        <span className="text-sm opacity-80">
+        <span className="text-sm text-ink-muted font-normal">
           Older data is deleted every night. People who are still subscribed are kept.
         </span>
       </label>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="font-medium">Cookie consent</legend>
+        <legend>Cookie consent</legend>
         {CONSENT.map((o) => (
           <label key={o.value} className="flex items-start gap-2">
             <input
@@ -156,19 +156,19 @@ export function EmailSettingsForm({
             />
             <span>
               {o.label}
-              <span className="block text-sm opacity-80">{o.help}</span>
+              <span className="block text-sm text-ink-muted font-normal">{o.help}</span>
             </span>
           </label>
         ))}
       </fieldset>
 
       {state.error && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-danger">
           {state.error}
         </p>
       )}
       {state.saved && <p role="status">Email &amp; privacy settings saved.</p>}
-      <button type="submit" disabled={pending} className="w-fit border p-2">
+      <button type="submit" disabled={pending} className="btn-primary self-start">
         Save email &amp; privacy
       </button>
     </form>

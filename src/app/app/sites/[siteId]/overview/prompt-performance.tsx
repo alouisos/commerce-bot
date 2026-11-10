@@ -23,24 +23,25 @@ export async function PromptPerformance({
   const [stats, paused] = await Promise.all([promptStats(siteId, range), pausedKinds(siteId)]);
   const kinds = Object.keys(PROMPT_KIND_LABELS) as PromptKind[];
   return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-lg font-semibold">Suggestions</h3>
+    <section className="panel">
+      <h3 className="panel-head">Suggestions</h3>
+      <div className="panel-body flex flex-col gap-3">
       {proactivity === "off" && (
-        <p className="text-sm">
-          Suggestions are off for this website. Turn them on in{" "}
-          <Link href={`/app/sites/${siteId}/settings`} className="underline">
-            Settings
-          </Link>
-          .
+        <p className="text-sm text-ink-muted">
+          Suggestions are off for this website. Turn them on in <Link href={`/app/sites/${siteId}/settings`}>Settings</Link>.
         </p>
       )}
       {paused.map((k) => (
-        <p key={k} role="status" className="border border-amber-300 bg-amber-50 p-2 text-sm text-amber-950">
+        <p key={k} role="status" className="notice notice-warn">
+          <span className="lamp lamp-warn" aria-hidden="true" />
+          <span>
           Visitors kept dismissing {PROMPT_KIND_LABELS[k].toLowerCase()}, so the bot has paused them. It will try them
           again in a couple of weeks.
+          </span>
         </p>
       ))}
-      <table className="w-full text-left text-sm">
+      <div className="table-wrap">
+      <table>
         <thead>
           <tr>
             <th>Type</th>
@@ -63,15 +64,17 @@ export async function PromptPerformance({
                 <td>{s.dismissed}</td>
                 <td>{rate(s.tapped, s.shown)}</td>
                 <td>{rate(s.dismissed, s.shown)}</td>
-                <td>{paused.includes(k) ? "Paused" : ""}</td>
+                <td>{paused.includes(k) ? <span className="badge badge-warn">Paused</span> : ""}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
-      <p className="text-xs opacity-70">
+      </div>
+      <p className="text-xs text-ink-subtle">
         Counted when a suggestion is shown. Ignored suggestions hide themselves and count as neither.
       </p>
+      </div>
     </section>
   );
 }

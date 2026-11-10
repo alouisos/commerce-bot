@@ -11,8 +11,8 @@ export function CrawlBanner({ siteId, host, notice }: { siteId: string; host: st
   if (!notice) return null;
   const pagesHref = `/app/sites/${siteId}/knowledge?tab=pages`;
   const recrawl = (
-    <form action={recrawlNowAction.bind(null, siteId)} className="mt-2">
-      <button type="submit" className="border bg-white px-2 py-1">
+    <form action={recrawlNowAction.bind(null, siteId)} className="mt-3">
+      <button type="submit" className="btn-primary btn-sm">
         Re-crawl now
       </button>
     </form>
@@ -22,19 +22,25 @@ export function CrawlBanner({ siteId, host, notice }: { siteId: string; host: st
   switch (notice.kind) {
     case "queued":
       body = (
-        <div role="status" className="border border-blue-300 bg-blue-50 p-3">
-          <strong>Getting ready to read {host}…</strong> The crawl starts within a minute. This page updates on its own.
+        <div role="status" className="notice notice-info">
+          <span className="lamp lamp-live" aria-hidden="true" />
+          <p>
+            <strong>Getting ready to read {host}…</strong> The crawl starts within a minute. This page updates on its own.
+          </p>
         </div>
       );
       break;
     case "crawling":
       body = (
-        <div role="status" className="border border-blue-300 bg-blue-50 p-3">
+        <div role="status" className="notice notice-info">
+          <span className="lamp lamp-live" aria-hidden="true" />
+          <p>
           <strong>Reading {host}…</strong>{" "}
           {notice.counts.ready > 0
             ? `${plural(notice.counts.ready, "page")} learned so far.`
             : "Finding your pages."}{" "}
           You can keep working; this updates on its own and tells you when your website is ready.
+          </p>
         </div>
       );
       break;
@@ -42,30 +48,37 @@ export function CrawlBanner({ siteId, host, notice }: { siteId: string; host: st
       body = (
         <DismissibleNotice
           storageKey={`crawl-ready:${siteId}:${notice.finishedAt.toISOString()}`}
-          className="border border-green-300 bg-green-50 p-3"
+          className="notice notice-ok"
         >
+          <span className="lamp lamp-ok" aria-hidden="true" />
+          <p>
           <strong>Your website is ready.</strong> The assistant learned {plural(notice.counts.ready, "page")} from {host}
           {notice.counts.failed > 0 && ` (${plural(notice.counts.failed, "page")} couldn't be added)`}.{" "}
-          <Link href={pagesHref} className="underline">
-            See website pages
-          </Link>
+          <Link href={pagesHref}>See website pages</Link>
+          </p>
         </DismissibleNotice>
       );
       break;
     case "failed":
       body = (
-        <div role="alert" className="border border-red-300 bg-red-50 p-3">
-          <strong>We couldn&apos;t read any pages from {host}.</strong> Check that the address is right and the site is
-          public, then try again.
-          {recrawl}
+        <div role="alert" className="notice notice-crit">
+          <span className="lamp lamp-crit" aria-hidden="true" />
+          <div>
+            <strong>We couldn&apos;t read any pages from {host}.</strong> Check that the address is right and the site is
+            public, then try again.
+            {recrawl}
+          </div>
         </div>
       );
       break;
     case "stale":
       body = (
-        <div role="alert" className="border border-amber-300 bg-amber-50 p-3">
-          <strong>The last crawl of {host} stopped before it finished.</strong> Start it again to pick up the rest.
-          {recrawl}
+        <div role="alert" className="notice notice-warn">
+          <span className="lamp lamp-warn" aria-hidden="true" />
+          <div>
+            <strong>The last crawl of {host} stopped before it finished.</strong> Start it again to pick up the rest.
+            {recrawl}
+          </div>
         </div>
       );
       break;

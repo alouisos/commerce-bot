@@ -36,24 +36,25 @@ export default async function EmailsPage({ params, searchParams }: PageProps<"/a
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Emails</h2>
+      <h2 className="text-2xl">Emails</h2>
       {site.sendingDomainStatus !== "verified" && (
-        <p role="status" className="border p-2">
-          Set up your sending domain in Settings before emails can go out.{" "}
-          <Link href={`/app/sites/${site.id}/settings`} className="underline">
-            Settings
-          </Link>
+        <p role="status" className="notice notice-warn">
+          <span className="lamp lamp-warn" aria-hidden="true" />
+          <span>
+            Set up your sending domain in Settings before emails can go out.{" "}
+            <Link href={`/app/sites/${site.id}/settings`}>Settings</Link>
+          </span>
         </p>
       )}
       {automatic && (
-        <p role="status" className="border p-2">
+        <p role="status" className="notice notice-info">
+          <span className="lamp lamp-live" aria-hidden="true" />
           Emails send automatically. Switch to approval in Settings to review them first.
         </p>
       )}
-      <nav aria-label="Emails" className="flex gap-4">
+      <nav aria-label="Emails" className="tabs">
         {TABS.map((t) => (
-          <Link key={t.id} href={`${base}?tab=${t.id}`} aria-current={t.id === tab ? "page" : undefined}
-            className={t.id === tab ? "font-semibold underline" : "underline"}>
+          <Link key={t.id} href={`${base}?tab=${t.id}`} aria-current={t.id === tab ? "page" : undefined}>
             {t.label}
           </Link>
         ))}
@@ -65,7 +66,7 @@ export default async function EmailsPage({ params, searchParams }: PageProps<"/a
 
 async function Queue({ siteId }: { siteId: string }) {
   const drafts = await listQueue(siteId);
-  if (drafts.length === 0) return <p>No emails waiting for approval.</p>;
+  if (drafts.length === 0) return <p className="notice">No emails waiting for approval.</p>;
   return (
     <div className="flex flex-col gap-4">
       {drafts.map((d) => (
@@ -77,10 +78,11 @@ async function Queue({ siteId }: { siteId: string }) {
 
 async function Sent({ siteId, page, base }: { siteId: string; page: number; base: string }) {
   const sent = await listSent(siteId, page);
-  if (sent.total === 0) return <p>No emails sent yet.</p>;
+  if (sent.total === 0) return <p className="notice">No emails sent yet.</p>;
   return (
     <div className="flex flex-col gap-2">
-      <table className="w-full text-left text-sm">
+      <div className="panel table-wrap">
+      <table>
         <thead>
           <tr>
             <th>Sent at</th>
@@ -92,8 +94,8 @@ async function Sent({ siteId, page, base }: { siteId: string; page: number; base
         </thead>
         <tbody>
           {sent.rows.map((r) => (
-            <tr key={r.id} className="border-t">
-              <td className="py-1">{r.sentAt ? r.sentAt.toISOString().slice(0, 16).replace("T", " ") : "—"}</td>
+            <tr key={r.id}>
+              <td className="whitespace-nowrap tabular-nums text-ink-muted">{r.sentAt ? r.sentAt.toISOString().slice(0, 16).replace("T", " ") : "—"}</td>
               <td>{r.email}</td>
               <td>{r.subject}</td>
               <td>{r.clicks}</td>
@@ -102,6 +104,7 @@ async function Sent({ siteId, page, base }: { siteId: string; page: number; base
           ))}
         </tbody>
       </table>
+      </div>
       {sent.pages > 1 && (
         <p className="flex gap-4 text-sm">
           {sent.page > 1 && <Link href={`${base}?tab=sent&page=${sent.page - 1}`}>Newer</Link>}
@@ -117,9 +120,10 @@ async function Sent({ siteId, page, base }: { siteId: string; page: number; base
 
 async function People({ siteId }: { siteId: string }) {
   const people = await listPeople(siteId);
-  if (people.length === 0) return <p>Nobody has asked for emails yet.</p>;
+  if (people.length === 0) return <p className="notice">Nobody has asked for emails yet.</p>;
   return (
-    <table className="w-full text-left text-sm">
+    <div className="panel table-wrap">
+    <table>
       <thead>
         <tr>
           <th>Email</th>
@@ -132,9 +136,13 @@ async function People({ siteId }: { siteId: string }) {
       </thead>
       <tbody>
         {people.map((p) => (
-          <tr key={p.id} className="border-t align-top">
-            <td className="py-1">{p.email}</td>
-            <td>{STATUS[p.status]}</td>
+          <tr key={p.id}>
+            <td className="break-words font-medium">{p.email}</td>
+            <td>
+              <span className={p.status === "subscribed" ? "badge badge-ok" : p.status === "pending" ? "badge badge-warn" : "badge"}>
+                {STATUS[p.status]}
+              </span>
+            </td>
             <td>{day(p.consentedAt)}</td>
             <td>{day(p.confirmedAt)}</td>
             <td>{p.sent}</td>
@@ -145,5 +153,6 @@ async function People({ siteId }: { siteId: string }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

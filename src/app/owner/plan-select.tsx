@@ -17,14 +17,14 @@ export function PlanSelect({ accountId, plan }: { accountId: string; plan: PlanI
         start(() => setAccountPlan(accountId, value));
       }}
     >
-      <select aria-label="Plan" value={value} onChange={(e) => setValue(e.target.value as PlanId)} className="border p-1">
+      <select aria-label="Plan" value={value} onChange={(e) => setValue(e.target.value as PlanId)}>
         {PLANS.map((p) => (
           <option key={p} value={p}>
             {p}
           </option>
         ))}
       </select>
-      <button type="submit" disabled={pending} className="border px-2">
+      <button type="submit" disabled={pending} className="btn-sm">
         {pending ? "Saving..." : "Save"}
       </button>
     </form>

@@ -38,11 +38,11 @@ export async function QuotaBanner({ account }: { account: Account }) {
   }
   if (!text) return null;
   return (
-    <div role={role} className="border-b px-6 py-2">
-      {text}{" "}
-      <Link href="/app/usage" className="underline">
-        Usage
-      </Link>
+    <div role={role} className={`notice notice-bar ${role === "alert" ? "notice-crit" : "notice-warn"}`}>
+      <span className={role === "alert" ? "lamp lamp-crit" : "lamp lamp-warn"} aria-hidden="true" />
+      <p>
+        {text} <Link href="/app/usage">See usage</Link>
+      </p>
     </div>
   );
 }

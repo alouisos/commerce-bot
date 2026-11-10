@@ -9,18 +9,18 @@ export function AcceptForm({ token }: { token: string }) {
     <form action={action} className="flex flex-col gap-3">
       <label className="flex flex-col gap-1">
         Your name
-        <input name="name" required maxLength={80} autoComplete="name" className="border p-2" />
+        <input name="name" required maxLength={80} autoComplete="name" />
       </label>
       <label className="flex flex-col gap-1">
         Password (at least 10 characters)
-        <input name="password" type="password" required minLength={10} autoComplete="new-password" className="border p-2" />
+        <input name="password" type="password" required minLength={10} autoComplete="new-password" />
       </label>
       {state.error && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-danger">
           {state.error}
         </p>
       )}
-      <button type="submit" disabled={pending} className="border p-2">
+      <button type="submit" disabled={pending} className="btn-primary">
         Create account
       </button>
     </form>

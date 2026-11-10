@@ -33,7 +33,7 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
   const extra = rows.filter((r) => !["el", "en"].includes(r.language)).map((r) => ({ language: r.language, message: r.message }));
 
   return (
-    <div className="flex max-w-xl flex-col gap-8">
+    <div className="flex max-w-2xl flex-col gap-5">
       <SiteDetailsForm siteId={site.id} name={site.name} baseUrl={site.baseUrl} />
       {/* Remount on a URL change: its allowed-origins field is uncontrolled and the origins were re-derived. */}
       <SettingsForm

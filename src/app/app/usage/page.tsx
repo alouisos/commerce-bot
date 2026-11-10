@@ -32,53 +32,70 @@ export default async function UsagePage() {
     }
   }
 
+  const level = quota.expired || quota.state === "ceiling" || quota.state === "limit" ? "full" : quota.state === "warning" ? "warning" : "ok";
+
   return (
-    <div className="flex max-w-xl flex-col gap-4">
-      <h1 className="text-xl font-semibold">Usage</h1>
-      <p>
-        Plan: <strong>{planName}</strong>
+    <div className="flex max-w-3xl flex-col gap-5">
+      <h1 className="page-title">Usage</h1>
+      <p className="text-ink-muted">
+        Plan: <strong className="text-ink">{planName}</strong>
         {trial ? ` · ${trial}` : ""}
       </p>
-      <section className="flex flex-col gap-1">
-        <p>
-          Conversations this month: {quota.used} / {quota.limit}
-        </p>
-        <div
-          role="progressbar"
-          aria-label="Conversations used"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={pct}
-          className="h-3 w-full border"
-        >
-          <div className="h-full bg-current" style={{ width: `${pct}%` }} />
+      <section className="panel">
+        <h2 className="panel-head">Conversations</h2>
+        <div className="panel-body flex flex-col gap-3">
+          <p>
+            Conversations this month:{" "}
+            <span className="font-sign text-2xl font-extrabold text-sodium tabular-nums">
+              {quota.used} / {quota.limit}
+            </span>
+          </p>
+          <div
+            role="progressbar"
+            aria-label="Conversations used"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+            className="meter"
+            data-level={level}
+          >
+            <div style={{ width: `${pct}%` }} />
+          </div>
+          <p className={level === "full" ? "text-sm text-danger" : "text-sm text-ink-muted"}>
+            {quota.expired ? "Your free trial has ended. Your bot is in fallback mode." : STATE_TEXT[quota.state]}
+          </p>
         </div>
-        <p className="text-sm">{quota.expired ? "Your free trial has ended. Your bot is in fallback mode." : STATE_TEXT[quota.state]}</p>
       </section>
-      <section className="flex flex-col gap-1">
-        <p>
-          Emails this month: {levels.emails.used} / {levels.emails.limit}
-        </p>
-        {levels.emails.level !== "ok" && (
-          <p className="text-sm">
-            {levels.emails.level === "full"
-              ? "This month's emails are used up: no new emails until next month."
-              : "You are close to this month's email limit."}
+      <section className="panel">
+        <h2 className="panel-head">Emails and storage</h2>
+        <div className="panel-body flex flex-col gap-2">
+          <p>
+            Emails this month: {levels.emails.used} / {levels.emails.limit}
           </p>
-        )}
-        <p>
-          Knowledge-base storage: {mb(levels.storage.used)} / {mb(levels.storage.limit)}
-        </p>
+          {levels.emails.level !== "ok" && (
+            <p className={levels.emails.level === "full" ? "text-sm text-danger" : "text-sm text-warn"}>
+              {levels.emails.level === "full"
+                ? "This month's emails are used up: no new emails until next month."
+                : "You are close to this month's email limit."}
+            </p>
+          )}
+          <p>
+            Knowledge-base storage: {mb(levels.storage.used)} / {mb(levels.storage.limit)}
+          </p>
+        </div>
       </section>
-      <section className="flex flex-col gap-1">
-        <p>
-          AI usage this month: {usd.format(quota.aiCostMicros / 1e6)} of {usd.format(quota.aiCostCeilingMicros / 1e6)}
-        </p>
-        {quota.aiBudgetReached && (
-          <p role="alert" className="text-sm">
-            {AI_LIMIT_TEXT}
+      <section className="panel">
+        <h2 className="panel-head">AI usage</h2>
+        <div className="panel-body flex flex-col gap-2">
+          <p>
+            AI usage this month: {usd.format(quota.aiCostMicros / 1e6)} of {usd.format(quota.aiCostCeilingMicros / 1e6)}
           </p>
-        )}
+          {quota.aiBudgetReached && (
+            <p role="alert" className="text-sm text-danger">
+              {AI_LIMIT_TEXT}
+            </p>
+          )}
+        </div>
       </section>
     </div>
   );

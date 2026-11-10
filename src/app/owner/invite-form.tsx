@@ -14,20 +14,20 @@ const PLANS = [
 export function InviteForm() {
   const [state, action, pending] = useActionState<OwnerFormState, FormData>(inviteAction, {});
   return (
-    <form action={action} className="flex flex-col gap-2 border p-4">
-      <h2 className="text-lg font-semibold">Invite a customer</h2>
+    <form action={action} className="card">
+      <h2>Invite a customer</h2>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
           Email
-          <input name="email" type="email" required className="border p-2" />
+          <input name="email" type="email" required />
         </label>
         <label className="flex flex-col gap-1">
           Account name
-          <input name="accountName" required maxLength={80} className="border p-2" />
+          <input name="accountName" required maxLength={80} />
         </label>
         <label className="flex flex-col gap-1">
           Plan
-          <select name="plan" defaultValue="starter" className="border p-2">
+          <select name="plan" defaultValue="starter">
             {PLANS.map((p) => (
               <option key={p.value} value={p.value}>
                 {p.label}
@@ -35,12 +35,12 @@ export function InviteForm() {
             ))}
           </select>
         </label>
-        <button type="submit" disabled={pending} className="border p-2">
+        <button type="submit" disabled={pending} className="btn-primary">
           Send invite
         </button>
       </div>
       {state.error && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-danger">
           {state.error}
         </p>
       )}

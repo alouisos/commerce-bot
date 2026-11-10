@@ -26,11 +26,11 @@ export default function SignInPage() {
 
   return (
     <main className="mx-auto max-w-sm p-6">
-      <h1 className="mb-4 text-xl font-semibold">Sign in</h1>
+      <h1 className="mb-5 text-3xl">Sign in</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
           Email
-          <input name="email" type="email" autoComplete="email" required className="border p-2" />
+          <input name="email" type="email" autoComplete="email" required />
         </label>
         <label className="flex flex-col gap-1">
           Password
@@ -39,15 +39,15 @@ export default function SignInPage() {
             type="password"
             autoComplete="current-password"
             required
-            className="border p-2"
+           
           />
         </label>
         {error && (
-          <p role="alert" className="text-red-700">
+          <p role="alert" className="text-danger">
             {error}
           </p>
         )}
-        <button type="submit" disabled={pending} className="border p-2">
+        <button type="submit" disabled={pending} className="btn-primary">
           Sign in
         </button>
       </form>

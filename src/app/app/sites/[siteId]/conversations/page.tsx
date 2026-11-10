@@ -4,6 +4,7 @@ import { FILTERS, listConversations, parseFilter, type ConversationFilter } from
 import { relativeTime } from "@/lib/format";
 import { parseRange } from "@/lib/stats/range";
 import { INTENT_LABELS } from "@/shared/intent";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@/components/icons";
 import { loadSite } from "../load-site";
 
 /** The path of a stored page URL, for a compact column; the raw text if it doesn't parse. */
@@ -39,12 +40,12 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Conversations · {range.label}</h2>
+        <h2 className="text-2xl">Conversations · {range.label}</h2>
         <RangePicker basePath={base} current={range.key} params={keep} />
       </div>
-      <form method="get" action={base} className="flex flex-wrap gap-2 text-sm" role="search">
+      <form method="get" action={base} className="panel flex flex-wrap items-center gap-3 p-3" role="search">
         <input type="hidden" name="range" value={range.key} />
-        <label className="flex items-center gap-1">
+        <label className="flex min-w-56 flex-1 items-center gap-1">
           <span className="sr-only">Search messages</span>
           <input
             type="search"
@@ -52,12 +53,12 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
             defaultValue={q}
             maxLength={200}
             placeholder="Search messages"
-            className="border px-2 py-1"
+            className="w-full"
           />
         </label>
-        <label className="flex items-center gap-1">
+        <label className="flex items-center gap-2">
           Show
-          <select name="filter" defaultValue={filter} className="border px-2 py-1">
+          <select name="filter" defaultValue={filter}>
             {(Object.keys(FILTERS) as ConversationFilter[]).map((f) => (
               <option key={f} value={f}>
                 {FILTERS[f]}
@@ -65,15 +66,16 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
             ))}
           </select>
         </label>
-        <button type="submit" className="border px-3 py-1">
+        <button type="submit" className="btn-primary">
           Apply
         </button>
       </form>
-      <p className="text-sm">{result.total === 1 ? "1 conversation" : `${result.total} conversations`}</p>
+      <p className="text-sm text-ink-muted">{result.total === 1 ? "1 conversation" : `${result.total} conversations`}</p>
       {result.rows.length === 0 ? (
-        <p>No conversations match.</p>
+        <p className="notice">No conversations match. Try another search or filter, or a longer date range.</p>
       ) : (
-        <table className="w-full text-left text-sm">
+        <div className="panel table-wrap table-stack">
+        <table>
           <thead>
             <tr>
               <th>Started</th>
@@ -88,31 +90,40 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
           </thead>
           <tbody>
             {result.rows.map((r) => (
-              <tr key={r.id} className="border-t align-top">
-                <td className="py-1">
-                  <Link href={`${base}/${r.id}`} className="underline">
+              <tr key={r.id}>
+                <td className="stack-lead whitespace-nowrap">
+                  <Link href={`${base}/${r.id}`}>
                     <time dateTime={r.createdAt.toISOString()}>{relativeTime(r.createdAt, now)}</time>
                   </Link>
                 </td>
-                <td className="max-w-48 truncate">{pathOf(r.firstPageUrl)}</td>
-                <td>{r.visitorMessages}</td>
-                <td>{r.intent ? INTENT_LABELS[r.intent] : ""}</td>
-                <td className="whitespace-pre-wrap">{r.preview}</td>
-                <td>{r.hasEmail ? "✓" : ""}</td>
-                <td>{r.unanswered ? "✓" : ""}</td>
-                <td>{r.hasSale ? "✓" : ""}</td>
+                <td data-label="Page" className="cell-mono max-w-48 truncate">{pathOf(r.firstPageUrl)}</td>
+                <td data-label="Messages">{r.visitorMessages}</td>
+                <td data-label="Intent">{r.intent ? INTENT_LABELS[r.intent] : ""}</td>
+                <td className="stack-full min-w-64 whitespace-pre-wrap text-ink-muted">{r.preview}</td>
+                <td data-label="Email" className="text-ok">{r.hasEmail ? <CheckIcon label="Yes" /> : ""}</td>
+                <td data-label="Unanswered" className="text-danger">{r.unanswered ? <CheckIcon label="Yes" /> : ""}</td>
+                <td data-label="Sale" className="text-sodium">{r.hasSale ? <CheckIcon label="Yes" /> : ""}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
       {result.pageCount > 1 && (
-        <nav aria-label="Pages" className="flex gap-4 text-sm">
-          {result.page > 1 && <Link href={pageHref(result.page - 1)}>← Newer</Link>}
-          <span>
+        <nav aria-label="Pages" className="flex items-center gap-4 text-sm">
+          {result.page > 1 && (
+            <Link href={pageHref(result.page - 1)} className="inline-flex items-center gap-1">
+              <ArrowLeftIcon /> Newer
+            </Link>
+          )}
+          <span className="text-ink-muted">
             Page {result.page} of {result.pageCount}
           </span>
-          {result.page < result.pageCount && <Link href={pageHref(result.page + 1)}>Older →</Link>}
+          {result.page < result.pageCount && (
+            <Link href={pageHref(result.page + 1)} className="inline-flex items-center gap-1">
+              Older <ArrowRightIcon />
+            </Link>
+          )}
         </nav>
       )}
     </div>

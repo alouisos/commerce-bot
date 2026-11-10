@@ -1,5 +1,5 @@
 const W = 640;
-const H = 160;
+const H = 220;
 const PAD = { top: 12, right: 8, bottom: 22, left: 32 };
 
 const shortDay = (day: string) =>
@@ -27,13 +27,14 @@ export function DailyBarChart({ data, title }: { data: { day: string; conversati
   const total = data.reduce((s, d) => s + d.conversations, 0);
 
   return (
-    <figure className="flex flex-col gap-2">
-      <figcaption className="text-sm font-medium">{title}</figcaption>
+    <figure className="panel">
+      <figcaption className="panel-head">{title}</figcaption>
+      <div className="panel-body">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-labelledby="daily-chart-title daily-chart-desc"
-        className="h-auto w-full max-w-3xl [--bar:#2a78d6] dark:[--bar:#3987e5]"
+        className="chart h-auto w-full text-ink-muted [--bar:var(--teal)]"
       >
         <title id="daily-chart-title">{title}</title>
         <desc id="daily-chart-desc">
@@ -50,7 +51,7 @@ export function DailyBarChart({ data, title }: { data: { day: string; conversati
               stroke="currentColor"
               strokeOpacity={v === 0 ? 0.35 : 0.12}
             />
-            <text x={PAD.left - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="currentColor" fillOpacity={0.7}>
+            <text x={PAD.left - 6} y={y(v) + 4} textAnchor="end" className={v === 0 ? "tick-zero" : undefined} fontSize="11" fill="currentColor" fillOpacity={0.7}>
               {Number.isInteger(v) ? v : ""}
             </text>
           </g>
@@ -66,13 +67,13 @@ export function DailyBarChart({ data, title }: { data: { day: string; conversati
           const base = PAD.top + plotH;
           const path = `M${x0},${base} V${top + r} Q${x0},${top} ${x0 + r},${top} H${x1 - r} Q${x1},${top} ${x1},${top + r} V${base} Z`;
           return (
-            <g key={d.day}>
+            <g key={d.day} className="chart-day">
               <rect x={PAD.left + slot * i} y={PAD.top} width={slot} height={plotH} fill="transparent">
                 <title>{`${shortDay(d.day)}: ${d.conversations} conversation${d.conversations === 1 ? "" : "s"}`}</title>
               </rect>
               <path d={path} fill={d.conversations > 0 ? "var(--bar)" : "currentColor"} fillOpacity={d.conversations > 0 ? 1 : 0.25} pointerEvents="none" />
               {i % labelEvery === 0 && (
-                <text x={cx} y={H - 6} textAnchor="middle" fontSize="11" fill="currentColor" fillOpacity={0.7}>
+                <text x={cx} y={H - 6} textAnchor="middle" className={(i / labelEvery) % 2 === 1 ? "tick-minor" : undefined} fontSize="11" fill="currentColor" fillOpacity={0.7}>
                   {shortDay(d.day)}
                 </text>
               )}
@@ -80,6 +81,7 @@ export function DailyBarChart({ data, title }: { data: { day: string; conversati
           );
         })}
       </svg>
+      </div>
       <table className="sr-only">
         <caption>{title}</caption>
         <thead>

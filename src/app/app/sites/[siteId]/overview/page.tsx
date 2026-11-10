@@ -31,52 +31,73 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Overview · {range.label}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl">Overview · {range.label}</h2>
         <RangePicker basePath={`/app/sites/${site.id}/overview`} current={range.key} />
       </div>
-      <section aria-label="Numbers">
-        <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section aria-label="Numbers" className="flex flex-col gap-2">
+        <dl className="stat-strip grid-cols-2 lg:grid-cols-4">
           <StatTile label="Conversations" value={String(totals.conversations)} />
           <StatTile label="Emails captured" value={String(totals.emailsCaptured)} />
           <StatTile
             label="Unanswered"
             value={String(totals.unanswered)}
             note="conversations where the bot couldn't reply"
+            alert={totals.unanswered > 0}
+            action={
+              totals.unanswered > 0
+                ? { href: `/app/sites/${site.id}/conversations?filter=unanswered&range=${range.key}`, label: "Review unanswered" }
+                : undefined
+            }
           />
           <StatTile label="Sales" value={String(sold.count)} note={salesNote(sold, store)} />
         </dl>
-        <p className="mt-2 text-sm">Average messages per conversation: {average}</p>
+        <p className="text-sm text-ink-muted">Average messages per conversation: {average}</p>
       </section>
-      <DailyBarChart data={daily} title="Conversations per day (UTC)" />
-      <section>
-        <h3 className="font-medium">Where conversations start</h3>
-        {starts.length === 0 ? (
-          <p className="text-sm">No conversations in this period.</p>
-        ) : (
-          <ol className="text-sm">
-            {starts.map((s) => {
-              const href = httpUrl(s.url);
-              return (
-                <li key={s.url}>
-                  {href ? (
-                    <a href={href} className="underline" target="_blank" rel="noreferrer">
-                      {s.url}
-                    </a>
-                  ) : (
-                    s.url
-                  )}{" "}
-                  · {s.conversations}
-                </li>
-              );
-            })}
-          </ol>
-        )}
-      </section>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <DailyBarChart data={daily} title="Conversations per day (UTC)" />
+        <section className="panel">
+          <h3 className="panel-head">Where conversations start</h3>
+          <div className="panel-body">
+            {starts.length === 0 ? (
+              <p className="text-sm text-ink-muted">No conversations in this period.</p>
+            ) : (
+              <ol className="text-sm">
+                {starts.map((s) => {
+                  const href = httpUrl(s.url);
+                  return (
+                    <li key={s.url} className="flex items-baseline justify-between gap-4 border-t py-2 first:border-t-0 first:pt-0">
+                      <span className="cell-mono min-w-0 truncate" title={s.url}>
+                        {href ? (
+                          <a href={href} target="_blank" rel="noreferrer">
+                            {pathOf(s.url)}
+                          </a>
+                        ) : (
+                          pathOf(s.url)
+                        )}
+                      </span>
+                      <span className="shrink-0 font-semibold text-sodium tabular-nums">{s.conversations}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
+        </section>
+      </div>
       {suggestions}
       {insights}
     </div>
   );
+}
+
+/** The path of a page URL for a compact list; the raw text if it doesn't parse. */
+function pathOf(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
 }
 
 function salesNote(

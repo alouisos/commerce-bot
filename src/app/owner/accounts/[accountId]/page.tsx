@@ -48,8 +48,8 @@ export default async function OwnerAccountPage({ params, searchParams }: PagePro
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-xl font-semibold">{account.name}</h1>
-        <p className="text-sm">
+        <h1 className="page-title">{account.name}</h1>
+        <p className="text-sm text-ink-muted">
           Plan: {account.plan}
           {account.trialEndsAt && ` (trial ends ${account.trialEndsAt.toISOString().slice(0, 10)})`} · Owner:{" "}
           {owners.map((o) => o.email).join(", ") || "none"}
@@ -62,10 +62,10 @@ export default async function OwnerAccountPage({ params, searchParams }: PagePro
         trialEndsOn={account.plan === "trial" ? (account.trialEndsAt?.toISOString().slice(0, 10) ?? "") : null}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">{range.label}</h2>
+        <h2 className="text-2xl">{range.label}</h2>
         <RangePicker basePath={`/owner/accounts/${account.id}`} current={range.key} />
       </div>
-      <dl className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <dl className="stat-strip grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <StatTile label="Sites" value={String(siteRows.length)} />
         <StatTile label="Conversations" value={String(totals.conversations)} />
         <StatTile label="Emails captured" value={String(totals.emailsCaptured)} />
@@ -73,7 +73,8 @@ export default async function OwnerAccountPage({ params, searchParams }: PagePro
         <StatTile label="AI cost" value={usd(cost)} />
       </dl>
       <DailyBarChart data={daily} title="Conversations per day (UTC), all sites" />
-      <table className="w-full text-left text-sm">
+      <div className="panel table-wrap">
+          <table>
         <thead>
           <tr>
             <th>Site</th>
@@ -102,7 +103,8 @@ export default async function OwnerAccountPage({ params, searchParams }: PagePro
           })}
         </tbody>
       </table>
-      {siteRows.length === 0 && <p className="text-sm">This account has no websites yet.</p>}
+          </div>
+      {siteRows.length === 0 && <p className="notice">This account has no websites yet.</p>}
     </div>
   );
 }

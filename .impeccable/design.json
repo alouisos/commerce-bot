@@ -1,0 +1,630 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-10T19:51:07+00:00",
+  "title": "Design System: Concierge",
+  "extensions": {
+    "colorMeta": {
+      "teal": {
+        "role": "primary",
+        "displayName": "Teal Tube",
+        "canonical": "oklch(80.1% 0.136 193.0)",
+        "tonalRamp": [
+          "#001010",
+          "#002e2e",
+          "#004f4e",
+          "#007271",
+          "#009795",
+          "#00bdbb",
+          "#3ae4e1",
+          "#c9faf7"
+        ],
+        "cssVar": "--teal",
+        "contrast": "10.8:1 on panel"
+      },
+      "sodium": {
+        "role": "secondary",
+        "displayName": "Sodium Lamp",
+        "canonical": "oklch(87.9% 0.162 90.9)",
+        "tonalRamp": [
+          "#140900",
+          "#322200",
+          "#543f00",
+          "#785e00",
+          "#9e7e08",
+          "#c6a122",
+          "#efc437",
+          "#feeebf"
+        ],
+        "cssVar": "--sodium",
+        "contrast": "13.2:1 on panel"
+      },
+      "sodium-hover": {
+        "role": "secondary",
+        "displayName": "Sodium Hover"
+      },
+      "sodium-active": {
+        "role": "secondary",
+        "displayName": "Sodium Active"
+      },
+      "primary-ink": {
+        "role": "neutral",
+        "displayName": "Primary Ink",
+        "canonical": "oklch(18.4% 0.017 84.3)",
+        "tonalRamp": [
+          "#0e0b04",
+          "#29251d",
+          "#45423a",
+          "#64615a",
+          "#85827c",
+          "#a7a59f",
+          "#cbc9c4",
+          "#efeeed"
+        ],
+        "contrast": "12.9:1 on sodium"
+      },
+      "neon": {
+        "role": "tertiary",
+        "displayName": "Red Neon",
+        "canonical": "oklch(65.3% 0.238 13.8)",
+        "tonalRamp": [
+          "#210003",
+          "#500012",
+          "#830026",
+          "#b8003d",
+          "#ea2158",
+          "#ff6981",
+          "#ffaeb5",
+          "#ffe4e6"
+        ],
+        "cssVar": "--neon",
+        "contrast": "5.3:1 on panel (large text and borders only)"
+      },
+      "neon-hover-ink": {
+        "role": "tertiary",
+        "displayName": "Neon Hover Ink",
+        "contrast": "12.6:1 on panel"
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger Pink",
+        "canonical": "oklch(72.0% 0.182 7.8)",
+        "tonalRamp": [
+          "#210006",
+          "#4b001b",
+          "#751935",
+          "#a13452",
+          "#d04f70",
+          "#ff6c90",
+          "#ffacbc",
+          "#ffe3e9"
+        ],
+        "cssVar": "--danger",
+        "contrast": "7.1:1 on panel"
+      },
+      "ok": {
+        "role": "status",
+        "displayName": "Status Green",
+        "canonical": "oklch(79.7% 0.164 159.7)",
+        "tonalRamp": [
+          "#001203",
+          "#003017",
+          "#00522e",
+          "#007549",
+          "#0c9a65",
+          "#2cc183",
+          "#57e8a5",
+          "#cefbe1"
+        ],
+        "cssVar": "--ok",
+        "contrast": "10.8:1 on panel"
+      },
+      "warn": {
+        "role": "status",
+        "displayName": "Warning Amber",
+        "canonical": "oklch(80.3% 0.146 64.6)",
+        "tonalRamp": [
+          "#1b0400",
+          "#3d1b00",
+          "#623600",
+          "#8a520e",
+          "#b37126",
+          "#df913d",
+          "#ffb668",
+          "#ffe8ca"
+        ],
+        "cssVar": "--warn",
+        "contrast": "10.0:1 on panel"
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Wet Ground",
+        "canonical": "oklch(13.1% 0.010 285.0)",
+        "tonalRamp": [
+          "#0b0b0f",
+          "#242529",
+          "#414146",
+          "#616165",
+          "#828285",
+          "#a4a5a8",
+          "#c9c9cb",
+          "#eeeeef"
+        ],
+        "cssVar": "--g0"
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Sheet Metal",
+        "canonical": "oklch(17.2% 0.014 284.8)",
+        "tonalRamp": [
+          "#0a0a11",
+          "#24242b",
+          "#414148",
+          "#606067",
+          "#818288",
+          "#a4a4aa",
+          "#c8c9cd",
+          "#eeeef0"
+        ],
+        "cssVar": "--g1"
+      },
+      "well": {
+        "role": "neutral",
+        "displayName": "Recessed Well",
+        "canonical": "oklch(21.5% 0.023 284.3)",
+        "tonalRamp": [
+          "#0a0a14",
+          "#242430",
+          "#40414d",
+          "#60606b",
+          "#81818b",
+          "#a4a4ad",
+          "#c8c8d0",
+          "#eeeef1"
+        ],
+        "cssVar": "--g2"
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline Rule",
+        "canonical": "oklch(27.4% 0.024 284.7)",
+        "tonalRamp": [
+          "#0a0a14",
+          "#242430",
+          "#40414d",
+          "#60606c",
+          "#81818c",
+          "#a4a4ae",
+          "#c8c8d1",
+          "#eeeef1"
+        ],
+        "cssVar": "--rule"
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "oklch(35.6% 0.031 284.7)",
+        "tonalRamp": [
+          "#0a0a15",
+          "#232333",
+          "#404052",
+          "#5f5f71",
+          "#808191",
+          "#a3a4b2",
+          "#c7c8d5",
+          "#eeeef2"
+        ],
+        "cssVar": "--rule-strong"
+      },
+      "control": {
+        "role": "neutral",
+        "displayName": "Control Edge",
+        "canonical": "oklch(49.5% 0.040 284.9)",
+        "tonalRamp": [
+          "#0a0916",
+          "#232334",
+          "#404054",
+          "#5e5e77",
+          "#808097",
+          "#a2a3b9",
+          "#c7c7db",
+          "#edeef5"
+        ],
+        "cssVar": "--control",
+        "contrast": "3.1:1 on panel (control boundary)"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(96.2% 0.004 286.3)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616162",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeeef"
+        ],
+        "cssVar": "--ink",
+        "contrast": "17.1:1 on panel"
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "oklch(74.0% 0.024 285.8)",
+        "tonalRamp": [
+          "#0b0a10",
+          "#24242c",
+          "#41414b",
+          "#60606c",
+          "#81818f",
+          "#a3a3b4",
+          "#c7c7d7",
+          "#eeeef4"
+        ],
+        "cssVar": "--ink-muted",
+        "contrast": "8.2:1 on panel"
+      },
+      "ink-subtle": {
+        "role": "neutral",
+        "displayName": "Subtle Ink",
+        "canonical": "oklch(66.0% 0.029 285.6)",
+        "tonalRamp": [
+          "#0a0a12",
+          "#24242e",
+          "#41414d",
+          "#5f5f6f",
+          "#808093",
+          "#a3a3b6",
+          "#c7c7d9",
+          "#eeeef4"
+        ],
+        "cssVar": "--ink-subtle",
+        "contrast": "6.1:1 on panel"
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "White"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles: site name, Usage, Accounts. 2rem at 640px and below; auth titles 1.875rem."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "Headline stat values in sodium; red neon with glow when alerting."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings in the content column."
+      },
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "The CONCIERGE wordmark in teal with glow; 1.35rem in the phone strip."
+      },
+      "sign": {
+        "displayName": "Sign",
+        "purpose": "Navigation signs; 1rem on phones, 0.95rem for quiet signs."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel and card header strips in teal; speaker labels at 0.875rem."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All running text; prose capped at 72ch."
+      },
+      "body-sm": {
+        "displayName": "Body Small",
+        "purpose": "Buttons, form labels, table cells."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Stat labels, notes, field hints, segmented control."
+      },
+      "column-head": {
+        "displayName": "Column Head",
+        "purpose": "Uppercase table headers and stacked-row cell labels in subtle ink."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "URLs, hosts, paths, snippets, keys only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "glow-neon",
+        "value": "0 0 6px rgb(255 46 99 / 0.75), 0 0 18px rgb(255 46 99 / 0.35)",
+        "purpose": "Text glow on the current sign and alert numerals; critical lamp and full meter."
+      },
+      {
+        "name": "glow-teal",
+        "value": "0 0 6px rgb(8 217 214 / 0.7), 0 0 16px rgb(8 217 214 / 0.3)",
+        "purpose": "Brand mark, live lamp, meter fill."
+      },
+      {
+        "name": "sign-current",
+        "value": "0 0 18px -4px rgb(255 46 99 / 0.6), inset 0 0 14px -6px rgb(255 46 99 / 0.7)",
+        "purpose": "Tube light inside and around the lit sign box."
+      },
+      {
+        "name": "sign-hover-text",
+        "value": "0 0 6px rgb(255 46 99 / 0.45)",
+        "purpose": "Half-lit text glow on a hovered or focused sign."
+      },
+      {
+        "name": "input-focus",
+        "value": "0 0 0 1px #08d9d6, 0 0 14px -2px rgb(8 217 214 / 0.45)",
+        "purpose": "Focused text field, select or textarea."
+      },
+      {
+        "name": "primary-hover",
+        "value": "0 6px 20px -8px rgb(255 210 63 / 0.6)",
+        "purpose": "Sodium spill under a hovered primary button."
+      },
+      {
+        "name": "lamp-ok",
+        "value": "0 0 8px rgb(61 220 151 / 0.7)",
+        "purpose": "Healthy status lamp."
+      },
+      {
+        "name": "lamp-warn",
+        "value": "0 0 8px rgb(255 169 77 / 0.7)",
+        "purpose": "Warning status lamp."
+      },
+      {
+        "name": "lamp-crit",
+        "value": "0 0 0 3px rgb(255 46 99 / 0.18), 0 0 6px rgb(255 46 99 / 0.75), 0 0 18px rgb(255 46 99 / 0.35)",
+        "purpose": "Critical status lamp with halo ring."
+      },
+      {
+        "name": "chart-day-hover",
+        "value": "drop-shadow(0 0 5px rgb(8 217 214 / 0.8))",
+        "purpose": "Filter glow on the hovered day bar."
+      },
+      {
+        "name": "auth-bloom",
+        "value": "0 24px 60px -30px rgb(255 46 99 / 0.35)",
+        "purpose": "The single signed-out panel; the only ambient shadow in the world."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid #08d9d6; outline-offset: 2px",
+        "purpose": "Global focus-visible ring on links, buttons and signs."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Expo-out easing for every state transition."
+      },
+      {
+        "name": "duration-state",
+        "value": "160ms",
+        "purpose": "Buttons, inputs, links, segments, rows, chart hover."
+      },
+      {
+        "name": "duration-row",
+        "value": "120ms",
+        "purpose": "Table row hover background."
+      },
+      {
+        "name": "duration-sign",
+        "value": "180ms",
+        "purpose": "Sign colour, border and glow transitions."
+      },
+      {
+        "name": "sign-flicker",
+        "value": "200ms steps(1, end); opacity 0.45 / 1 / 0.6 / 1 at 0 / 25 / 45 / 65%",
+        "purpose": "Tube-flicker when a sign is hovered or focused; never on the current sign."
+      },
+      {
+        "name": "lamp-pulse",
+        "value": "1.6s ease-in-out infinite; opacity 0.35 and no glow at 50%",
+        "purpose": "Live lamp only."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none; transition-duration: 0.01ms",
+        "purpose": "Applied to everything in the world under prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "rail-collapse",
+        "value": "860px",
+        "purpose": "Rail becomes a sticky top bar with a horizontally scrolling sign strip; notice bars and content padding tighten."
+      },
+      {
+        "name": "phone",
+        "value": "640px",
+        "purpose": "List tables become stacked rows; page title drops to 2rem."
+      },
+      {
+        "name": "small-phone",
+        "value": "480px",
+        "purpose": "Chart hides minor and zero ticks and enlarges tick text."
+      }
+    ],
+    "layout": {
+      "railWidth": "15rem",
+      "contentMaxWidth": "82rem",
+      "contentPadding": "2rem 2.25rem 4rem (1.25rem 1rem 3rem at 860px and below)",
+      "proseMaxWidth": "72ch",
+      "pageBackground": "#07070b with radial-gradient(90% 45% at 72% 108%, rgb(36 30 74 / 0.55), transparent 70%) and radial-gradient(60% 30% at 8% 104%, rgb(255 46 99 / 0.07), transparent 70%), fixed"
+    },
+    "theme": {
+      "scheme": "dark-only",
+      "scope": ".cx (admin app, owner console, auth, invite); the embeddable widget and visitor pages are excluded"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Sodium fill, near-black ink; one per form or work area for the action it exists for.",
+      "html": "<div class=\"ds-root\"><button class=\"ds-btn ds-btn-primary\">Save changes</button><button class=\"ds-btn ds-btn-primary ds-btn-sm\">Add</button></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:6.4px 14.4px;background:transparent;color:var(--ink);border:1px solid var(--control);border-radius:4px;font:500 14px/1.2 var(--sans);cursor:pointer;transition:border-color 160ms var(--ease),color 160ms var(--ease),background-color 160ms var(--ease),box-shadow 160ms var(--ease);}.ds-btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px;}.ds-btn-primary{background:var(--sodium);border-color:var(--sodium);color:#16120a;font-weight:600;}.ds-btn-primary:hover{background:#ffe07a;border-color:#ffe07a;box-shadow:0 6px 20px -8px rgb(255 210 63 / 0.6);}.ds-btn-primary:active{background:#f2c21f;}.ds-btn-sm{min-height:30.4px;padding:4px 9.6px;font-size:13px;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The default button: an unlit outlined box that lights teal on contact.",
+      "html": "<div class=\"ds-root\"><button class=\"ds-btn\">Refresh</button><button class=\"ds-btn\" aria-pressed=\"true\">Excluded</button><button class=\"ds-btn\" disabled>Disabled</button></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:6.4px 14.4px;background:transparent;color:var(--ink);border:1px solid var(--control);border-radius:4px;font:500 14px/1.2 var(--sans);cursor:pointer;transition:border-color 160ms var(--ease),color 160ms var(--ease),background-color 160ms var(--ease),box-shadow 160ms var(--ease);}.ds-btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px;}.ds-btn:hover:not(:disabled){border-color:var(--teal);color:#fff;background:rgb(8 217 214 / 0.07);}.ds-btn:active:not(:disabled){background:rgb(8 217 214 / 0.14);}.ds-btn[aria-pressed=true]{border-color:var(--warn);color:var(--warn);}.ds-btn:disabled{opacity:.5;cursor:not-allowed;}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive action; the quiet variant stays unlit in rows until hovered or focused.",
+      "html": "<div class=\"ds-root\"><button class=\"ds-btn ds-btn-danger\">Delete website</button><button class=\"ds-btn ds-btn-quiet ds-btn-sm\">Remove</button></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:6.4px 14.4px;background:transparent;color:var(--ink);border:1px solid var(--control);border-radius:4px;font:500 14px/1.2 var(--sans);cursor:pointer;transition:border-color 160ms var(--ease),color 160ms var(--ease),background-color 160ms var(--ease),box-shadow 160ms var(--ease);}.ds-btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px;}.ds-btn-danger{border-color:rgb(255 107 143 / 0.6);color:var(--danger);}.ds-btn-danger:hover,.ds-btn-quiet:hover,.ds-btn-quiet:focus-visible{border-color:var(--neon);color:#fff;background:rgb(255 46 99 / 0.14);}.ds-btn-sm{min-height:30.4px;padding:4px 9.6px;font-size:13px;}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Recessed well with a 3:1 control edge; teal tube light on focus.",
+      "html": "<div class=\"ds-root\" style=\"flex-direction:column;align-items:stretch;max-width:320px\"><label class=\"ds-label\">Bot name<input class=\"ds-input\" placeholder=\"Ask Jo\"></label><span class=\"ds-hint\">Shown at the top of the chat window.</span></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-label{display:flex;flex-direction:column;gap:6px;color:var(--ink);font-size:14px;font-weight:500;}.ds-input{background:var(--g0);color:var(--ink);border:1px solid var(--control);border-radius:4px;padding:8px 10px;min-height:40px;font:400 15px var(--sans);transition:border-color 160ms var(--ease),box-shadow 160ms var(--ease);}.ds-input::placeholder{color:var(--ink-subtle);}.ds-input:hover{border-color:#7a7a96;}.ds-input:focus-visible{outline:none;border-color:var(--teal);box-shadow:0 0 0 1px var(--teal),0 0 14px -2px rgb(8 217 214 / 0.45);}.ds-hint{color:var(--ink-subtle);font-size:13px;}"
+    },
+    {
+      "name": "Sign Stack",
+      "kind": "nav",
+      "refersTo": "sign",
+      "description": "Signature navigation: stacked sign boxes, the current section lit in red neon; hover tube-flickers half-lit.",
+      "html": "<div class=\"ds-root\" style=\"align-items:stretch\"><nav class=\"ds-rail\"><a class=\"ds-brand\" href=\"#\">CONCIERGE</a><span class=\"ds-rail-label\">This website</span><a class=\"ds-sign\" href=\"#\" aria-current=\"page\">Overview</a><a class=\"ds-sign\" href=\"#\">Conversations</a><a class=\"ds-sign\" href=\"#\">Knowledge</a><a class=\"ds-sign ds-sign-quiet\" href=\"#\">Usage</a></nav></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-rail{display:flex;flex-direction:column;gap:7px;width:208px;padding:16px;border-right:1px solid var(--rule);}.ds-brand{font:800 28px/1 var(--sign);letter-spacing:.08em;color:var(--teal);text-decoration:none;text-shadow:var(--glow-teal);margin-bottom:12px;}.ds-rail-label{color:var(--ink-subtle);font-size:12px;padding:0 8px;}.ds-sign{display:flex;align-items:center;min-height:44px;padding:8.8px 12.8px;border:1px solid var(--rule-strong);border-radius:4px;background:rgb(7 7 11 / 0.55);color:var(--ink-subtle);font:700 18px/1 var(--sign);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:color 180ms var(--ease),border-color 180ms var(--ease),text-shadow 180ms var(--ease),box-shadow 180ms var(--ease);}.ds-sign:hover,.ds-sign:focus-visible{color:#ffc2d1;border-color:rgb(255 46 99 / 0.55);text-shadow:0 0 6px rgb(255 46 99 / 0.45);animation:ds-flicker 200ms steps(1,end);outline:none;}.ds-sign[aria-current=page]{color:var(--neon);border-color:var(--neon);text-shadow:var(--glow-neon);box-shadow:0 0 18px -4px rgb(255 46 99 / 0.6),inset 0 0 14px -6px rgb(255 46 99 / 0.7);animation:none;}.ds-sign-quiet{min-height:36px;border-color:transparent;background:transparent;font-size:15px;}@keyframes ds-flicker{0%{opacity:.45}25%{opacity:1}45%{opacity:.6}65%{opacity:1}}@media (prefers-reduced-motion:reduce){.ds-sign{animation:none!important;transition-duration:.01ms!important;}}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Ruled sheet-metal box with the one teal header strip every panel shares.",
+      "html": "<div class=\"ds-root\"><section class=\"ds-panel\"><h2 class=\"ds-panel-head\">Insights<button class=\"ds-btn-mini\">Refresh</button></h2><div class=\"ds-panel-body\"><p>Most visitors arrive on the product page and ask about delivery times.</p></div></section></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-panel{width:100%;max-width:520px;background:rgb(15 15 22 / 0.88);border:1px solid var(--rule);border-radius:6px;}.ds-panel-head{margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px 16px;min-height:44px;padding:8.8px 16px;border-bottom:1px solid var(--rule);color:var(--teal);font:600 16px/1.15 var(--sign);letter-spacing:.08em;text-transform:uppercase;}.ds-btn-mini{font:500 13px var(--sans);text-transform:none;letter-spacing:normal;color:var(--ink);background:transparent;border:1px solid var(--control);border-radius:4px;padding:4px 9.6px;min-height:30px;cursor:pointer;}.ds-btn-mini:hover{border-color:var(--teal);color:#fff;background:rgb(8 217 214 / 0.07);}.ds-panel-body{padding:16px;}.ds-panel-body p{margin:0;line-height:1.55;}"
+    },
+    {
+      "name": "Stat Strip",
+      "kind": "custom",
+      "refersTo": "stat",
+      "description": "One ruled box of 1px-divided cells; sodium numerals say what they count; alert cells glow red.",
+      "html": "<div class=\"ds-root\"><dl class=\"ds-strip\"><div class=\"ds-stat\"><dt>Conversations</dt><dd class=\"ds-val\">64</dd></div><div class=\"ds-stat\"><dt>Emails captured</dt><dd class=\"ds-val\">3</dd></div><div class=\"ds-stat ds-alert\"><dt>Unanswered</dt><dd class=\"ds-val\">12</dd><dd class=\"ds-note\">conversations where the bot couldn't reply</dd><dd class=\"ds-act\"><a href=\"#\">Review unanswered</a></dd></div></dl></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin:0;width:100%;max-width:620px;background:var(--rule);border:1px solid var(--rule);border-radius:6px;overflow:hidden;}.ds-stat{display:flex;flex-direction:column;gap:5px;padding:14.4px 17.6px 16px;background:var(--g1);}.ds-stat dt{color:var(--ink-muted);font-size:13px;}.ds-stat dd{margin:0;}.ds-val{color:var(--sodium);font:800 44px/1 var(--sign);letter-spacing:.02em;font-variant-numeric:tabular-nums;}.ds-alert .ds-val{color:var(--neon);text-shadow:var(--glow-neon);}.ds-note{color:var(--ink-subtle);font-size:13px;line-height:1.45;}.ds-act a{color:var(--teal);font-size:13px;font-weight:500;text-decoration:underline;text-decoration-color:rgb(8 217 214 / 0.45);text-underline-offset:3px;}.ds-act a:hover{text-decoration-color:currentColor;}"
+    },
+    {
+      "name": "Status Lamps and Badges",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Round lamps for state and border-only badges tinted ok, warn or critical.",
+      "html": "<div class=\"ds-root\"><span class=\"ds-lamp ds-ok\"></span><span class=\"ds-lamp ds-live\"></span><span class=\"ds-lamp ds-warn\"></span><span class=\"ds-lamp ds-crit\"></span><span class=\"ds-badge\">Draft</span><span class=\"ds-badge ds-b-ok\">Sent</span><span class=\"ds-badge ds-b-warn\">Excluded</span><span class=\"ds-badge ds-b-crit\">Failed</span></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-root{gap:12px}.ds-lamp{display:inline-block;width:10px;height:10px;border-radius:999px;background:var(--ink-subtle);}.ds-ok{background:var(--ok);box-shadow:0 0 8px rgb(61 220 151 / 0.7);}.ds-live{background:var(--teal);box-shadow:var(--glow-teal);animation:ds-pulse 1.6s ease-in-out infinite;}.ds-warn{background:var(--warn);box-shadow:0 0 8px rgb(255 169 77 / 0.7);}.ds-crit{background:var(--neon);box-shadow:0 0 0 3px rgb(255 46 99 / 0.18),var(--glow-neon);}@keyframes ds-pulse{50%{opacity:.35;box-shadow:none}}.ds-badge{display:inline-flex;padding:1.6px 7.2px;border:1px solid var(--rule-strong);border-radius:3px;color:var(--ink-muted);font-size:12px;font-weight:500;line-height:1.4;}.ds-b-ok{border-color:rgb(61 220 151 / 0.45);color:var(--ok);}.ds-b-warn{border-color:rgb(255 169 77 / 0.5);color:var(--warn);}.ds-b-crit{border-color:rgb(255 46 99 / 0.55);color:var(--danger);}@media (prefers-reduced-motion:reduce){.ds-live{animation:none;}}"
+    },
+    {
+      "name": "Segmented Range Control",
+      "kind": "nav",
+      "refersTo": "seg-current",
+      "description": "Ruled link group for date ranges; the current one sits on the well with a teal underline.",
+      "html": "<div class=\"ds-root\"><nav class=\"ds-seg\"><a href=\"#\">7 days</a><a href=\"#\" aria-current=\"page\">30 days</a><a href=\"#\">90 days</a></nav><span class=\"ds-cap\">Days in UTC</span></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-seg{display:inline-flex;border:1px solid var(--rule-strong);border-radius:4px;overflow:hidden;}.ds-seg a{padding:6.4px 12.8px;color:var(--ink-muted);font-size:13px;font-weight:500;text-decoration:none;transition:background-color 160ms var(--ease),color 160ms var(--ease);}.ds-seg a+a{border-left:1px solid var(--rule-strong);}.ds-seg a:hover{color:var(--ink);background:var(--g2);}.ds-seg a:focus-visible{outline:2px solid var(--teal);outline-offset:-2px;}.ds-seg a[aria-current=page]{color:#fff;background:var(--g2);box-shadow:inset 0 -2px 0 var(--teal);}.ds-cap{color:var(--ink-subtle);font-size:12px;}"
+    },
+    {
+      "name": "Transcript Message",
+      "kind": "custom",
+      "refersTo": "msg",
+      "description": "Ruled message boxes with Saira speaker labels; the bot side is tinted teal.",
+      "html": "<div class=\"ds-root\" style=\"flex-direction:column;align-items:stretch;max-width:460px\"><div class=\"ds-msg\"><div class=\"ds-who\">Visitor <time>2026-11-10 19:31 UTC</time></div><p>Is the Hair Therapy Butter OK for coloured hair?</p></div><div class=\"ds-msg ds-bot\"><div class=\"ds-who\">Ask Jo <time>2026-11-10 19:31 UTC</time></div><p>Yes. It is made for damaged and coloured hair.</p></div></div>",
+      "css": ".ds-root{--g0:#07070b;--g1:#0f0f16;--g2:#181824;--rule:#262633;--rule-strong:#3a3a4c;--control:#5f5f78;--ink:#f2f2f5;--ink-muted:#a9a9ba;--ink-subtle:#9090a4;--teal:#08d9d6;--sodium:#ffd23f;--neon:#ff2e63;--danger:#ff6b8f;--ok:#3ddc97;--warn:#ffa94d;--ease:cubic-bezier(0.16,1,0.3,1);--glow-neon:0 0 6px rgb(255 46 99 / 0.75),0 0 18px rgb(255 46 99 / 0.35);--glow-teal:0 0 6px rgb(8 217 214 / 0.7),0 0 16px rgb(8 217 214 / 0.3);--sign:'Saira Condensed','Arial Narrow',sans-serif;--sans:Geist,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px;background:var(--g0);color:var(--ink);font-family:var(--sans);font-size:15px;}.ds-msg{display:flex;flex-direction:column;gap:5.6px;padding:13.6px 16px;border:1px solid var(--rule);border-radius:6px;background:rgb(15 15 22 / 0.7);}.ds-msg p{margin:0;line-height:1.55;}.ds-bot{background:rgb(8 217 214 / 0.045);border-color:rgb(8 217 214 / 0.22);}.ds-who{display:flex;gap:8px;align-items:center;font:600 14px var(--sign);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);}.ds-bot .ds-who{color:var(--teal);}.ds-who time{font:400 13px var(--sans);letter-spacing:normal;text-transform:none;color:var(--ink-subtle);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night-Market Sign Stack",
+    "overview": "The admin app, the owner console and the auth screens are a street of signboards at night. Navigation is a vertical stack of unlit sign boxes and the section you are in is the one switched on in red neon. Everything else is wet near-black ground, 1px-ruled sheet-metal panels and quiet grey ink, so the few lit things read instantly: the brand sign, the current section, a live lamp, a number, a problem. It deliberately refuses the category default of a white SaaS shell with a blue accent and soft cards.\n\nThe world serves an Operate mode for non-technical shop owners who check in for two minutes a few times a week. Density is moderate: panels stack in a single content column of up to 82rem with a 15rem rail, numbers are large and sodium-yellow so they can be read at a glance, and every panel carries the same teal header strip so the page reads as one system. Light is information, not decoration: glow appears only on something that is current, live or wrong, and the interface stays dark and still otherwise. The world is dark only, by decision; it never ships a light theme. The embeddable visitor widget is outside this world and keeps its own per-merchant theme.",
+    "keyCharacteristics": [
+      "Three surface values (ground, panel, well) separated by exactly-1px rules, never by shadows.",
+      "Three tube colours with one job each: teal for links, panel heads, focus and data; sodium for numbers and the primary action; red neon for the lit sign and real critical state.",
+      "Saira Condensed uppercase for anything that is a sign (headings, nav, panel heads, headline numbers, speaker labels); Geist for every sentence, label and control; Geist Mono only for URLs, hosts, snippets and keys.",
+      "A signature tube-flicker on sign hover and focus; under reduced motion every animation is off.",
+      "Measured WCAG AA everywhere: body ink 17.1:1, the quietest text 6.1:1, control boundaries 3.1:1 on panels."
+    ],
+    "rules": [
+      {
+        "name": "The One Lit Sign Rule",
+        "body": "Red neon marks the section you are in and real critical state. Nothing decorative is ever red, and row-level destructive buttons stay unlit until reached so no row out-shouts the current sign.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Job Per Tube Rule",
+        "body": "Teal is for links, panel heads, focus and data; sodium is for numbers and the primary action; neon is for the lit sign and critical state. A colour never borrows another tube's job.",
+        "section": "colors"
+      },
+      {
+        "name": "The Glow Means Live Rule",
+        "body": "Glow (text-shadow or box-shadow bloom) appears only on something lit: the brand mark, the current sign, a live or alert lamp, an alert numeral, a filled meter, a focused input, a hovered chart day. Static content never glows.",
+        "section": "colors"
+      },
+      {
+        "name": "The Signboard Face Rule",
+        "body": "Saira Condensed is only for things that are signs: headings, nav, panel heads, headline numbers, speaker labels. Sentences, labels, form fields and buttons are always Geist.",
+        "section": "typography"
+      },
+      {
+        "name": "The Controls Speak Plain Rule",
+        "body": "A button, link, select or badge placed inside a header strip or speaker label drops back to Geist, sentence case, normal tracking.",
+        "section": "typography"
+      },
+      {
+        "name": "The Machine Text Rule",
+        "body": "Geist Mono appears only on text a machine produced or will consume: URLs, hosts, paths, the embed snippet, keys.",
+        "section": "typography"
+      },
+      {
+        "name": "The Transcript Owns Its Column Rule",
+        "body": "A conversation transcript takes the main column alone; metadata (email, pages visited) sits in a side column on desktop and below it on phones, never interleaved with messages.",
+        "section": "layout"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "Every rule and border is exactly 1px, and there are only three surface values (ground, panel, well). Separation is drawn, never shaded.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Light, Not Lift Rule",
+        "body": "In-app panels, cards and notices carry no drop shadow; something becomes prominent by being lit.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Sheet-Metal Corner Rule",
+        "body": "4px for anything you operate, 6px for anything that contains, round only for lamps and meters. No pills, no large radii.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** keep every border and divider at exactly 1px and build depth from the three surfaces: ground, panel, well.",
+      "**Do** light exactly one nav sign per page in red neon, the section the owner is in.",
+      "**Do** set every headline number in sodium Saira Condensed with a label and a note saying what it counts and over what period.",
+      "**Do** open every panel with the teal Saira Condensed header strip, and keep controls inside it in plain Geist.",
+      "**Do** give each form or work area at most one sodium primary button, for the action it exists for; everything else is the outlined secondary button.",
+      "**Do** use the authored 16px icon set (1.6 stroke, currentColor, round caps), decorative unless labelled.",
+      "**Do** keep text at or above the measured contrasts: Ink 17.1:1, Muted 8.2:1, Subtle 6.1:1 on panels, and control boundaries at 3.1:1.",
+      "**Do** turn every animation off and make transitions instant under prefers-reduced-motion."
+    ],
+    "donts": [
+      "**Don't** ship a light theme or light panels; this world is dark only by decision.",
+      "**Don't** use red neon for decoration, emphasis or ordinary destructive rows at rest; it is the lit sign and real critical state only.",
+      "**Don't** put glow on static content; glow is reserved for things that are current, live or alerting.",
+      "**Don't** add drop shadows to in-app panels, cards or notices; the auth panel's neon bloom is the single exception.",
+      "**Don't** set sentences, labels, form fields or buttons in Saira Condensed, and don't use Geist Mono for anything but URLs, hosts, snippets and keys.",
+      "**Don't** set small body text in red neon (5.3:1); use Danger Pink for critical copy.",
+      "**Don't** round controls past 4px or containers past 6px, and don't use pill buttons.",
+      "**Don't** apply this world to the embeddable visitor widget; it keeps its own per-merchant theme."
+    ]
+  }
+}

@@ -9,8 +9,8 @@ export function GreetingImageForm({ siteId, hasImage, version }: { siteId: strin
     {},
   );
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Greeting image</h2>
+    <section className="card">
+      <h2>Greeting image</h2>
       {hasImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -27,18 +27,18 @@ export function GreetingImageForm({ siteId, hasImage, version }: { siteId: strin
           <input name="image" type="file" accept="image/png,image/jpeg,image/webp" required />
         </label>
         {state.error && (
-          <p role="alert" className="text-red-700">
+          <p role="alert" className="text-danger">
             {state.error}
           </p>
         )}
         {state.saved && <p role="status">Image saved.</p>}
-        <button type="submit" disabled={pending} className="w-fit border p-2">
+        <button type="submit" disabled={pending} className="btn-primary self-start">
           Upload image
         </button>
       </form>
       {hasImage && (
         <form action={removeGreetingImageAction.bind(null, siteId)}>
-          <button type="submit" className="border p-2">
+          <button type="submit">
             Remove image
           </button>
         </form>

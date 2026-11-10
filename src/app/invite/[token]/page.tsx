@@ -12,8 +12,8 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
     <main className="mx-auto max-w-sm p-6">
       {invite ? (
         <>
-          <h1 className="text-xl font-semibold">Set up your Concierge account</h1>
-          <p className="mb-4 text-sm">for {invite.email}</p>
+          <h1 className="text-3xl">Set up your Concierge account</h1>
+          <p className="mb-5 mt-1 text-sm text-ink-muted">for {invite.email}</p>
           <AcceptForm token={token} />
         </>
       ) : (

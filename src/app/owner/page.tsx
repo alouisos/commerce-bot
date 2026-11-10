@@ -41,22 +41,23 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Platform · {range.label}</h1>
+        <h1 className="page-title">Platform · {range.label}</h1>
         <RangePicker basePath="/owner" current={range.key} />
       </div>
-      <dl className="grid grid-cols-2 gap-3 md:grid-cols-6">
+      <dl className="stat-strip grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <StatTile label="Accounts" value={String(total.accounts)} />
         <StatTile label="Sites" value={String(total.sites)} />
         <StatTile label="Conversations" value={String(total.conversations)} />
         <StatTile label="Emails captured" value={String(total.emailsCaptured)} />
-        <StatTile label="Unanswered" value={String(total.unanswered)} />
+        <StatTile label="Unanswered" value={String(total.unanswered)} alert={total.unanswered > 0} />
         <StatTile label="AI cost" value={usd(total.aiCostMicros)} />
       </dl>
       <InviteForm />
       {invites.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold">Pending invites</h2>
-          <table className="w-full text-left text-sm">
+          <h2 className="text-2xl">Pending invites</h2>
+          <div className="panel table-wrap">
+          <table>
             <thead>
               <tr>
                 <th>Email</th>
@@ -70,19 +71,19 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
             <tbody>
               {invites.map((i) => (
                 <tr key={i.id} className="border-t">
-                  <td className="py-1">{i.email}</td>
+                  <td className="break-all font-medium">{i.email}</td>
                   <td>{i.accountName}</td>
                   <td>{i.plan}</td>
                   <td>{i.createdAt.toISOString().slice(0, 10)}</td>
                   <td>{i.expiresAt.toISOString().slice(0, 10)}</td>
                   <td className="flex gap-2">
                     <form action={resendInviteAction.bind(null, i.id)}>
-                      <button type="submit" className="underline">
+                      <button type="submit" className="btn-sm">
                         Resend
                       </button>
                     </form>
                     <form action={cancelInviteAction.bind(null, i.id)}>
-                      <button type="submit" className="underline">
+                      <button type="submit" className="btn-sm">
                         Cancel
                       </button>
                     </form>
@@ -91,10 +92,12 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       )}
-      <h2 className="text-lg font-semibold">Accounts</h2>
-      <table className="w-full text-left text-sm">
+      <h2 className="text-2xl">Accounts</h2>
+      <div className="panel table-wrap nowrap-cells">
+          <table>
         <thead>
           <tr>
             <th>Name</th>
@@ -115,7 +118,7 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
           {accountRows.map((a) => (
             <tr key={a.id} className="border-t">
               <td>
-                <Link href={`/owner/accounts/${a.id}?range=${range.key}`} className="underline">
+                <Link href={`/owner/accounts/${a.id}?range=${range.key}`}>
                   {a.name}
                 </Link>
               </td>
@@ -136,6 +139,7 @@ export default async function OwnerPage({ searchParams }: Search = {}) {
           ))}
         </tbody>
       </table>
+          </div>
     </div>
   );
 }

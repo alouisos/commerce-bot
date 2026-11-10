@@ -18,11 +18,26 @@ function crawlSummary(notice: CrawlNotice | null, ready: number): string {
     case "crawling":
       return `reading your pages… ${ready} learned so far`;
     case "failed":
-      return "couldn't read any pages (open the site to retry)";
+      return "couldn't read any pages";
     case "stale":
-      return "the last crawl stopped early (open the site to retry)";
+      return "the last crawl stopped early";
     default:
       return ready > 0 ? `ready, ${ready} pages learned` : "no pages learned yet";
+  }
+}
+
+/** The status lamp beside a website: red when its crawl failed, amber when stale, live while reading. */
+function lampFor(notice: CrawlNotice | null, installed: boolean): string {
+  switch (notice?.kind) {
+    case "failed":
+      return "lamp lamp-crit";
+    case "stale":
+      return "lamp lamp-warn";
+    case "queued":
+    case "crawling":
+      return "lamp lamp-live";
+    default:
+      return installed ? "lamp lamp-ok" : "lamp";
   }
 }
 
@@ -41,28 +56,42 @@ export default async function WebsitesPage() {
   return (
     <div className="flex flex-col gap-8">
       <Poller active={live} />
-      <section>
-        <h1 className="mb-4 text-xl font-semibold">Your websites</h1>
+      <section className="flex flex-col gap-4">
+        <h1 className="page-title">Your websites</h1>
         {list.length === 0 ? (
-          <p>You have no websites yet. Add one below.</p>
+          <p className="notice">You have no websites yet. Add one below and the bot starts reading it.</p>
         ) : (
           <ul className="flex flex-col gap-3">
-            {list.map((s) => (
-              <li key={s.id} className="border p-3">
-                <Link href={`/app/sites/${s.id}/overview`} className="font-medium underline">
-                  {s.name}
-                </Link>
-                <div>{s.baseUrl}</div>
-                <div className="text-sm">
-                  Last 30 days: {plural(totals.get(s.id)!.conversations, "conversation")} ·{" "}
-                  {plural(totals.get(s.id)!.emailsCaptured, "email captured", "emails captured")}
-                </div>
-                <div className="text-sm">
-                  Website: {crawlSummary(notices.get(s.id) ?? null, counts.get(s.id)!.ready)} · Last seen on site:{" "}
-                  {s.lastSeenAt ? relativeTime(s.lastSeenAt) : "Not installed yet"}
-                </div>
-              </li>
-            ))}
+            {list.map((s) => {
+              const notice = notices.get(s.id) ?? null;
+              const total = totals.get(s.id)!;
+              return (
+                <li key={s.id} className="panel site-row">
+                  <span className={lampFor(notice, s.lastSeenAt !== null)} aria-hidden="true" />
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                      <Link href={`/app/sites/${s.id}/overview`} className="site-name">
+                        {s.name}
+                      </Link>
+                      <span className="cell-mono text-ink-muted">{s.baseUrl}</span>
+                    </div>
+                    <p className="text-sm font-medium text-sodium">
+                      Last 30 days: {plural(total.conversations, "conversation")} ·{" "}
+                      {plural(total.emailsCaptured, "email captured", "emails captured")}
+                    </p>
+                    <p className="text-sm text-ink-muted">
+                      Website: {crawlSummary(notice, counts.get(s.id)!.ready)} · Last seen on site:{" "}
+                      {s.lastSeenAt ? relativeTime(s.lastSeenAt) : "Not installed yet"}
+                    </p>
+                    {(notice?.kind === "failed" || notice?.kind === "stale") && (
+                      <Link href={`/app/sites/${s.id}/knowledge?tab=pages`} className="mt-1 self-start text-sm font-medium">
+                        Retry reading pages
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

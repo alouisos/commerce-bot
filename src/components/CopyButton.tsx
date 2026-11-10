@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { CheckIcon } from "./icons";
 
 /** Shows the text in a readonly textarea with a copy button; falls back to selecting the text. */
 export function CopyBlock({ text }: { text: string }) {
@@ -26,11 +27,12 @@ export function CopyBlock({ text }: { text: string }) {
         value={text}
         rows={3}
         aria-label="Embed snippet"
-        className="w-full border p-2 font-mono text-sm"
+        className="w-full font-mono text-sm"
         onFocus={(e) => e.currentTarget.select()}
       />
-      <button type="button" onClick={copy} className="self-start border px-3 py-1">
-        {copied ? "Copied" : "Copy"}
+      <button type="button" onClick={copy} className="btn-primary self-start">
+        {copied ? <CheckIcon /> : null}
+        {copied ? "Copied" : "Copy snippet"}
       </button>
       <span role="status" className="sr-only">
         {copied ? "Copied to clipboard" : ""}

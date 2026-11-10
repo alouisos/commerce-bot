@@ -9,9 +9,9 @@ import { RefreshInsightsButton } from "./refresh-button";
 function List<T>({ title, items, render }: { title: string; items: T[]; render: (item: T) => ReactNode }) {
   if (items.length === 0) return null;
   return (
-    <div>
-      <h4 className="font-medium">{title}</h4>
-      <ul className="list-disc pl-5 text-sm">{items.map((it, i) => <li key={i}>{render(it)}</li>)}</ul>
+    <div className="flex flex-col gap-1.5">
+      <h4 className="text-sm text-ink-muted">{title}</h4>
+      <ul className="flex list-disc flex-col gap-1 pl-5 text-sm marker:text-teal">{items.map((it, i) => <li key={i}>{render(it)}</li>)}</ul>
     </div>
   );
 }
@@ -20,26 +20,27 @@ function List<T>({ title, items, render }: { title: string; items: T[]; render: 
 export async function InsightsSection({ siteId }: { siteId: string }) {
   const [insight, paused] = await Promise.all([latestInsight(siteId), pausedKinds(siteId)]);
   return (
-    <section id="insights" className="flex flex-col gap-3 border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">Insights</h3>
+    <section id="insights" className="panel">
+      <div className="panel-head">
+        <h3>Insights</h3>
         <RefreshInsightsButton siteId={siteId} />
       </div>
+      <div className="panel-body flex flex-col gap-4">
       <List
         title="Prompts visitors keep dismissing"
         items={paused}
         render={(k) => <>{PROMPT_KIND_LABELS[k]}: paused for now, so visitors stop seeing them.</>}
       />
       {!insight ? (
-        <p className="text-sm">Insights appear after your bot&apos;s first conversations. They refresh every day.</p>
+        <p className="text-sm text-ink-muted">Insights appear after your bot&apos;s first conversations. They refresh every day.</p>
       ) : (
         <>
-          <p className="text-sm opacity-80">
+          <p className="text-xs text-ink-subtle">
             Updated <time dateTime={insight.createdAt.toISOString()}>{relativeTime(insight.createdAt)}</time> from{" "}
             {plural(insight.conversationCount, "conversation")}. Written by AI from your conversations; check before
             acting on it.
           </p>
-          <p className="whitespace-pre-wrap">{insight.content.summary}</p>
+          <p className="max-w-[72ch] whitespace-pre-wrap">{insight.content.summary}</p>
           <List
             title="What people ask most"
             items={insight.content.topQuestions}
@@ -60,9 +61,7 @@ export async function InsightsSection({ siteId }: { siteId: string }) {
           />
           {insight.content.knowledgeGaps.length > 0 && (
             <p className="text-sm">
-              <Link href={`/app/sites/${siteId}/knowledge`} className="underline">
-                Add the missing answers in Knowledge
-              </Link>
+              <Link href={`/app/sites/${siteId}/knowledge`}>Add the missing answers in Knowledge</Link>
             </p>
           )}
           <List
@@ -85,6 +84,7 @@ export async function InsightsSection({ siteId }: { siteId: string }) {
           />
         </>
       )}
+      </div>
     </section>
   );
 }

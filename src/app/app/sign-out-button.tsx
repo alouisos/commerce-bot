@@ -8,6 +8,7 @@ export function SignOutButton() {
   return (
     <button
       type="button"
+      className="sign sign-quiet"
       onClick={async () => {
         await authClient.signOut();
         router.push("/sign-in");
