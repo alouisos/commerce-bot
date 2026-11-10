@@ -15,6 +15,17 @@ beforeEach(() => {
 });
 
 describe("collectPageContext", () => {
+  it("sends the page address without its query or fragment (they can hold order keys or reset links)", () => {
+    const before = window.location.href;
+    window.history.replaceState(null, "", "/checkout/order-received/12/?key=wc_order_SECRET1&cc_ref=abc#top");
+    try {
+      const ctx = collectPageContext(document, window);
+      expect(ctx.url).toBe(`${window.location.origin}/checkout/order-received/12/`);
+    } finally {
+      window.history.replaceState(null, "", before);
+    }
+  });
+
   it("extracts a Product from a JSON-LD @graph", () => {
     document.head.innerHTML += `<script type="application/ld+json">${JSON.stringify({
       "@graph": [

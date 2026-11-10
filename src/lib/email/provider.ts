@@ -29,6 +29,18 @@ export class EmailNotConfiguredError extends Error {
   }
 }
 
+/**
+ * No provider configured: say where the email would have gone. The text (reset and invite links, tokens)
+ * is printed only outside production, where it's useful for development.
+ */
+export function logUnsent(msg: { to: string; subject: string; text: string }): void {
+  if (process.env.NODE_ENV === "production") {
+    console.log(`[email] not sent (no provider): to=*@${msg.to.split("@")[1] ?? "?"} subject="${msg.subject}"`);
+    return;
+  }
+  console.log(`[email] to=${msg.to} subject="${msg.subject}"\n${msg.text}`);
+}
+
 function client(): Resend | null {
   return env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 }
@@ -53,7 +65,7 @@ const resendProvider: Provider = {
   async send(msg) {
     const c = client();
     if (!c) {
-      console.log(`[email] from=${msg.from} to=${msg.to} subject="${msg.subject}"\n${msg.text}`);
+      logUnsent(msg);
       return { id: null };
     }
     const { data, error } = await c.emails.send({

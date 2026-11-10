@@ -168,7 +168,8 @@ export function collectPageContext(doc: Document, win: Window): PageContext {
   const lang = doc.documentElement.getAttribute("lang")?.trim().split(/[-_]/)[0]?.toLowerCase();
 
   return {
-    url: win.location.href.slice(0, LIMITS.urlMaxChars),
+    // No query or fragment: they can carry order keys, reset links or email refs.
+    url: `${win.location.origin}${win.location.pathname}`.slice(0, LIMITS.urlMaxChars),
     title: clean(doc.title).slice(0, LIMITS.titleMaxChars),
     lang: lang || null,
     headings,

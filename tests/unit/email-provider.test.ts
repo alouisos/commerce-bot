@@ -18,4 +18,19 @@ describe("email provider without a key", () => {
   it("domain calls throw EmailNotConfiguredError", async () => {
     await expect(createDomain("milianjo.com")).rejects.toBeInstanceOf(EmailNotConfiguredError);
   });
+
+  it("in production, logs only where an unsent email would have gone, never its text", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const prev = process.env.NODE_ENV;
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    try {
+      await sendMail({ from: "a@b.com", to: "maria@example.com", subject: "Reset", text: "https://x/reset?token=SECRET" });
+    } finally {
+      (process.env as Record<string, string | undefined>).NODE_ENV = prev;
+    }
+    const out = log.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(out).toContain("example.com");
+    expect(out).not.toContain("SECRET");
+    expect(out).not.toContain("maria@");
+  });
 });

@@ -46,5 +46,7 @@ export async function applyRetention(now: Date = new Date()): Promise<{
   const sales = await deleted(sql`
     DELETE FROM sales x USING sites s
     WHERE x.site_id = s.id AND x.ordered_at < ${cutoff}`);
+  // Rate-limit counters only matter for their window (at most a day).
+  await db.execute(sql`DELETE FROM rate_limits WHERE window_start < ${at} - interval '2 days'`);
   return { conversations, impressions, leads, emails, contacts, sales };
 }
