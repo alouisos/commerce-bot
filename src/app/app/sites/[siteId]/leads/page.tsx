@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { relativeTime } from "@/lib/format";
 import { listLeads } from "@/lib/leads";
+import { DeletePersonForm } from "../emails/delete-person-form";
 import { loadSite } from "../load-site";
 
 export default async function LeadsPage({ params }: PageProps<"/app/sites/[siteId]/leads">) {
@@ -13,7 +14,10 @@ export default async function LeadsPage({ params }: PageProps<"/app/sites/[siteI
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Leads</h2>
-      <p className="text-sm">Visitors who left their email when the bot couldn&apos;t answer. Newest first.</p>
+      <p className="text-sm">
+        Visitors who left their email when the bot couldn&apos;t answer, or asked for recommendations by email. Newest
+        first.
+      </p>
       {rows.length === 0 ? (
         <p>No leads yet.</p>
       ) : (
@@ -24,6 +28,7 @@ export default async function LeadsPage({ params }: PageProps<"/app/sites/[siteI
               <th>Message</th>
               <th>Received</th>
               <th>Conversation</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -40,6 +45,9 @@ export default async function LeadsPage({ params }: PageProps<"/app/sites/[siteI
                       View
                     </Link>
                   )}
+                </td>
+                <td>
+                  <DeletePersonForm siteId={site.id} email={l.email} />
                 </td>
               </tr>
             ))}

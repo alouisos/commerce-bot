@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
 import { contacts, conversations, emailMessages } from "@/db/schema";
-import type { ModelReply, ModelRequest } from "@/lib/chat/model";
+import type { ModelReply } from "@/lib/chat/model";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeConversation, makeSite } from "../helpers/factories";
 
@@ -11,7 +11,7 @@ vi.mock("@/lib/chat/model", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/chat/model")>();
   return {
     ...actual,
-    streamModelReply: (_req: ModelRequest): ModelReply => {
+    streamModelReply: (): ModelReply => {
       async function* textStream() {
         yield "Hello";
       }
