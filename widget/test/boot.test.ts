@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { boot } from "../src/boot";
 import { API, config } from "./fixtures";
-import { waitFor } from "@testing-library/preact";
+import { fireEvent, waitFor } from "@testing-library/preact";
 
 type W = Window & { Concierge?: unknown };
 
@@ -93,5 +93,48 @@ describe("boot", () => {
     const win = Object.create(window, { sessionStorage: { value: store } }) as Window;
     await boot(document, win, script());
     await waitFor(() => expect(data.get("concierge.visit")).toBeTruthy());
+  });
+
+  it("carries the email's cc_ref into every chat this visit", async () => {
+    const calls: { url: string; body?: string }[] = [];
+    vi.stubGlobal("fetch", async (u: string, init?: RequestInit) => {
+      calls.push({ url: String(u), body: init?.body as string | undefined });
+      if (String(u).includes("/config")) return new Response(JSON.stringify(config), { status: 200 });
+      if (String(u).includes("/chat")) {
+        return new Response('data: {"type":"start","cid":"c1"}\n\ndata: {"type":"done","messageId":"m","images":[]}\n\n', { status: 200 });
+      }
+      return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+    });
+    const before = window.location.href;
+    window.history.replaceState(null, "", "/product/shampoo/?cc_ref=abc123");
+    try {
+      await boot(document, window, script());
+      const root = document.getElementById("concierge-root")!.shadowRoot!;
+      fireEvent.click(root.querySelector('[aria-label="Open chat"]')!);
+      await waitFor(() => expect(root.querySelector("textarea")).toBeTruthy());
+      const ta = root.querySelector("textarea")!;
+      fireEvent.input(ta, { target: { value: "hello" } });
+      const send = root.querySelector(".send") as HTMLButtonElement;
+      await waitFor(() => expect(send.disabled).toBe(false));
+      fireEvent.click(send);
+      await waitFor(() => expect(calls.some((c) => c.url.includes("/chat"))).toBe(true));
+      const body = JSON.parse(calls.find((c) => c.url.includes("/chat"))!.body!);
+      expect(body.ref).toBe("abc123");
+      expect(window.location.search).toBe("?cc_ref=abc123");
+    } finally {
+      window.history.replaceState(null, "", before);
+    }
+  });
+
+  it("ignores a malformed cc_ref", async () => {
+    stubConfig(config);
+    const before = window.location.href;
+    window.history.replaceState(null, "", "/?cc_ref=%3Cscript%3E");
+    try {
+      await boot(document, window, script());
+      expect(sessionStorage.getItem("concierge.ref")).toBeNull();
+    } finally {
+      window.history.replaceState(null, "", before);
+    }
   });
 });

@@ -2,6 +2,7 @@ import { h, render } from "preact";
 import { fetchConfig } from "./api";
 import css from "./styles.css";
 import { App, type ConciergeApi } from "./ui/App";
+import { setRef } from "./session";
 import { createVisitTracker } from "./visit";
 
 type Queued = unknown[];
@@ -52,6 +53,13 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     store = win.sessionStorage;
   } catch {
     store = { getItem: () => null, setItem: () => {} } as unknown as Storage;
+  }
+
+  // Arrived from one of the shop's emails: remember the link's ref for this visit. The URL is left alone.
+  try {
+    setRef(store, new URLSearchParams(win.location.search).get("cc_ref"));
+  } catch {
+    // no usable location
   }
 
   let replayed = false;

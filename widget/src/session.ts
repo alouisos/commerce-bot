@@ -5,12 +5,15 @@ const SID = "concierge.sid";
 const CID = "concierge.cid";
 const TEASED = "concierge.teased";
 const CONSENT_ASKED = "concierge.consentAsked";
+const REF = "concierge.ref";
+const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-const memory: { sid: string | null; cid: string | null; teased: boolean; consentAsked: boolean } = {
+const memory: { sid: string | null; cid: string | null; teased: boolean; consentAsked: boolean; ref: string | null } = {
   sid: null,
   cid: null,
   teased: false,
   consentAsked: false,
+  ref: null,
 };
 
 /** undefined means storage threw (use memory); null means storage works and has no value. */
@@ -73,6 +76,20 @@ export function consentAsked(store: Storage): boolean {
 export function markConsentAsked(store: Storage): void {
   memory.consentAsked = true;
   write(store, CONSENT_ASKED, "1");
+}
+
+/** The email attribution reference (cc_ref) this visit arrived with, if any. */
+export function getRef(store: Storage): string | null {
+  const v = read(store, REF);
+  const ref = v === undefined ? memory.ref : v;
+  return ref && REF_PATTERN.test(ref) ? ref : null;
+}
+
+/** Stores a well-formed ref for the visit; anything else is ignored. */
+export function setRef(store: Storage, ref: string | null): void {
+  if (!ref || !REF_PATTERN.test(ref)) return;
+  memory.ref = ref;
+  write(store, REF, ref);
 }
 
 // Suggestion state for the visit: survives page loads so the cap and the silence hold.

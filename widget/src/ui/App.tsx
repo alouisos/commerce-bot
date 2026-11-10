@@ -7,6 +7,7 @@ import { collectPageContext } from "../page-context";
 import { usePrompts } from "../prompts";
 import {
   consentAsked,
+  getRef,
   getSession,
   hasTeased,
   markConsentAsked,
@@ -150,6 +151,7 @@ export function App({
           page: collectPageContext(document, window),
           visit: tracker?.summary() ?? null,
           promptId,
+          ref: getRef(store),
         };
         for await (const ev of sendChat(apiBase, req, ctrl.signal)) {
           if (ev.type === "start") {

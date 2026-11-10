@@ -1,8 +1,9 @@
 import { and, count, desc, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { conversations, messages, promptImpressions, type Conversation } from "@/db/schema";
+import { contacts, conversations, messages, promptImpressions, type Conversation } from "@/db/schema";
 import { copyFor } from "@/lib/copy/defaults";
+import { restartSequence } from "@/lib/email/schedule";
 import { searchKnowledge } from "@/lib/kb/search";
 import { MAX_VISITOR_MESSAGES_PER_CONVERSATION } from "@/lib/plans";
 import { aiBlocked, countConversation, getQuota, recordModelUsage } from "@/lib/usage/meter";
@@ -36,6 +37,8 @@ const chatSchema = z.object({
   // Optional context: an odd or oversized summary is dropped rather than failing the visitor's chat.
   visit: visitSchema.nullish().catch(null).transform((v) => v ?? null),
   promptId: z.string().max(100).nullish().transform((v) => v ?? null),
+  // From an email link; anything malformed is ignored.
+  ref: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).nullish().catch(null).transform((v) => v ?? null),
 });
 
 type ChatInput = z.infer<typeof chatSchema>;
@@ -120,6 +123,16 @@ async function claimImpression(siteId: string, sid: string, promptId: string | n
     .set({ outcome: "tapped", outcomeAt: new Date() })
     .where(and(mine, isNull(promptImpressions.outcome)));
   return row;
+}
+
+/** A subscribed contact of this site with this attribution ref; another site's ref matches nothing. */
+async function subscribedContactByRef(siteId: string, ref: string | null) {
+  if (!ref) return null;
+  const [row] = await db
+    .select({ id: contacts.id })
+    .from(contacts)
+    .where(and(eq(contacts.siteId, siteId), eq(contacts.ref, ref), eq(contacts.status, "subscribed")));
+  return row ?? null;
 }
 
 /** The text of the suggestion that started the conversation, from the impression (never from the request). */
@@ -266,6 +279,7 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
   if (!conversation) {
     const language = resolveLanguage(input.page.lang, await siteLanguages(site.id), site.defaultLanguage);
     const impression = await claimImpression(site.id, input.sid, input.promptId);
+    const contact = await subscribedContactByRef(site.id, input.ref);
     [conversation] = await db
       .insert(conversations)
       .values({
@@ -274,6 +288,7 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
         language,
         firstPageUrl: input.page.url,
         promptImpressionId: impression?.id ?? null,
+        contactId: contact?.id ?? null,
         ...visitFields,
       })
       .returning();
@@ -290,6 +305,10 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
   const previousVisitorMessages = await countVisitorMessages(conversationId);
   if (previousVisitorMessages === 0) await countConversation(site.accountId, now);
   const visitorMessageId = await addMessage(conversationId, { role: "visitor", content: input.message });
+  // Back from one of our emails and chatting again: follow-ups now come from this conversation.
+  if (previousVisitorMessages === 0 && conversation.contactId) {
+    await restartSequence(conversation.contactId, conversationId, now);
+  }
 
   // No model call when the account can't spend more this month, or this conversation already had its share.
   if (aiBlocked(quota) || previousVisitorMessages >= MAX_VISITOR_MESSAGES_PER_CONVERSATION) {

@@ -97,6 +97,8 @@ export type ChatRequest = {
   visit?: VisitSummary | null;
   /** The suggestion the visitor tapped to start this chat. */
   promptId?: string | null;
+  /** The attribution reference from an email link (cc_ref), kept for the visit. */
+  ref?: string | null;
 };
 
 export type ChatEvent =
