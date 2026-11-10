@@ -2,6 +2,8 @@ import type { PgBoss } from "pg-boss";
 import { JOBS, type JobData, type JobName } from "@/lib/jobs";
 import { crawlSite } from "@/lib/crawl/crawl-site";
 import { weeklyRecrawl } from "@/lib/crawl/recrawl";
+import { generateSiteInsights } from "@/lib/insights/generate";
+import { dailyInsights } from "@/lib/insights/schedule";
 import { ingestSource } from "@/lib/kb/ingest";
 
 export type Handlers = Partial<{ [N in JobName]: (data: JobData[N]) => Promise<void> }>;
@@ -13,6 +15,13 @@ export const handlers: Handlers = {
     await crawlSite(siteId);
   },
   [JOBS.weeklyRecrawl]: () => weeklyRecrawl(),
+  [JOBS.generateInsights]: async ({ siteId }) => {
+    const out = await generateSiteInsights(siteId);
+    console.log(`[insights] ${siteId}: ${out.status === "created" ? "created" : `skipped (${out.reason})`}`);
+  },
+  [JOBS.dailyInsights]: async () => {
+    await dailyInsights();
+  },
 };
 
 export async function registerHandlers(boss: PgBoss, map: Handlers): Promise<void> {

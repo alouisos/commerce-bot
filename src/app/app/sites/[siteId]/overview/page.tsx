@@ -4,6 +4,7 @@ import { httpUrl } from "@/lib/format";
 import { getDailyConversations, getTopStartPages, getTotals } from "@/lib/stats/queries";
 import { parseRange } from "@/lib/stats/range";
 import { loadSite } from "../load-site";
+import { InsightsSection } from "./insights-section";
 
 function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -21,10 +22,13 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
   const site = await loadSite(siteId);
   const range = parseRange((await searchParams).range);
   const ids = [site.id];
-  const [totals, daily, starts] = await Promise.all([
+  // The insights section is awaited here rather than rendered as an async child, so the whole page
+  // renders in one pass (and in tests with renderToStaticMarkup).
+  const [totals, daily, starts, insights] = await Promise.all([
     getTotals(ids, range),
     getDailyConversations(ids, range),
     getTopStartPages(ids, range),
+    InsightsSection({ siteId: site.id }),
   ]);
   const average = totals.conversations > 0 ? (totals.visitorMessages / totals.conversations).toFixed(1) : "–";
 
@@ -72,7 +76,7 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
           </ol>
         )}
       </section>
-      <section id="insights" />
+      {insights}
     </div>
   );
 }

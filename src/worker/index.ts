@@ -11,6 +11,7 @@ async function main() {
   await registerHandlers(boss, handlers);
   // Queues exist already (getBoss creates them); schedule() upserts, so this is safe on every start.
   await boss.schedule(JOBS.weeklyRecrawl, "0 3 * * 1");
+  await boss.schedule(JOBS.dailyInsights, "0 4 * * *");
   console.log("[worker] started");
   const stop = async () => {
     await boss.stop();
