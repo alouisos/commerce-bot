@@ -3,11 +3,13 @@ import { db } from "@/db/client";
 import { accounts, siteGreetings } from "@/db/schema";
 import { registrableHost, sendingDomainRecords } from "@/lib/email/domain";
 import { planStatus } from "@/lib/plans";
+import { getStoreConnectionSummary } from "@/lib/sales/connections";
 import { loadSite } from "../load-site";
 import { DeleteSiteForm } from "./delete-site-form";
 import { EmailSettingsForm } from "./email-settings-form";
 import { GreetingImageForm } from "./greeting-image-form";
 import { SendingDomain } from "./sending-domain";
+import { StoreConnection } from "./store-connection";
 import { SettingsForm } from "./settings-form";
 import { SiteDetailsForm } from "./site-details-form";
 
@@ -25,6 +27,7 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
     site.sendingDomainStatus === "pending" || site.sendingDomainStatus === "failed"
       ? await sendingDomainRecords(site)
       : [];
+  const store = await getStoreConnectionSummary(site.id);
   const byLang = new Map(rows.map((r) => [r.language, r.message]));
   const defaults = ["el", "en"].map((language) => ({ language, message: byLang.get(language) ?? "" }));
   const extra = rows.filter((r) => !["el", "en"].includes(r.language)).map((r) => ({ language: r.language, message: r.message }));
@@ -70,6 +73,7 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
         fromLocal={site.emailFromLocal}
         records={records}
       />
+      <StoreConnection siteId={site.id} defaultUrl={new URL(site.baseUrl).origin} summary={store} />
       <GreetingImageForm siteId={site.id} hasImage={!!site.greetingImageKey} version={site.greetingImageKey ?? ""} />
       <DeleteSiteForm siteId={site.id} name={site.name} />
     </div>

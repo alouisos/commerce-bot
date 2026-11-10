@@ -6,6 +6,7 @@ import { requireSiteAccess } from "@/lib/access";
 import { addSendingDomain, refreshSendingDomain, removeSendingDomain } from "@/lib/email/domain";
 import { EmailNotConfiguredError } from "@/lib/email/provider";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { connectWooCommerce, disconnectStore } from "@/lib/sales/connections";
 import { removeGreetingImage, setGreetingImage, updateEmailSettings, updateSiteSettings } from "@/lib/site-settings";
 import { deleteSite, updateSiteDetails } from "@/lib/sites";
 import { requireUser } from "@/lib/session";
@@ -149,5 +150,26 @@ export async function refreshSendingDomainAction(siteId: string): Promise<Settin
 export async function removeSendingDomainAction(siteId: string): Promise<void> {
   await authorize(siteId);
   await removeSendingDomain(siteId);
+  revalidatePath(`/app/sites/${siteId}/settings`);
+}
+
+export async function connectStoreAction(
+  siteId: string,
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  await authorize(siteId);
+  return run(siteId, () =>
+    connectWooCommerce(siteId, {
+      storeUrl: String(formData.get("storeUrl") ?? ""),
+      consumerKey: String(formData.get("consumerKey") ?? ""),
+      consumerSecret: String(formData.get("consumerSecret") ?? ""),
+    }),
+  );
+}
+
+export async function disconnectStoreAction(siteId: string): Promise<void> {
+  await authorize(siteId);
+  await disconnectStore(siteId);
   revalidatePath(`/app/sites/${siteId}/settings`);
 }
