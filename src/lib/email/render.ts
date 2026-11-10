@@ -14,6 +14,10 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+export const unsubscribePageUrl = (token: string) => `${appBaseUrl()}/e/u/${token}`;
+/** The List-Unsubscribe target: a POST here unsubscribes at once (RFC 8058). */
+export const oneClickUrl = (token: string) => `${appBaseUrl()}/e/u/${token}/one-click`;
+
 export const trackedUrl = (messageId: string, index: number) => `${appBaseUrl()}/e/c/${messageId}/${index}`;
 
 export function renderEmail(input: {

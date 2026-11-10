@@ -36,6 +36,13 @@
       "when": 1794328883320,
       "tag": "0004_email_privacy",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794330997169,
+      "tag": "0005_email_one_open",
+      "breakpoints": true
     }
   ]
 }

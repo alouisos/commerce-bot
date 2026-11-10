@@ -2,6 +2,7 @@ import type { PgBoss } from "pg-boss";
 import { JOBS, type JobData, type JobName } from "@/lib/jobs";
 import { crawlSite } from "@/lib/crawl/crawl-site";
 import { weeklyRecrawl } from "@/lib/crawl/recrawl";
+import { emailTick } from "@/lib/email/schedule";
 import { generateSiteInsights } from "@/lib/insights/generate";
 import { dailyInsights } from "@/lib/insights/schedule";
 import { ingestSource } from "@/lib/kb/ingest";
@@ -21,6 +22,10 @@ export const handlers: Handlers = {
   },
   [JOBS.dailyInsights]: async () => {
     await dailyInsights();
+  },
+  [JOBS.emailTick]: async () => {
+    const out = await emailTick();
+    if (out.drafted || out.sent || out.skipped) console.log(`[email] drafted ${out.drafted}, sent ${out.sent}, skipped ${out.skipped}`);
   },
 };
 

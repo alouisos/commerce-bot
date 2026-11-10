@@ -8,6 +8,7 @@ import { appBaseUrl } from "@/lib/widget/config";
 import { findOwnedConversation } from "@/lib/widget/conversation";
 import type { WidgetSite } from "@/lib/widget/guard";
 import { fromAddress } from "./domain";
+import { restartSequence } from "./schedule";
 import { sendMail } from "./provider";
 
 export const CONFIRM_VALID_MS = 7 * 86400_000;
@@ -57,7 +58,7 @@ export async function subscribe(
     token: token(32),
   };
 
-  const { contact, needsConfirmation } = await db.transaction(async (tx) => {
+  const { contact, needsConfirmation, restart } = await db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
       .from(contacts)
@@ -65,6 +66,7 @@ export async function subscribe(
       .for("update");
     let contact;
     let needsConfirmation = true;
+    let restart = false;
     if (!existing) {
       [contact] = await tx
         .insert(contacts)
@@ -79,12 +81,7 @@ export async function subscribe(
     } else if (existing.status === "subscribed") {
       contact = existing;
       needsConfirmation = false;
-      if (conversationId) {
-        await tx
-          .update(contacts)
-          .set({ sequenceConversationId: conversationId, sequenceStartedAt: now })
-          .where(eq(contacts.id, existing.id));
-      }
+      restart = conversationId !== null && conversationId !== existing.sequenceConversationId;
     } else {
       // Pending or unsubscribed: consent again, with a fresh link.
       [contact] = await tx.update(contacts).set(consent).where(eq(contacts.id, existing.id)).returning();
@@ -99,9 +96,11 @@ export async function subscribe(
     if (conversationId) {
       await tx.update(conversations).set({ contactId: contact.id }).where(eq(conversations.id, conversationId));
     }
-    return { contact, needsConfirmation };
+    return { contact, needsConfirmation, restart };
   });
 
+  // Already subscribed: follow-ups now come from this conversation.
+  if (restart && conversationId) await restartSequence(contact.id, conversationId, now);
   if (needsConfirmation) await sendConfirmation(site, contact);
 }
 

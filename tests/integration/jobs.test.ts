@@ -52,4 +52,10 @@ describe("job queues", () => {
     expect(dup).toBeNull();
     expect(other).toBeTruthy();
   });
+
+  it("email-tick runs one at a time and isn't retried", async () => {
+    expect(QUEUE_OPTIONS[JOBS.emailTick]).toEqual({ policy: "singleton", retryLimit: 0 });
+    await ensureQueues(boss);
+    expect(await boss.getQueue(JOBS.emailTick)).toMatchObject({ policy: "singleton", retryLimit: 0 });
+  });
 });

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "email_messages_one_open_idx" ON "email_messages" USING btree ("contact_id") WHERE "email_messages"."status" in ('draft', 'approved', 'sending');

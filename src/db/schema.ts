@@ -370,6 +370,10 @@ export const emailMessages = pgTable(
   (t) => [
     index("email_messages_status_scheduled_idx").on(t.status, t.scheduledFor),
     index("email_messages_contact_idx").on(t.contactId, t.createdAt),
+    // At most one unsent email per person: overlapping ticks can't write or send a second one.
+    uniqueIndex("email_messages_one_open_idx")
+      .on(t.contactId)
+      .where(sql`${t.status} in ('draft', 'approved', 'sending')`),
   ],
 );
 

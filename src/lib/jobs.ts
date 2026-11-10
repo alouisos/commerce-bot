@@ -7,6 +7,7 @@ export const JOBS = {
   weeklyRecrawl: "weekly-recrawl",
   generateInsights: "generate-insights",
   dailyInsights: "daily-insights",
+  emailTick: "email-tick",
 } as const;
 
 export type JobName = (typeof JOBS)[keyof typeof JOBS];
@@ -17,6 +18,7 @@ export type JobData = {
   "weekly-recrawl": Record<string, never>;
   "generate-insights": { siteId: string };
   "daily-insights": Record<string, never>;
+  "email-tick": Record<string, never>;
 };
 
 /** Longest a crawl may run before pg-boss expires it; a "crawling" site older than this is stale. */
@@ -31,6 +33,8 @@ export const QUEUE_OPTIONS: Partial<Record<JobName, Omit<Queue, "name">>> = {
   [JOBS.crawlSite]: { policy: "stately", expireInSeconds: CRAWL_MAX_SECONDS, retryLimit: 0 },
   // One model call per site; stately dedupes the daily run and manual refreshes of the same site.
   [JOBS.generateInsights]: { policy: "stately", retryLimit: 1, expireInSeconds: 900 },
+  // One tick at a time; a failed tick is simply picked up by the next one 15 minutes later.
+  [JOBS.emailTick]: { policy: "singleton", retryLimit: 0 },
 };
 
 type Recorded = { name: JobName; data: JobData[JobName]; options: SendOptions };
