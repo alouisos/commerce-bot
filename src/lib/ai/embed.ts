@@ -7,7 +7,24 @@ export interface Embedder {
 
 const DIM = 1024;
 const BATCH = 128;
+/** Retries for queries (a visitor is waiting) and for 5xx. */
 const MAX_RETRIES = 3;
+/**
+ * Document embedding runs in the worker, so on 429 it waits the limit out instead of failing the
+ * page. Rate limits are per minute (an account without a payment method gets 3 requests/minute),
+ * so a few seconds of backoff is not enough: wait Retry-After, else 15s, 30s, then 60s per try.
+ */
+const DOC_RATE_LIMIT_RETRIES = 8;
+const DOC_RATE_LIMIT_MAX_WAIT_MS = 65_000;
+
+function retryAfterMs(res: Response): number | null {
+  const h = res.headers.get("retry-after");
+  if (!h) return null;
+  const secs = Number(h);
+  if (Number.isFinite(secs)) return Math.max(0, secs * 1000);
+  const at = Date.parse(h);
+  return Number.isNaN(at) ? null : Math.max(0, at - Date.now());
+}
 
 function fnv1a(s: string): number {
   let h = 0x811c9dc5;
@@ -52,6 +69,11 @@ export function voyageEmbedder(apiKey: string): Embedder {
       if (res.ok) {
         const json = (await res.json()) as { data: Array<{ index: number; embedding: number[] }> };
         return [...json.data].sort((a, b) => a.index - b.index).map((d) => d.embedding);
+      }
+      if (res.status === 429 && kind === "document" && attempt < DOC_RATE_LIMIT_RETRIES) {
+        const backoff = 15_000 * 2 ** Math.min(attempt, 2);
+        await sleep(Math.min(retryAfterMs(res) ?? backoff, DOC_RATE_LIMIT_MAX_WAIT_MS) + Math.random() * 1000);
+        continue;
       }
       if ((res.status === 429 || res.status >= 500) && attempt < MAX_RETRIES) {
         await sleep(500 * 2 ** attempt);
