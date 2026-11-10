@@ -17,6 +17,12 @@ Rules:
 - "question" is the same thing in the visitor's voice, as they would ask it (e.g. "How do I use it on wet hair?").
 - If there is nothing specific and useful to suggest, return show: false with empty strings.`;
 
+/** The instructions for one site: the shared rules, then the shop's own rules (guardrails), if any. */
+export function promptSystem(guardrails: string): string {
+  const own = guardrails.trim();
+  return own ? `${PROMPT_SYSTEM}\n\nThe shop's own rules, which you must follow:\n${own}` : PROMPT_SYSTEM;
+}
+
 export const PROMPT_JSON_SCHEMA = {
   type: "object",
   properties: { show: { type: "boolean" }, text: { type: "string" }, question: { type: "string" } },

@@ -33,7 +33,8 @@ const chatSchema = z.object({
   cid: z.string().max(100).nullish().transform((v) => v ?? null),
   message: z.string().trim().min(1).max(LIMITS.messageMaxChars),
   page: pageSchema,
-  visit: visitSchema.nullish().transform((v) => v ?? null),
+  // Optional context: an odd or oversized summary is dropped rather than failing the visitor's chat.
+  visit: visitSchema.nullish().catch(null).transform((v) => v ?? null),
   promptId: z.string().max(100).nullish().transform((v) => v ?? null),
 });
 

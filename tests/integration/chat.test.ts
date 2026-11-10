@@ -433,11 +433,14 @@ describe("chat context from the visit", () => {
     expect(row.outcome).toBeNull();
   });
 
-  it("rejects an oversized visit", async () => {
+  it("an invalid visit summary is ignored, never blocks the chat", async () => {
     const { site } = await setup();
     const pages = Array.from({ length: 11 }, (_, i) => ({ url: `https://example.com/p/${i}`, title: "P", seconds: 1 }));
-    expect((await send(site.publicKey, { visit: visit({ pages }) })).res.status).toBe(400);
-    expect((await send(site.publicKey, { visit: visit({ confidence: 3 }) })).res.status).toBe(400);
+    for (const bad of [visit({ pages }), visit({ confidence: 3 }), visit({ pages: [{ url: "u", title: "t", seconds: 90_000 }] })]) {
+      const { res, events } = await send(site.publicKey, { visit: bad });
+      expect(res.status).toBe(200);
+      expect((await conversationOf(startOf(events))).visit).toBeNull();
+    }
   });
 
   it("later messages update the intent and keep the starting suggestion", async () => {

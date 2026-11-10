@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { siteGreetings, sites } from "@/db/schema";
 import { ValidationError } from "@/lib/errors";
 import { sniffImageType } from "@/lib/files";
+import { clearPromptCache } from "@/lib/prompts/cache";
 import { getStorage, greetingImageKey } from "@/lib/storage";
 
 const lang = z.string().regex(/^[a-z]{2}$/, "Use a two-letter language code such as en");
@@ -60,6 +61,8 @@ export async function updateSiteSettings(siteId: string, input: unknown): Promis
       await tx.insert(siteGreetings).values(s.greetings.map((g) => ({ siteId, ...g })));
     }
   });
+  // Guardrails may have changed; suggestions written under the old rules are dropped.
+  await clearPromptCache(siteId);
 }
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;

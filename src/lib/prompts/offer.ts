@@ -1,6 +1,6 @@
-import { and, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 import { db } from "@/db/client";
-import { promptCache, promptImpressions } from "@/db/schema";
+import { kbChunks, kbSources, promptCache, promptImpressions } from "@/db/schema";
 import { getAnthropic } from "@/lib/ai/anthropic";
 import { meteredModel, type TokenUsage } from "@/lib/ai/pricing";
 import { buildContext } from "@/lib/chat/prompt";
@@ -13,7 +13,9 @@ import { resolveLanguage } from "@/lib/widget/language";
 import { kindForIntent } from "@/shared/intent";
 import type { Intent, PageContext, PromptOffer } from "@/shared/widget-protocol";
 import { pausedKinds } from "./backoff";
-import { cleanSuggestion, KIND_INSTRUCTIONS, PROMPT_JSON_SCHEMA, PROMPT_SYSTEM } from "./writer";
+import { normalizeUrl } from "@/lib/crawl/discover";
+import { LIMITS } from "@/shared/widget-protocol";
+import { cleanSuggestion, KIND_INSTRUCTIONS, PROMPT_JSON_SCHEMA, promptSystem } from "./writer";
 
 const CACHE_MS = 7 * 24 * 3600_000;
 const SEARCH_K = 6;
@@ -58,14 +60,42 @@ const defaultCallModel: CallModel = async (system, input) => {
   return { content, model: meteredModel(res.model, model), usage };
 };
 
-/** The page address the cache is keyed by: no query string or fragment. */
-function urlKey(url: string): string {
+/**
+ * The page as the crawl learned it, found by the address the browser reported (normalized the way the
+ * crawler stores it, without query or fragment). Suggestions are written only from this server-side copy:
+ * page text sent by a browser is never used, so a forged request can't plant a suggestion other
+ * visitors would see. Pages the crawl doesn't know get no suggestion.
+ */
+async function crawledPage(siteId: string, url: string): Promise<{ url: string; title: string; text: string } | null> {
+  let key: string | null;
   try {
     const u = new URL(url);
-    return `${u.origin}${u.pathname}`;
+    key = normalizeUrl(`${u.origin}${u.pathname}`);
   } catch {
-    return url.split(/[?#]/)[0];
+    key = null;
   }
+  if (!key) return null;
+  const [source] = await db
+    .select({ id: kbSources.id, url: kbSources.url, title: kbSources.title })
+    .from(kbSources)
+    .where(
+      and(
+        eq(kbSources.siteId, siteId),
+        eq(kbSources.kind, "page"),
+        eq(kbSources.url, key),
+        eq(kbSources.status, "ready"),
+        eq(kbSources.excluded, false),
+      ),
+    )
+    .limit(1);
+  if (!source?.url) return null;
+  const chunks = await db
+    .select({ content: kbChunks.content })
+    .from(kbChunks)
+    .where(eq(kbChunks.sourceId, source.id))
+    .orderBy(asc(kbChunks.ordinal));
+  const text = chunks.map((c) => c.content).join("\n\n").slice(0, LIMITS.visibleTextMaxChars);
+  return { url: source.url, title: source.title, text };
 }
 
 /**
@@ -83,7 +113,9 @@ export async function offerPrompt(
   if ((await pausedKinds(site.id, now)).includes(kind)) return null;
   if (aiBlocked(await getQuota(site.account, now))) return null;
 
-  const key = urlKey(input.page.url);
+  const crawled = await crawledPage(site.id, input.page.url);
+  if (!crawled) return null;
+  const key = crawled.url;
   const language = resolveLanguage(input.page.lang, await siteLanguages(site.id), site.defaultLanguage);
   const [cached] = await db
     .select()
@@ -103,15 +135,23 @@ export async function offerPrompt(
   if (cached) {
     suggestion = cached.text && cached.question ? { text: cached.text, question: cached.question } : null;
   } else {
-    const page = input.page;
-    const hits = await searchKnowledge(site.id, `${page.product?.name ?? ""} ${page.title}`.trim(), SEARCH_K);
+    const page: PageContext = {
+      url: crawled.url,
+      title: crawled.title,
+      lang: language,
+      headings: [],
+      visibleText: crawled.text,
+      product: null,
+      kind: input.page.kind,
+    };
+    const hits = (await searchKnowledge(site.id, crawled.title, SEARCH_K)).filter((h) => h.url !== crawled.url);
     const prompt = [
       `Write in the language with ISO code ${language}.`,
       KIND_INSTRUCTIONS[kind],
       "",
       buildContext(page, hits, []),
     ].join("\n");
-    const reply = await (opts.callModel ?? defaultCallModel)(PROMPT_SYSTEM, prompt);
+    const reply = await (opts.callModel ?? defaultCallModel)(promptSystem(site.guardrails), prompt);
     await recordModelUsage({
       accountId: site.accountId,
       siteId: site.id,

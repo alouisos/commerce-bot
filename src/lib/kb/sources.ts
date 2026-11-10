@@ -6,6 +6,7 @@ import { sniffImageType } from "@/lib/files";
 import { enqueue, JOBS } from "@/lib/jobs";
 import { planStatus } from "@/lib/plans";
 import { getStorage, kbObjectKey } from "@/lib/storage";
+import { clearPromptCache } from "@/lib/prompts/cache";
 
 const MB = 1024 ** 2;
 export const MAX_DOCUMENT_BYTES = 20 * MB;
@@ -128,12 +129,14 @@ async function ownedSource(siteId: string, sourceId: string): Promise<KbSource> 
 export async function deleteSource(siteId: string, sourceId: string): Promise<void> {
   const source = await ownedSource(siteId, sourceId);
   await db.delete(kbSources).where(eq(kbSources.id, source.id));
+  await clearPromptCache(siteId);
   if (source.storageKey) await getStorage().delete(source.storageKey);
 }
 
 export async function setExcluded(siteId: string, sourceId: string, excluded: boolean): Promise<void> {
   const source = await ownedSource(siteId, sourceId);
   await db.update(kbSources).set({ excluded }).where(eq(kbSources.id, source.id));
+  await clearPromptCache(siteId);
 }
 
 export async function getSource(siteId: string, sourceId: string): Promise<KbSource> {
