@@ -61,9 +61,11 @@ export default async function UsagePage() {
         </p>
         {levels.emails.level !== "ok" && (
           <p className="text-sm">
-            {levels.emails.level === "full"
-              ? "This month's emails are used up: no new emails until next month."
-              : "You are close to this month's email limit."}
+            {levels.emails.level === "off"
+              ? "Email is switched off for this account."
+              : levels.emails.level === "full"
+                ? "This month's emails are used up: no new emails until next month."
+                : "You are close to this month's email limit."}
           </p>
         )}
         <p>

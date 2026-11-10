@@ -118,6 +118,25 @@ describe("accepting an invite", () => {
   });
 });
 
+describe("trial invites", () => {
+  it("the 14 days start when the invitee joins, not when the invite was sent", async () => {
+    const sentAt = new Date(Date.now() - 6 * 86400_000);
+    const { accountId } = await createInvite({ email: "late@shop.gr", accountName: "Late", plan: "trial" }, sentAt);
+    const before = Date.now();
+    expect((await acceptInvite(tokenOf("late@shop.gr"), { name: "Late", password: "password-12345" })).ok).toBe(true);
+    const [acc] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+    expect(acc.trialEndsAt!.getTime()).toBeGreaterThanOrEqual(before + 14 * 86400_000 - 1000);
+    expect(acc.trialEndsAt!.getTime()).toBeLessThanOrEqual(Date.now() + 14 * 86400_000 + 1000);
+  });
+
+  it("a paid-plan invite gets no trial date", async () => {
+    const { accountId, token } = await invited("paid@shop.gr", "pro");
+    await acceptInvite(token, { name: "P", password: "password-12345" });
+    const [acc] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+    expect(acc.trialEndsAt).toBeNull();
+  });
+});
+
 describe("the invite page", () => {
   const render = async (token: string) =>
     renderToStaticMarkup(await InvitePage({ params: Promise.resolve({ token }) } as never));

@@ -153,6 +153,23 @@ describe("at 100 % of the month's emails", () => {
   });
 });
 
+describe("emails used up, conversations fine", () => {
+  it("keeps on-site suggestions; only email offers stop", async () => {
+    const { site } = await setup({ emails: 1000 });
+    expect(await buildWidgetConfig(site, null, now)).toMatchObject({ proactivity: "active", emailCapture: false });
+    const callModel = vi.fn(async () => ({ content: { show: true, text: "Want tips?", question: "Any tips?" }, model: "claude-opus-5-5", usage }));
+    expect(await offerPrompt(site, promptInput, { callModel })).not.toBeNull();
+  });
+
+  it("a limit of 0 emails means email is off: no banner, suggestions stay on", async () => {
+    const { account, site } = await setup();
+    await setAccountLimits(account.id, { emailsPerMonth: 0 });
+    const fresh = (await getSiteByPublicKey(site.publicKey))!;
+    expect(await buildWidgetConfig(fresh, null, now)).toMatchObject({ proactivity: "active", emailCapture: false });
+    expect(await QuotaBanner({ account: await reload(account.id) })).toBeNull();
+  });
+});
+
 describe("below 100 %", () => {
   it("nothing is gated at 499", async () => {
     const { site } = await setup({ conversations: 499 });

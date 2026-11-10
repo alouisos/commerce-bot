@@ -4,7 +4,7 @@ import { db } from "@/db/client";
 import { siteGreetings, sites, type Account, type Site } from "@/db/schema";
 import { COPY, copyFor, fillSite } from "@/lib/copy/defaults";
 import { canDraftEmail } from "@/lib/email/domain";
-import { atMonthlyLimit } from "@/lib/usage/levels";
+import { atConversationLimit } from "@/lib/usage/levels";
 import { env } from "@/lib/env";
 import { planStatus } from "@/lib/plans";
 import { pausedKinds } from "@/lib/prompts/backoff";
@@ -63,9 +63,9 @@ export async function buildWidgetConfig(
     ? `${appBaseUrl()}/api/widget/greeting-image?key=${encodeURIComponent(site.publicKey)}&v=${greetingImageVersion(site.greetingImageKey)}`
     : null;
 
-  // This month's conversations or emails are used up: keep answering, but no suggestions or email offers.
-  const atLimit = await atMonthlyLimit(site.account, now);
-  const proactivity = atLimit ? "off" : site.proactivity;
+  // This month's conversations are used up: keep answering, but no suggestions. (Email offers follow
+  // canDraftEmail, which also stops when the emails are used up.)
+  const proactivity = (await atConversationLimit(site.account, now)) ? "off" : site.proactivity;
   return {
     botName: site.botName,
     accentColor: site.accentColor,
@@ -77,7 +77,7 @@ export async function buildWidgetConfig(
     mode,
     proactivity,
     pausedKinds: proactivity === "off" ? [] : await pausedKinds(site.id, now),
-    emailCapture: !atLimit && (await canDraftEmail(site, site.account, now)),
+    emailCapture: await canDraftEmail(site, site.account, now),
     consentMode: site.consentMode,
   };
 }

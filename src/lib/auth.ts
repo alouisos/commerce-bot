@@ -2,8 +2,8 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db/client";
-import { eq } from "drizzle-orm";
-import { accountInvites, memberships } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+import { accountInvites, accounts, memberships } from "@/db/schema";
 import { createAccountForUser } from "@/lib/accounts";
 import { currentInvite } from "@/lib/invites-context";
 import { sendEmail } from "@/lib/email";
@@ -46,6 +46,11 @@ const createAuth = () =>
               return;
             }
             await db.transaction(async (tx) => {
+              // A trial's 14 days start when the invitee joins, not when the invite was sent.
+              await tx
+                .update(accounts)
+                .set({ trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) })
+                .where(and(eq(accounts.id, invite.accountId), eq(accounts.plan, "trial")));
               await tx.insert(memberships).values({ accountId: invite.accountId, userId: user.id, role: "owner" });
               await tx.update(accountInvites).set({ acceptedUserId: user.id }).where(eq(accountInvites.id, invite.id));
             });
