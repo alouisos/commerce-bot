@@ -8,6 +8,7 @@ import { getStoreCredentials, markConnectionFailing } from "@/lib/sales/connecti
 import { utc } from "@/lib/sales/verify";
 import { listOrdersSince, productUrls, WooError, type WooOrder } from "@/lib/sales/woocommerce";
 
+const LOOKBACK_MS = 24 * 3600_000;
 const token = (bytes: number) => randomBytes(bytes).toString("base64url");
 
 type Deps = { list?: typeof listOrdersSince; urls?: typeof productUrls };
@@ -20,11 +21,17 @@ async function pollSite(
   const creds = await getStoreCredentials(site.id);
   if (!creds) return [];
   const since = site.buyerEmailsSince;
-  const after = site.ordersPolledAt && site.ordersPolledAt > since ? site.ordersPolledAt : since;
+  // Look back a day every time: an order that was pending when last seen and is paid later still has its
+  // original creation date. Re-read orders are deduped below and don't count as new.
+  const lookback = site.ordersPolledAt ? new Date(site.ordersPolledAt.getTime() - LOOKBACK_MS) : since;
+  const after = lookback > since ? lookback : since;
+  let truncated = false;
   let orders: WooOrder[];
   let urls = new Map<number, string>();
   try {
-    orders = (await deps.list(creds, after)).filter((o) => utc(o.createdGmt) >= since && o.billingEmail);
+    const listed = await deps.list(creds, after);
+    truncated = listed.truncated;
+    orders = listed.orders.filter((o) => utc(o.createdGmt) >= since && o.billingEmail);
     const ids = orders.flatMap((o) => o.items.map((i) => i.productId));
     if (ids.length > 0) urls = await deps.urls(creds, ids).catch(() => new Map<number, string>());
   } catch (e) {
@@ -61,7 +68,10 @@ async function pollSite(
     .update(storeConnections)
     .set({ status: "connected", lastError: null })
     .where(and(eq(storeConnections.siteId, site.id), eq(storeConnections.status, "failing")));
-  await db.update(sites).set({ ordersPolledAt: now }).where(eq(sites.id, site.id));
+  // When the list was cut off, continue from where it stopped (the next poll looks back LOOKBACK_MS from here).
+  const last = orders.length > 0 ? utc(orders[orders.length - 1].createdGmt) : null;
+  const polledAt = truncated && last ? new Date(Math.min(last.getTime() + LOOKBACK_MS, now.getTime())) : now;
+  await db.update(sites).set({ ordersPolledAt: polledAt }).where(eq(sites.id, site.id));
   return newOrderIds;
 }
 

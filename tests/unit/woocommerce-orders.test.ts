@@ -39,7 +39,9 @@ afterEach(() => setWooTransportForTests(null));
 describe("listOrdersSince", () => {
   it("parses first name and line items, asking for paid orders after the time", async () => {
     respond = () => new Response(JSON.stringify([order(1)]), { status: 200 });
-    const out = await listOrdersSince(creds, new Date("2026-11-10T00:00:00Z"));
+    const { orders: out, truncated } = await listOrdersSince(creds, new Date("2026-11-10T00:00:00Z"));
+    expect(truncated).toBe(false);
+    expect(urls[0].searchParams.get("dates_are_gmt")).toBe("true");
     expect(out).toHaveLength(1);
     expect(out[0].firstName).toBe("Maria");
     expect(out[0].items).toEqual([{ productId: 7, name: "Olive oil" }]);
@@ -50,7 +52,9 @@ describe("listOrdersSince", () => {
 
   it("has a null first name when billing has none, and no items without line_items", async () => {
     respond = () => new Response(JSON.stringify([order(1, { billing: { email: "a@b.com" }, line_items: undefined })]), { status: 200 });
-    const [o] = await listOrdersSince(creds, new Date());
+    const {
+      orders: [o],
+    } = await listOrdersSince(creds, new Date());
     expect(o.firstName).toBeNull();
     expect(o.items).toEqual([]);
   });
@@ -61,12 +65,16 @@ describe("listOrdersSince", () => {
       const n = page < 3 ? 50 : 2;
       return new Response(JSON.stringify(Array.from({ length: n }, (_, i) => order(page * 100 + i))), { status: 200 });
     };
-    expect(await listOrdersSince(creds, new Date())).toHaveLength(102);
+    const r = await listOrdersSince(creds, new Date());
+    expect(r.orders).toHaveLength(102);
+    expect(r.truncated).toBe(false);
     expect(urls).toHaveLength(3);
     urls = [];
     respond = () => new Response(JSON.stringify(Array.from({ length: 50 }, (_, i) => order(i))), { status: 200 });
-    await listOrdersSince(creds, new Date());
+    const full = await listOrdersSince(creds, new Date());
     expect(urls).toHaveLength(10);
+    expect(full.orders).toHaveLength(500);
+    expect(full.truncated).toBe(true);
   });
 
   it("throws a WooError when the shop refuses or fails", async () => {

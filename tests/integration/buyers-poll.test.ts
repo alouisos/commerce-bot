@@ -42,12 +42,13 @@ async function setup(over: Partial<typeof sites.$inferInsert> = { buyerEmails: "
   return { account, site };
 }
 
+const ret = (orders: WooOrder[], truncated = false) => ({ orders, truncated });
 const urls = async () => new Map([[7, "https://milianjo.com/p/oil"]]);
 
 describe("pollOrders", () => {
   it("records buyers lowercased with their orders and product links, and advances ordersPolledAt", async () => {
     const { site } = await setup();
-    const n = await pollOrders(now, { list: async () => [order(1)], urls });
+    const n = await pollOrders(now, { list: async () => ret([order(1)]), urls });
     expect(n).toBe(1);
     const [b] = await db.select().from(buyers);
     expect(b).toMatchObject({ siteId: site.id, email: "maria@example.com", firstName: "Maria", status: "subscribed" });
@@ -63,7 +64,7 @@ describe("pollOrders", () => {
   it("never polls a site with buyer emails off", async () => {
     await setup({ buyerEmails: "off" });
     let called = 0;
-    expect(await pollOrders(now, { list: async () => (called++, [order(1)]), urls })).toBe(0);
+    expect(await pollOrders(now, { list: async () => (called++, ret([order(1)])), urls })).toBe(0);
     expect(called).toBe(0);
     expect(await db.select().from(buyers)).toHaveLength(0);
   });
@@ -74,7 +75,7 @@ describe("pollOrders", () => {
     const n = await pollOrders(now, {
       list: async (_c, after) => {
         asked.push(after);
-        return [order(1, { createdGmt: "2026-11-09T23:59:00" }), order(2, { createdGmt: "2026-11-10T00:01:00", billingEmail: "new@example.com" })];
+        return ret([order(1, { createdGmt: "2026-11-09T23:59:00" }), order(2, { createdGmt: "2026-11-10T00:01:00", billingEmail: "new@example.com" })]);
       },
       urls,
     });
@@ -86,16 +87,16 @@ describe("pollOrders", () => {
 
   it("asks after the last poll once there has been one", async () => {
     await setup();
-    await pollOrders(now, { list: async () => [], urls });
+    await pollOrders(now, { list: async () => ret([]), urls });
     const asked: Date[] = [];
-    await pollOrders(new Date("2026-11-11T13:00:00Z"), { list: async (_c, a) => (asked.push(a), []), urls });
-    expect(asked[0]).toEqual(now);
+    await pollOrders(new Date("2026-11-11T13:00:00Z"), { list: async (_c, a) => (asked.push(a), ret([])), urls });
+    expect(asked[0]).toEqual(new Date(now.getTime() - 24 * 3600_000));
   });
 
   it("does not duplicate a repeated order and reuses the buyer", async () => {
     await setup();
-    expect(await pollOrders(now, { list: async () => [order(1)], urls })).toBe(1);
-    expect(await pollOrders(now, { list: async () => [order(1), order(2, { billingEmail: "MARIA@example.com" })], urls })).toBe(1);
+    expect(await pollOrders(now, { list: async () => ret([order(1)]), urls })).toBe(1);
+    expect(await pollOrders(now, { list: async () => ret([order(1), order(2, { billingEmail: "MARIA@example.com" })]), urls })).toBe(1);
     expect(await db.select().from(buyers)).toHaveLength(1);
     expect(await db.select().from(buyerOrders)).toHaveLength(2);
   });
@@ -103,7 +104,7 @@ describe("pollOrders", () => {
   it("keeps a null first name and a null product url when the lookup fails", async () => {
     await setup();
     await pollOrders(now, {
-      list: async () => [order(1, { firstName: null })],
+      list: async () => ret([order(1, { firstName: null })]),
       urls: async () => {
         throw new WooError("unavailable", "x");
       },
@@ -124,17 +125,45 @@ describe("pollOrders", () => {
     expect(c).toMatchObject({ status: "failing", lastError: "WooCommerce refused the key" });
     const [s] = await db.select().from(sites).where(eq(sites.id, site.id));
     expect(s.ordersPolledAt).toBeNull();
-    expect(await pollOrders(now, { list: async () => [order(1)], urls })).toBe(1);
+    expect(await pollOrders(now, { list: async () => ret([order(1)]), urls })).toBe(1);
     const [c2] = await db.select().from(storeConnections).where(eq(storeConnections.siteId, site.id));
     expect(c2.status).toBe("connected");
   });
 
   it("skips orders without a billing email and removed accounts", async () => {
     const { account } = await setup();
-    expect(await pollOrders(now, { list: async () => [order(1, { billingEmail: null })], urls })).toBe(0);
+    expect(await pollOrders(now, { list: async () => ret([order(1, { billingEmail: null })]), urls })).toBe(0);
     await db.update(accounts).set({ removedAt: now }).where(eq(accounts.id, account.id));
     let called = 0;
-    expect(await pollOrders(now, { list: async () => (called++, [order(2)]), urls })).toBe(0);
+    expect(await pollOrders(now, { list: async () => (called++, ret([order(2)])), urls })).toBe(0);
     expect(called).toBe(0);
+  });
+
+  it("re-reads a day back: a slow-paid order is recorded once, and a re-read order is not new", async () => {
+    await setup();
+    await pollOrders(now, { list: async () => ret([order(1, { createdGmt: "2026-11-11T11:00:00" })]), urls });
+    const asked: Date[] = [];
+    const next = new Date("2026-11-11T12:30:00Z");
+    // Order 2 was created 10 minutes before the previous poll, pending then, paid since.
+    const out = async (_c: unknown, a: Date) => (asked.push(a), ret([order(1, { createdGmt: "2026-11-11T11:00:00" }), order(2, { createdGmt: "2026-11-11T11:50:00", billingEmail: "slow@example.com" })]));
+    expect(await pollOrders(next, { list: out, urls })).toBe(1);
+    expect(asked[0]).toEqual(new Date(now.getTime() - 24 * 3600_000));
+    expect(await pollOrders(new Date("2026-11-11T13:00:00Z"), { list: out, urls })).toBe(0);
+    expect(await db.select().from(buyerOrders)).toHaveLength(2);
+  });
+
+  it("when the list is cut off, ordersPolledAt follows the last order so the next poll continues from it", async () => {
+    const { site } = await setup();
+    const day = 24 * 3600_000;
+    const orders = Array.from({ length: 500 }, (_, i) =>
+      order(i + 1, { createdGmt: new Date(since.getTime() + (i + 1) * 60_000).toISOString().slice(0, 19), billingEmail: `b${i}@example.com` }),
+    );
+    const lastAt = new Date(since.getTime() + 500 * 60_000);
+    expect(await pollOrders(now, { list: async () => ret(orders, true), urls })).toBe(500);
+    const [s] = await db.select().from(sites).where(eq(sites.id, site.id));
+    expect(s.ordersPolledAt).toEqual(new Date(lastAt.getTime() + day));
+    const asked: Date[] = [];
+    await pollOrders(now, { list: async (_c, a) => (asked.push(a), ret([])), urls });
+    expect(asked[0]).toEqual(lastAt);
   });
 });

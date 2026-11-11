@@ -187,11 +187,15 @@ function throwFor(res: WooResponse): never {
 
 const MAX_PAGES = 10;
 
-/** Paid orders created after the time, oldest first, up to 500. Throws WooError when the shop can't be asked. */
-export async function listOrdersSince(creds: WooCredentials, after: Date): Promise<WooOrder[]> {
+/**
+ * Paid orders created after the time, oldest first, up to 500; `truncated` means the last page was full,
+ * so there may be more. Throws WooError when the shop can't be asked.
+ */
+export async function listOrdersSince(creds: WooCredentials, after: Date): Promise<{ orders: WooOrder[]; truncated: boolean }> {
   const out: WooOrder[] = [];
+  let truncated = false;
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const q = `after=${encodeURIComponent(after.toISOString())}&status=processing,completed&per_page=50&orderby=date&order=asc&page=${page}`;
+    const q = `after=${encodeURIComponent(after.toISOString())}&status=processing,completed&dates_are_gmt=true&per_page=50&orderby=date&order=asc&page=${page}`;
     const res = await wooGet(creds, `/orders?${q}`);
     if (res.status !== 200 || !Array.isArray(res.json)) throwFor(res);
     for (const v of res.json) {
@@ -199,8 +203,9 @@ export async function listOrdersSince(creds: WooCredentials, after: Date): Promi
       if (o) out.push(o);
     }
     if (res.json.length < 50) break;
+    if (page === MAX_PAGES) truncated = true;
   }
-  return out;
+  return { orders: out, truncated };
 }
 
 /** The shop's address for each product that has one. */
