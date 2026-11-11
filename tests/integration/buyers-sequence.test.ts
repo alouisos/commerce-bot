@@ -16,8 +16,9 @@ import {
 } from "@/db/schema";
 import { pollOrders } from "@/lib/buyers/poll";
 import { MIN_GAP_DAYS, STEP_DELAY_DAYS, scheduleForOrder } from "@/lib/buyers/sequence";
-import { emailHash, isSuppressed } from "@/lib/buyers/suppression";
+import { emailHash, isSuppressed, suppress } from "@/lib/buyers/suppression";
 import { deletePerson } from "@/lib/email/admin";
+import { confirmContact } from "@/lib/email/contacts";
 import { trackClick } from "@/lib/email/links";
 import { setProviderForTests, type OutgoingEmail } from "@/lib/email/provider";
 import { emailTick } from "@/lib/email/schedule";
@@ -444,6 +445,33 @@ describe("deletePerson", () => {
     // Another site's same address is not suppressed.
     const elsewhere = await makeSite((await makeAccount()).id);
     expect(await isSuppressed(elsewhere.id, EMAIL)).toBe(false);
+  });
+
+  it("a confirmed new chat opt-in lifts the erasure; an unsubscribed-buyer hash stays", async () => {
+    const { site } = await setup();
+    await deletePerson(site.id, EMAIL);
+    const optIn = async () => {
+      const contact = await makeContact(site.id, { status: "pending", confirmedAt: null, consentedAt: day(1) });
+      await makeConversation(site.id, { contactId: contact.id, lastMessageAt: day(1) });
+      return contact;
+    };
+    // Only pending, not confirmed: still suppressed.
+    const contact = await optIn();
+    expect(await isSuppressed(site.id, EMAIL)).toBe(true);
+    expect(await confirmContact(contact.token, day(1))).not.toBeNull();
+    expect(await isSuppressed(site.id, EMAIL)).toBe(false);
+    expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+    // The chat follow-up is written again (the site's chat emails wait for approval).
+    expect(await tick(new Date(day(1).getTime() + 3 * H))).toMatchObject({ drafted: 1 });
+    expect((await db.select().from(emailMessages).where(eq(emailMessages.contactId, contact.id))).map((m) => m.status)).toEqual(["draft"]);
+
+    // A buyer unsubscribe kept as a hash isn't lifted by chat consent.
+    await db.delete(contacts).where(eq(contacts.siteId, site.id));
+    await suppress(site.id, EMAIL, "unsubscribed");
+    const again = await optIn();
+    await confirmContact(again.token, day(1));
+    expect(await isSuppressed(site.id, EMAIL)).toBe(true);
+    expect((await db.select().from(emailSuppressions)).map((x) => x.reason)).toEqual(["unsubscribed"]);
   });
 
   it("removes the buyer with their orders and emails", async () => {

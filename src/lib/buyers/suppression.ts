@@ -28,6 +28,22 @@ export async function suppress(
 }
 
 /**
+ * A confirmed new opt-in (double opt-in link clicked) is fresh consent: it lifts an "erased" suppression
+ * for that address. An "unsubscribed" one stays: chat consent isn't consent to buyer emails.
+ */
+export async function liftErasure(siteId: string, email: string, executor: Pick<typeof db, "delete"> = db): Promise<void> {
+  await executor
+    .delete(emailSuppressions)
+    .where(
+      and(
+        eq(emailSuppressions.siteId, siteId),
+        eq(emailSuppressions.emailHash, emailHash(email)),
+        eq(emailSuppressions.reason, "erased"),
+      ),
+    );
+}
+
+/**
  * One check for both tracks: the buyer unsubscribed from buyer emails, the address unsubscribed from chat
  * follow-ups, or it was erased ("Delete all data") or pruned while unsubscribed.
  */

@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { and, desc, eq, gt } from "drizzle-orm";
 import { db } from "@/db/client";
 import { contacts, conversations, leads, sites } from "@/db/schema";
+import { liftErasure } from "@/lib/buyers/suppression";
 import { copyFor, emailCopyFor, fillSite } from "@/lib/copy/defaults";
 import { appBaseUrl } from "@/lib/widget/config";
 import { findOwnedConversation } from "@/lib/widget/conversation";
@@ -131,22 +132,26 @@ export async function confirmContact(
     .where(eq(conversations.contactId, contact.id))
     .orderBy(desc(conversations.lastMessageAt))
     .limit(1);
-  const updated = await db
-    .update(contacts)
-    .set({
-      status: "subscribed",
-      confirmedAt: now,
-      sequenceConversationId: latest?.id ?? null,
-      sequenceStartedAt: now,
-    })
-    .where(
-      and(
-        eq(contacts.id, contact.id),
-        eq(contacts.status, "pending"),
-        gt(contacts.consentedAt, new Date(now.getTime() - CONFIRM_VALID_MS)),
-      ),
-    )
-    .returning({ id: contacts.id });
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(contacts)
+      .set({
+        status: "subscribed",
+        confirmedAt: now,
+        sequenceConversationId: latest?.id ?? null,
+        sequenceStartedAt: now,
+      })
+      .where(
+        and(
+          eq(contacts.id, contact.id),
+          eq(contacts.status, "pending"),
+          gt(contacts.consentedAt, new Date(now.getTime() - CONFIRM_VALID_MS)),
+        ),
+      )
+      .returning({ id: contacts.id });
+    if (rows.length > 0) await liftErasure(contact.siteId, contact.email, tx);
+    return rows;
+  });
   return updated.length > 0 ? result : (await confirmedAlready(contact.id)) ? result : null;
 }
 
