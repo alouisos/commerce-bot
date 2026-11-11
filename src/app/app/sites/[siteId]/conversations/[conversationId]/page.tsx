@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getConversation } from "@/lib/conversations/detail";
 import { httpUrl, relativeTime, money } from "@/lib/format";
 import { ArrowLeftIcon } from "@/components/icons";
+import { Markdown } from "@/components/Markdown";
 import { INTENT_LABELS } from "@/shared/intent";
 import { loadSite } from "../../load-site";
 
@@ -98,7 +99,7 @@ export default async function ConversationPage({
                   {utc(m.createdAt)}
                 </time>
               </div>
-              <div className="whitespace-pre-wrap">{m.content}</div>
+              {m.role === "bot" ? <Markdown text={m.content} /> : <div className="whitespace-pre-wrap">{m.content}</div>}
             </li>
           ))}
         </ol>

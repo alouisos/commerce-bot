@@ -88,6 +88,18 @@ describe("conversation page", () => {
     expect(html).toContain(`href="/app/sites/${siteA.id}/conversations"`);
   });
 
+  it("renders a bot reply's bold and keeps visitor text plain", async () => {
+    const { userA, siteA, convA } = await setup();
+    await makeMessage(convA.id, { role: "bot", content: "**Yes**", createdAt: new Date("2026-11-10T10:00:03Z") });
+    await makeMessage(convA.id, { content: "**no**", createdAt: new Date("2026-11-10T10:00:04Z") });
+    current.user = { id: userA.id, email: userA.email, emailVerified: true };
+    const html = await render(siteA.id, convA.id);
+    expect(html).toContain("<strong>Yes</strong>");
+    expect(html).toContain("**no**");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(html).not.toContain("<img src=x");
+  });
+
   it("shows a captured email", async () => {
     const { userA, siteA, convA } = await setup();
     await makeLead(siteA.id, { conversationId: convA.id, email: "maria@example.com" });

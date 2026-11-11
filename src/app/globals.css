@@ -1080,6 +1080,27 @@ html:has(.cx) {
   .msg-visitor {
     background: rgb(15 15 22 / 0.7);
   }
+  /* Bot replies rendered from markdown (<Markdown>). */
+  .prose-chat > * + * {
+    margin-top: 0.6rem;
+  }
+  .prose-chat p {
+    white-space: pre-line;
+  }
+  .prose-chat ul,
+  .prose-chat ol {
+    padding-left: 1.25rem;
+  }
+  .prose-chat ul {
+    list-style: disc;
+  }
+  .prose-chat ol {
+    list-style: decimal;
+  }
+  .prose-chat li + li {
+    margin-top: 0.25rem;
+  }
+
   .msg-who {
     display: flex;
     flex-wrap: wrap;
