@@ -152,8 +152,13 @@ export function filterLinks(
   return { body: restored, links };
 }
 
-function cleanSubject(v: string): string {
-  return v.replace(/\s+/g, " ").trim().slice(0, SUBJECT_MAX).trim();
+/**
+ * One line, at most SUBJECT_MAX characters, with no off-site URLs or hosts: a subject has no links, so a
+ * markdown link becomes its text and filterLinks removes off-site bare URLs and hosts.
+ */
+export function cleanSubject(v: string, site: Pick<Site, "baseUrl" | "allowedOrigins">): string {
+  const text = v.replace(/\s+/g, " ").replace(MD_LINK, (_m, label: string) => label);
+  return filterLinks(text, site).body.replace(/\s+/g, " ").trim().slice(0, SUBJECT_MAX).trim();
 }
 
 function transcriptOf(rows: { role: string; content: string }[]): string {
@@ -233,7 +238,7 @@ export async function writeEmail(
   if (!c || typeof c !== "object" || typeof c.subject !== "string" || typeof c.body !== "string") {
     throw new Error("The model returned an unexpected email");
   }
-  const subject = cleanSubject(c.subject);
+  const subject = cleanSubject(c.subject, site);
   const allowedImages = new Set(images.map((i) => i.id));
   const withImages = c.body.replace(/\[\[image:([^\]\n]*)\]\]/g, (m, id: string) => (allowedImages.has(id) ? m : ""));
   const { body, links } = filterLinks(withImages.trim().slice(0, BODY_MAX), site);

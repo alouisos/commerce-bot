@@ -105,6 +105,23 @@ describe("writeBuyerEmail", () => {
     expect(res!.body).toContain("[email]");
   });
 
+  it("the subject keeps no off-site URL, host or address", async () => {
+    const { site, buyer, order } = await setup();
+    const res = await writeBuyerEmail(
+      { site, buyer, order, step: 1 },
+      {
+        now,
+        callModel: async () => ({
+          content: { subject: "Tips at evil.com/x, https://evil.shop/y, [deal](https://evil.com) or me@evil.com\nfor you", body: "Hi!" },
+          model: "claude-sonnet-5-5",
+          usage,
+        }),
+      },
+    );
+    expect(res!.subject).not.toMatch(/evil|https?:|@/);
+    expect(res!.subject).toMatch(/^Tips at .*deal.*for you$/);
+  });
+
   it("copes with products whose page wasn't found", async () => {
     const { site, buyer, order } = await setup({ items: [{ productId: 9, name: "Mystery soap", url: null }] });
     const seen: { system: string; input: string }[] = [];

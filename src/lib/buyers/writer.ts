@@ -1,6 +1,6 @@
 // Writing one buyer email: what they bought, what the shop's own pages say about it, and the clean-up.
 import type { Account, Buyer, BuyerOrder, Site } from "@/db/schema";
-import { BODY_MAX, SUBJECT_MAX, defaultCallModel, filterLinks, type CallModel } from "@/lib/email/writer";
+import { BODY_MAX, cleanSubject, defaultCallModel, filterLinks, type CallModel } from "@/lib/email/writer";
 import { searchKnowledge, type KnowledgeHit } from "@/lib/kb/search";
 import { redactEmails } from "@/lib/privacy/redact";
 import { ownerAiBlocked, recordModelUsage } from "@/lib/usage/meter";
@@ -99,7 +99,7 @@ export async function writeBuyerEmail(
   if (!c || typeof c !== "object" || typeof c.subject !== "string" || typeof c.body !== "string") {
     throw new Error("The model returned an unexpected email");
   }
-  const subject = oneLine(redactEmails(c.subject), SUBJECT_MAX);
+  const subject = cleanSubject(oneLine(redactEmails(c.subject), 2000), site);
   const raw = redactEmails(c.body).replace(/\[\[image:[^\]\n]*\]\]/g, "").trim().slice(0, BODY_MAX);
   const { body, links } = filterLinks(keepGivenLinks(raw, given), site);
   if (!subject || !body.trim()) throw new Error("The model returned an unexpected email");

@@ -8,6 +8,7 @@ import {
   buyers,
   contacts,
   emailMessages,
+  emailSuppressions,
   monthlyUsage,
   sites,
   storeConnections,
@@ -15,7 +16,7 @@ import {
 } from "@/db/schema";
 import { pollOrders } from "@/lib/buyers/poll";
 import { MIN_GAP_DAYS, STEP_DELAY_DAYS, scheduleForOrder } from "@/lib/buyers/sequence";
-import { isSuppressed } from "@/lib/buyers/suppression";
+import { emailHash, isSuppressed } from "@/lib/buyers/suppression";
 import { deletePerson } from "@/lib/email/admin";
 import { trackClick } from "@/lib/email/links";
 import { setProviderForTests, type OutgoingEmail } from "@/lib/email/provider";
@@ -391,7 +392,60 @@ describe("at most one email per 7 days to an address, across both tracks", () =>
   });
 });
 
+describe("one suppression check for both tracks", () => {
+  it("a buyer who unsubscribed gets no chat follow-up: none drafted, a pending one skipped", async () => {
+    const { site, buyer } = await setup();
+    const convo = await makeConversation(site.id, { lastMessageAt: day(0) });
+    const contact = await makeContact(site.id, { sequenceConversationId: convo.id });
+    await db.update(buyers).set({ status: "unsubscribed" }).where(eq(buyers.id, buyer.id));
+    // Due by its own schedule (2 hours after the chat), but never written.
+    expect(await tick(day(1))).toEqual({ drafted: 0, sent: 0, skipped: 0 });
+    expect(modelCalls).toBe(0);
+    // One approved before the unsubscribe is skipped, not sent.
+    await db.insert(emailMessages).values({ siteId: site.id, contactId: contact.id, step: 1, status: "approved", subject: "s", body: "b", language: "en", scheduledFor: day(1) });
+    expect(await tick(day(2))).toEqual({ drafted: 0, sent: 0, skipped: 1 });
+    expect(sent).toHaveLength(0);
+    const [chat] = await db.select().from(emailMessages).where(eq(emailMessages.contactId, contact.id));
+    expect(chat.status).toBe("skipped");
+  });
+});
+
 describe("deletePerson", () => {
+  it("erasure sticks: a later order from the address schedules and sends nothing; others are unaffected", async () => {
+    const { site, order } = await setup();
+    await scheduleForOrder(order.id, T0);
+    await deletePerson(site.id, "Maria@Example.com");
+    const supp = await db.select().from(emailSuppressions);
+    expect(supp).toEqual([expect.objectContaining({ siteId: site.id, emailHash: emailHash(EMAIL), reason: "erased" })]);
+    expect(JSON.stringify(supp)).not.toMatch(/maria/i);
+    expect(await isSuppressed(site.id, EMAIL)).toBe(true);
+
+    const woo = (id: number, billingEmail: string): WooOrder => ({
+      id,
+      orderKey: `k${id}`,
+      status: "completed",
+      currency: "EUR",
+      total: "10.00",
+      createdGmt: "2026-11-11T10:00:00",
+      billingEmail,
+      firstName: "X",
+      items: [{ productId: 7, name: "Olive oil" }],
+    });
+    await pollOrders(day(1), {
+      list: async () => ({ orders: [woo(50, "MARIA@example.com"), woo(51, "other@example.com")], truncated: false }),
+      urls: async () => new Map(),
+    });
+    const [other] = await db.select().from(buyers).where(eq(buyers.email, "other@example.com"));
+    const r = await rows();
+    expect(r.every((x) => x.buyerId === other.id)).toBe(true);
+    expect(r).toHaveLength(2);
+    await tick(day(6));
+    expect(sent.map((m) => m.to)).toEqual(["other@example.com"]);
+    // Another site's same address is not suppressed.
+    const elsewhere = await makeSite((await makeAccount()).id);
+    expect(await isSuppressed(elsewhere.id, EMAIL)).toBe(false);
+  });
+
   it("removes the buyer with their orders and emails", async () => {
     const { site, order } = await setup();
     await scheduleForOrder(order.id, T0);

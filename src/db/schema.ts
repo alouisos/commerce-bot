@@ -521,6 +521,25 @@ export const buyerEmails = pgTable(
   ],
 );
 
+/**
+ * Addresses that must never be emailed again by a site, whichever track: kept after "Delete all data"
+ * and when an unsubscribed buyer is pruned. Holds a hash of the address, never the address.
+ */
+export const emailSuppressions = pgTable(
+  "email_suppressions",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    /** sha256 of the lowercased address, base64url. */
+    emailHash: text("email_hash").notNull(),
+    reason: text("reason", { enum: ["erased", "unsubscribed"] }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("email_suppressions_site_hash_idx").on(t.siteId, t.emailHash)],
+);
+
 /** A purchase attributed to the bot. Unattributed orders are never stored. */
 export const sales = pgTable(
   "sales",

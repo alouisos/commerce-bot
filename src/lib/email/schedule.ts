@@ -15,7 +15,7 @@ import {
   type Site,
 } from "@/db/schema";
 import { draftDueBuyerEmails, sendApprovedBuyerEmails } from "@/lib/buyers/sequence";
-import { gapUntil } from "@/lib/buyers/suppression";
+import { gapUntil, isSuppressed } from "@/lib/buyers/suppression";
 import { effectiveEmailMode } from "@/lib/site-settings";
 import { countEmailSent } from "@/lib/usage/meter";
 import { appBaseUrl } from "@/lib/widget/config";
@@ -162,6 +162,8 @@ async function draftDueEmails(now: Date, callModel: CallModel | undefined): Prom
     if (!sendable.get(site.id)) continue;
     const next = await nextEmail(site, contact, now);
     if (!next) continue;
+    // The same address unsubscribed from buyer emails or was erased: no chat follow-ups either.
+    if (await isSuppressed(site.id, contact.email)) continue;
     const conversationId = contact.sequenceConversationId!;
 
     let email;
@@ -254,7 +256,13 @@ async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "def
     .innerJoin(sites, eq(sites.id, contacts.siteId))
     .innerJoin(accounts, eq(accounts.id, sites.accountId))
     .where(eq(contacts.id, claimed.contactId));
-  if (!row || row.contact.status !== "subscribed" || row.account.removedAt || !(await canSendEmail(row.site, row.account, now))) {
+  if (
+    !row ||
+    row.contact.status !== "subscribed" ||
+    row.account.removedAt ||
+    (await isSuppressed(row.site.id, row.contact.email)) ||
+    !(await canSendEmail(row.site, row.account, now))
+  ) {
     await setStatus(id, { status: "skipped" }, now);
     return "skipped";
   }

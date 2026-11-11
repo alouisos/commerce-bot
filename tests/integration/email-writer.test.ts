@@ -102,6 +102,24 @@ describe("writeEmail", () => {
     expect(seen).toContain("Email 2");
   });
 
+  it("the subject keeps no off-site URL or host; the shop's own stay", async () => {
+    const { site, convo, contact } = await setup();
+    const res = await writeEmail(
+      { site, contact, conversationId: convo.id, step: 1, previousSubjects: [] },
+      {
+        now,
+        callModel: async () => ({
+          content: { subject: "Deals at evil.com/x and https://evil.shop/y, [here](https://evil.com), milianjo.com", body: "b" },
+          model: "claude-sonnet-5-5",
+          usage,
+        }),
+      },
+    );
+    expect(res!.subject).not.toMatch(/evil|https?:/);
+    expect(res!.subject).toContain("here");
+    expect(res!.subject).toContain("milianjo.com");
+  });
+
   it("cleans the subject: one line, at most 120 characters", async () => {
     const { site, convo, contact } = await setup();
     const res = await writeEmail(

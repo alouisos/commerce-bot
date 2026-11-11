@@ -1,7 +1,21 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, conversations, emailMessages, leads, messages, promptImpressions, rateLimits, sales } from "@/db/schema";
+import {
+  buyerEmails,
+  buyerOrders,
+  buyers,
+  contacts,
+  conversations,
+  emailMessages,
+  emailSuppressions,
+  leads,
+  messages,
+  promptImpressions,
+  rateLimits,
+  sales,
+} from "@/db/schema";
+import { emailHash, isSuppressed } from "@/lib/buyers/suppression";
 import { applyRetention } from "@/lib/privacy/retention";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeConversation, makeImpression, makeLead, makeMessage, makeSite } from "../helpers/factories";
@@ -75,7 +89,7 @@ describe("applyRetention", () => {
       .returning();
 
     const res = await applyRetention(now);
-    expect(res).toEqual({ conversations: 2, impressions: 1, leads: 1, emails: 1, contacts: 2, sales: 0 });
+    expect(res).toEqual({ conversations: 2, impressions: 1, leads: 1, emails: 1, contacts: 2, sales: 0, buyerOrders: 0, buyers: 0 });
 
     expect(await ids(db.select({ id: conversations.id }).from(conversations))).toEqual([keep24.id, keep6.id, mid24.id].sort());
     expect(await db.select().from(messages).where(eq(messages.conversationId, old24.id))).toHaveLength(0);
@@ -105,6 +119,42 @@ describe("applyRetention", () => {
     const [kept] = await db.insert(sales).values({ ...base, orderedAt: monthsAgo(23), pageUrl: "https://example.com/b" }).returning();
     expect((await applyRetention(now)).sales).toBe(1);
     expect(await ids(db.select({ id: sales.id }).from(sales))).toEqual([kept.id]);
+  });
+
+  it("buyer orders follow the site's retention; buyers left without orders go, an unsubscribed one leaves a hash", async () => {
+    const account = await makeAccount();
+    const site = await makeSite(account.id, { retentionMonths: 6 });
+    const buyer = async (email: string, status: "subscribed" | "unsubscribed" = "subscribed", createdAt = monthsAgo(12)) => {
+      const [b] = await db
+        .insert(buyers)
+        .values({ siteId: site.id, email, status, token: `bt-${email}`.padEnd(43, "x"), ref: `br-${email}`.padEnd(22, "y"), createdAt })
+        .returning();
+      return b;
+    };
+    const order = async (buyerId: string, externalId: string, orderedAt: Date) => {
+      const [o] = await db.insert(buyerOrders).values({ siteId: site.id, buyerId, externalId, orderedAt }).returning();
+      return o;
+    };
+    const old = await buyer("old@example.com");
+    const oldOrder = await order(old.id, "1", monthsAgo(7));
+    await db.insert(buyerEmails).values({ siteId: site.id, buyerId: old.id, orderId: oldOrder.id, step: 1, status: "sent", language: "en", scheduledFor: monthsAgo(7) });
+    const mixed = await buyer("mixed@example.com");
+    await order(mixed.id, "2", monthsAgo(8));
+    const recent = await order(mixed.id, "3", monthsAgo(1));
+    const unsub = await buyer("unsub@example.com", "unsubscribed");
+    await order(unsub.id, "4", monthsAgo(9));
+    // Just recorded, its order not stored yet: kept.
+    const fresh = await buyer("fresh@example.com", "subscribed", daysAgo(0.1));
+
+    const res = await applyRetention(now);
+    expect(res).toMatchObject({ buyerOrders: 3, buyers: 2 });
+    expect(await ids(db.select({ id: buyers.id }).from(buyers))).toEqual([mixed.id, fresh.id].sort());
+    expect(await ids(db.select({ id: buyerOrders.id }).from(buyerOrders))).toEqual([recent.id]);
+    expect(await db.select().from(buyerEmails)).toHaveLength(0);
+    const supp = await db.select().from(emailSuppressions);
+    expect(supp.map((x) => [x.emailHash, x.reason])).toEqual([[emailHash("unsub@example.com"), "unsubscribed"]]);
+    expect(await isSuppressed(site.id, "unsub@example.com")).toBe(true);
+    expect(await isSuppressed(site.id, "old@example.com")).toBe(false);
   });
 
   it("clears rate-limit counters older than two days", async () => {
