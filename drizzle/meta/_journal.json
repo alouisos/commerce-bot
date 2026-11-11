@@ -92,6 +92,13 @@
       "when": 1794415572593,
       "tag": "0012_mature_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794415871397,
+      "tag": "0013_magical_gateway",
+      "breakpoints": true
     }
   ]
 }

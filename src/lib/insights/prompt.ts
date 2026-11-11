@@ -4,6 +4,19 @@ export const MAX_ITEMS = 5;
 const PER_CONVERSATION = 2_000;
 const TOTAL = 120_000;
 
+export const INSIGHT_WINDOWS = ["24h", "7d", "30d"] as const;
+export type InsightWindow = (typeof INSIGHT_WINDOWS)[number];
+const HOUR = 60 * 60 * 1000;
+export const WINDOW_MS: Record<InsightWindow, number> = { "24h": 24 * HOUR, "7d": 7 * 24 * HOUR, "30d": 30 * 24 * HOUR };
+/** Fewest conversations in the window before an insight is worth writing. */
+export const MIN_CONVERSATIONS: Record<InsightWindow, number> = { "24h": 1, "7d": 3, "30d": 3 };
+export const WINDOW_LABELS: Record<InsightWindow, string> = { "24h": "24 hours", "7d": "7 days", "30d": "30 days" };
+
+/** The window named by a search param; null when it isn't one. */
+export function parseInsightWindow(value: unknown): InsightWindow | null {
+  return INSIGHT_WINDOWS.find((w) => w === value) ?? null;
+}
+
 export type InsightsContent = {
   summary: string;
   topQuestions: { topic: string; detail: string }[];
@@ -31,6 +44,14 @@ Write for the shop owner in plain English, short and concrete:
 Give at most ${MAX_ITEMS} items per list, and an empty list when there is nothing to say. Don't invent anything the transcripts don't show.
 
 Never include visitors' email addresses, names, phone numbers, order numbers or other personal details.`;
+
+/** The system prompt; with only a few conversations it asks for a short summary instead of full lists. */
+export function insightsSystem(conversationCount: number): string {
+  if (conversationCount >= 3) return INSIGHTS_SYSTEM;
+  return `${INSIGHTS_SYSTEM}
+
+Summarise these few conversations in one or two sentences. Fill a list only when a conversation clearly shows it, otherwise leave it empty.`;
+}
 
 const item = <A extends string, B extends string>(a: A, b: B) =>
   z.object({ [a]: z.string(), [b]: z.string() } as { [K in A | B]: z.ZodString });

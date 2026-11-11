@@ -8,20 +8,22 @@ import { ownerAiBlocked, recordModelUsage } from "@/lib/usage/meter";
 import {
   buildInsightsInput,
   INSIGHTS_JSON_SCHEMA,
-  INSIGHTS_SYSTEM,
+  insightsSystem,
+  MIN_CONVERSATIONS,
+  WINDOW_MS,
+  type InsightWindow,
   parseInsights,
   type InsightsContent,
   type InsightsConversation,
 } from "./prompt";
 
-const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_CONVERSATIONS = 150;
 
 type CallModel = (system: string, input: string) => Promise<{ content: unknown; model: string; usage: TokenUsage }>;
 
 export type InsightsResult =
   | { status: "created"; insight: SiteInsight }
-  | { status: "skipped"; reason: "no-conversations" | "ai-blocked" | "up-to-date" };
+  | { status: "skipped"; reason: "no-conversations" | "too-few" | "ai-blocked" | "up-to-date" };
 
 const FAKE: InsightsContent = {
   summary: "Test insights",
@@ -65,16 +67,16 @@ const defaultCallModel: CallModel = async (system, input) => {
 };
 
 /**
- * Writes a fresh insight for the site from its last 30 days of conversations (at most 150, newest first).
- * Skips when there is nothing to read, the account can't use AI, or nothing changed since the last insight.
+ * Writes a fresh insight for the site from the window's conversations (at most 150, newest first).
+ * Skips when there is nothing to read (or too little: see MIN_CONVERSATIONS), the account can't use AI, or nothing changed since the last insight.
  * Usage is metered as soon as the model answers, so a reply that can't be used still counts once.
  */
 export async function generateSiteInsights(
   siteId: string,
-  opts: { now?: Date; callModel?: CallModel } = {},
+  opts: { window: InsightWindow; now?: Date; callModel?: CallModel },
 ): Promise<InsightsResult> {
   const now = opts.now ?? new Date();
-  const from = new Date(now.getTime() - WINDOW_MS);
+  const from = new Date(now.getTime() - WINDOW_MS[opts.window]);
 
   const [row] = await db
     .select({ site: sites, account: accounts })
@@ -93,13 +95,15 @@ export async function generateSiteInsights(
     .limit(MAX_CONVERSATIONS);
   if (recent.length === 0) return { status: "skipped", reason: "no-conversations" };
 
+  if (recent.length < MIN_CONVERSATIONS[opts.window]) return { status: "skipped", reason: "too-few" };
+
   if (await ownerAiBlocked(account, now)) return { status: "skipped", reason: "ai-blocked" };
 
-  const [[latestInsight], [{ lastMessage }]] = await Promise.all([
+  const [[previous], [{ lastMessage }]] = await Promise.all([
     db
       .select({ createdAt: siteInsights.createdAt })
       .from(siteInsights)
-      .where(eq(siteInsights.siteId, site.id))
+      .where(and(eq(siteInsights.siteId, site.id), eq(siteInsights.window, opts.window)))
       .orderBy(desc(siteInsights.createdAt))
       .limit(1),
     db
@@ -107,7 +111,7 @@ export async function generateSiteInsights(
       .from(conversations)
       .where(eq(conversations.siteId, site.id)),
   ]);
-  if (latestInsight && lastMessage && latestInsight.createdAt > lastMessage) {
+  if (previous && lastMessage && previous.createdAt > lastMessage) {
     return { status: "skipped", reason: "up-to-date" };
   }
 
@@ -131,7 +135,7 @@ export async function generateSiteInsights(
     recent.map((c) => ({ startedAt: c.createdAt, firstPageUrl: c.firstPageUrl, messages: byConv.get(c.id) ?? [] })),
   );
 
-  const reply = await (opts.callModel ?? defaultCallModel)(INSIGHTS_SYSTEM, input);
+  const reply = await (opts.callModel ?? defaultCallModel)(insightsSystem(recent.length), input);
   await recordModelUsage({
     accountId: account.id,
     siteId: site.id,
@@ -147,6 +151,7 @@ export async function generateSiteInsights(
     .insert(siteInsights)
     .values({
       siteId: site.id,
+      window: opts.window,
       periodFrom: from,
       periodTo: now,
       conversationCount: recent.length,

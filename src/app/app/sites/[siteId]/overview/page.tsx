@@ -1,6 +1,7 @@
 import { DailyBarChart } from "@/components/DailyBarChart";
 import { RangePicker } from "@/components/RangePicker";
 import { StatTile } from "@/components/StatTile";
+import { parseInsightWindow } from "@/lib/insights/prompt";
 import { httpUrl, money } from "@/lib/format";
 import { getStoreConnectionSummary } from "@/lib/sales/connections";
 import { getSalesTotals, type SalesTotals } from "@/lib/stats/sales";
@@ -14,7 +15,10 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
   const { siteId } = await params;
   // requireUser + requireSiteAccess (404 otherwise), checked here and not only in the layout.
   const site = await loadSite(siteId);
-  const range = parseRange((await searchParams).range);
+  const query = await searchParams;
+  const range = parseRange(query.range);
+  const window = parseInsightWindow(query.insights) ?? "24h";
+  const keep = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
   const ids = [site.id];
   // The insights section is awaited here rather than rendered as an async child, so the whole page
   // renders in one pass (and in tests with renderToStaticMarkup).
@@ -22,7 +26,7 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
     getTotals(ids, range),
     getDailyConversations(ids, range),
     getTopStartPages(ids, range),
-    InsightsSection({ siteId: site.id }),
+    InsightsSection({ siteId: site.id, window, params: { range: keep(query.range) } }),
     PromptPerformance({ siteId: site.id, proactivity: site.proactivity, range }),
     getSalesTotals(ids, range),
     getStoreConnectionSummary(site.id),

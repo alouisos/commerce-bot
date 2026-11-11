@@ -1,5 +1,6 @@
 import { PgBoss, type Queue, type SendOptions } from "pg-boss";
 import { env } from "@/lib/env";
+import type { InsightWindow } from "@/lib/insights/prompt";
 
 export const JOBS = {
   crawlSite: "crawl-site",
@@ -19,7 +20,7 @@ export type JobData = {
   "crawl-site": { siteId: string };
   "ingest-source": { sourceId: string };
   "weekly-recrawl": Record<string, never>;
-  "generate-insights": { siteId: string };
+  "generate-insights": { siteId: string; window: InsightWindow };
   "daily-insights": Record<string, never>;
   "email-tick": Record<string, never>;
   retention: Record<string, never>;

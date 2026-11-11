@@ -1,7 +1,12 @@
 import Link from "next/link";
+import { eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { accounts, sites } from "@/db/schema";
 import type { ReactNode } from "react";
 import { plural, relativeTime } from "@/lib/format";
+import { INSIGHT_WINDOWS, WINDOW_LABELS, type InsightWindow } from "@/lib/insights/prompt";
 import { latestInsight } from "@/lib/insights/schedule";
+import { ownerAiBlocked } from "@/lib/usage/meter";
 import { pausedKinds } from "@/lib/prompts/backoff";
 import { PROMPT_KIND_LABELS } from "./prompt-performance";
 import { RefreshInsightsButton } from "./refresh-button";
@@ -16,23 +21,58 @@ function List<T>({ title, items, render }: { title: string; items: T[]; render: 
   );
 }
 
-/** The site's latest AI insights. Callers must have checked access to the site. */
-export async function InsightsSection({ siteId }: { siteId: string }) {
-  const [insight, paused] = await Promise.all([latestInsight(siteId), pausedKinds(siteId)]);
+/** The site's latest AI insights for one window. Callers must have checked access to the site. */
+export async function InsightsSection({
+  siteId,
+  window = "24h",
+  params = {},
+}: {
+  siteId: string;
+  window?: InsightWindow;
+  /** The page's search params, kept in the window links. */
+  params?: Record<string, string | undefined>;
+}) {
+  const [insight, paused, [row]] = await Promise.all([
+    latestInsight(siteId, window),
+    pausedKinds(siteId),
+    db.select({ account: accounts }).from(sites).innerJoin(accounts, eq(accounts.id, sites.accountId)).where(eq(sites.id, siteId)).limit(1),
+  ]);
+  const blocked = row ? await ownerAiBlocked(row.account) : false;
+  const href = (w: InsightWindow) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v && k !== "insights") q.set(k, v);
+    q.set("insights", w);
+    return `/app/sites/${siteId}/overview?${q}#insights`;
+  };
   return (
     <section id="insights" className="panel">
       <div className="panel-head">
         <h3>Insights</h3>
-        <RefreshInsightsButton siteId={siteId} />
+        <nav aria-label="Insights period" className="seg">
+          {INSIGHT_WINDOWS.map((w) => (
+            <Link key={w} href={href(w)} aria-current={w === window ? "page" : undefined}>
+              {WINDOW_LABELS[w]}
+            </Link>
+          ))}
+        </nav>
+        <RefreshInsightsButton siteId={siteId} window={window} disabled={blocked} />
       </div>
       <div className="panel-body flex flex-col gap-4">
+      {blocked && (
+        <p role="status" className="notice text-sm">
+          Insights are paused until next month: this month&apos;s owner AI budget is used up.
+        </p>
+      )}
       <List
         title="Prompts visitors keep dismissing"
         items={paused}
         render={(k) => <>{PROMPT_KIND_LABELS[k]}: paused for now, so visitors stop seeing them.</>}
       />
       {!insight ? (
-        <p className="text-sm text-ink-muted">Insights appear after your bot&apos;s first conversations. They refresh every day.</p>
+        <p className="text-sm text-ink-muted">
+          Not enough conversations in this period. Insights appear after your bot&apos;s first conversations. They refresh
+          every day.
+        </p>
       ) : (
         <>
           <p className="text-xs text-ink-subtle">

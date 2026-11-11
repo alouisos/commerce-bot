@@ -2,32 +2,31 @@ import { and, desc, eq, gte, isNull, max } from "drizzle-orm";
 import { db } from "@/db/client";
 import { accounts, conversations, sites, siteInsights, usageEvents, type SiteInsight } from "@/db/schema";
 import { enqueue, JOBS } from "@/lib/jobs";
+import { INSIGHT_WINDOWS, WINDOW_MS, type InsightWindow } from "./prompt";
 
-const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-
-/** Queues an insights refresh for the site (deduped per site by the queue's stately policy). */
-export function enqueueInsights(siteId: string): Promise<void> {
-  return enqueue(JOBS.generateInsights, { siteId }, { singletonKey: siteId });
+/** Queues an insights refresh for one window of the site (deduped per site and window by the queue's stately policy). */
+export function enqueueInsights(siteId: string, window: InsightWindow): Promise<void> {
+  return enqueue(JOBS.generateInsights, { siteId, window }, { singletonKey: `${siteId}:${window}` });
 }
 
-/** Queues insights for every site with a conversation in the last 30 days; returns how many. */
+/** Queues all three insight windows for every site with a conversation in the last 30 days; returns how many sites. */
 export async function dailyInsights(now: Date = new Date()): Promise<number> {
   const rows = await db
     .selectDistinct({ siteId: conversations.siteId })
     .from(conversations)
     .innerJoin(sites, eq(sites.id, conversations.siteId))
     .innerJoin(accounts, eq(accounts.id, sites.accountId))
-    .where(and(gte(conversations.lastMessageAt, new Date(now.getTime() - WINDOW_MS)), isNull(accounts.removedAt)));
-  for (const r of rows) await enqueueInsights(r.siteId);
+    .where(and(gte(conversations.lastMessageAt, new Date(now.getTime() - WINDOW_MS["30d"])), isNull(accounts.removedAt)));
+  for (const r of rows) for (const w of INSIGHT_WINDOWS) await enqueueInsights(r.siteId, w);
   return rows.length;
 }
 
-/** The site's newest insight, if any. Callers must have checked access to the site. */
-export async function latestInsight(siteId: string): Promise<SiteInsight | null> {
+/** The site's newest insight for a window, if any. Callers must have checked access to the site. */
+export async function latestInsight(siteId: string, window: InsightWindow): Promise<SiteInsight | null> {
   const [row] = await db
     .select()
     .from(siteInsights)
-    .where(eq(siteInsights.siteId, siteId))
+    .where(and(eq(siteInsights.siteId, siteId), eq(siteInsights.window, window)))
     .orderBy(desc(siteInsights.createdAt))
     .limit(1);
   return row ?? null;

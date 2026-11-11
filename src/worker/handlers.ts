@@ -19,9 +19,9 @@ export const handlers: Handlers = {
     await crawlSite(siteId);
   },
   [JOBS.weeklyRecrawl]: () => weeklyRecrawl(),
-  [JOBS.generateInsights]: async ({ siteId }) => {
-    const out = await generateSiteInsights(siteId);
-    console.log(`[insights] ${siteId}: ${out.status === "created" ? "created" : `skipped (${out.reason})`}`);
+  [JOBS.generateInsights]: async ({ siteId, window = "30d" }) => {
+    const out = await generateSiteInsights(siteId, { window });
+    console.log(`[insights] ${siteId} ${window}: ${out.status === "created" ? "created" : `skipped (${out.reason})`}`);
   },
   [JOBS.dailyInsights]: async () => {
     await dailyInsights();

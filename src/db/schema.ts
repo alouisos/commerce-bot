@@ -305,6 +305,7 @@ export const siteInsights = pgTable(
     siteId: uuid("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
+    window: text("window", { enum: ["24h", "7d", "30d"] }).notNull().default("30d"),
     periodFrom: timestamp("period_from").notNull(),
     periodTo: timestamp("period_to").notNull(),
     conversationCount: integer("conversation_count").notNull(),
@@ -312,7 +313,7 @@ export const siteInsights = pgTable(
     model: text("model").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("site_insights_site_created_idx").on(t.siteId, t.createdAt)],
+  (t) => [index("site_insights_site_window_created_idx").on(t.siteId, t.window, t.createdAt)],
 );
 
 /** A person who agreed to emails from one site. Consent is stored as shown, from the server's copy. */

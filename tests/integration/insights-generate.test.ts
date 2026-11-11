@@ -31,21 +31,21 @@ describe("generateSiteInsights", () => {
   it("skips a site with no conversations without calling the model", async () => {
     const site = await makeSite((await makeAccount()).id);
     const callModel = vi.fn();
-    expect(await generateSiteInsights(site.id, { callModel })).toEqual({ status: "skipped", reason: "no-conversations" });
+    expect(await generateSiteInsights(site.id, { window: "24h", callModel })).toEqual({ status: "skipped", reason: "no-conversations" });
     expect(callModel).not.toHaveBeenCalled();
   });
 
   it("skips an account that can't use AI", async () => {
     const { site } = await siteWithChat({ plan: "trial", trialEndsAt: new Date(Date.now() - 1000) });
     const callModel = vi.fn();
-    expect(await generateSiteInsights(site.id, { callModel })).toEqual({ status: "skipped", reason: "ai-blocked" });
+    expect(await generateSiteInsights(site.id, { window: "24h", callModel })).toEqual({ status: "skipped", reason: "ai-blocked" });
     expect(callModel).not.toHaveBeenCalled();
   });
 
   it("stores insights, meters them, then is up to date until a new message", async () => {
     const { account, site } = await siteWithChat();
     const callModel = vi.fn(async () => ({ content, model: "claude-opus-5-5", usage }));
-    const out = await generateSiteInsights(site.id, { callModel });
+    const out = await generateSiteInsights(site.id, { window: "24h", callModel });
     expect(out.status).toBe("created");
     if (out.status !== "created") return;
     expect(out.insight.conversationCount).toBe(1);
@@ -58,19 +58,19 @@ describe("generateSiteInsights", () => {
     expect(events.map((e) => e.kind)).toEqual(["insights"]);
     expect(events[0].siteId).toBe(site.id);
 
-    expect(await generateSiteInsights(site.id, { callModel })).toEqual({ status: "skipped", reason: "up-to-date" });
+    expect(await generateSiteInsights(site.id, { window: "24h", callModel })).toEqual({ status: "skipped", reason: "up-to-date" });
     expect(callModel).toHaveBeenCalledTimes(1);
   });
 
   it("a malformed reply fails, keeps the previous insight and meters once", async () => {
     const { account, site } = await siteWithChat();
     const good = vi.fn(async () => ({ content, model: "claude-opus-5-5", usage }));
-    await generateSiteInsights(site.id, { callModel: good, now: new Date(Date.now() - 30_000) });
+    await generateSiteInsights(site.id, { window: "24h", callModel: good, now: new Date(Date.now() - 30_000) });
     const c = await makeConversation(site.id);
     await makeMessage(c.id, { content: "new question" });
 
     const bad = vi.fn(async () => ({ content: { foo: 1 }, model: "claude-opus-5-5", usage }));
-    await expect(generateSiteInsights(site.id, { callModel: bad })).rejects.toThrow(
+    await expect(generateSiteInsights(site.id, { window: "24h", callModel: bad })).rejects.toThrow(
       "The model returned unexpected insights",
     );
     const rows = await db.select().from(siteInsights).where(eq(siteInsights.siteId, site.id));
@@ -80,9 +80,43 @@ describe("generateSiteInsights", () => {
     expect(events).toHaveLength(2);
   });
 
+  it("windows: 2 recent conversations make a 24h insight but too few for 7d and 30d", async () => {
+    const { site } = await siteWithChat();
+    const c = await makeConversation(site.id, { lastMessageAt: new Date(Date.now() - 120_000) });
+    await makeMessage(c.id, { content: "second" });
+    const callModel = vi.fn(async () => ({ content, model: "claude-opus-5-5", usage }));
+    expect(await generateSiteInsights(site.id, { window: "7d", callModel })).toEqual({ status: "skipped", reason: "too-few" });
+    expect(await generateSiteInsights(site.id, { window: "30d", callModel })).toEqual({ status: "skipped", reason: "too-few" });
+    expect(callModel).not.toHaveBeenCalled();
+    const out = await generateSiteInsights(site.id, { window: "24h", callModel });
+    expect(out.status === "created" && out.insight.window).toBe("24h");
+    const [system] = callModel.mock.calls[0] as unknown as [string, string];
+    expect(system).toContain("Summarise these few conversations");
+  });
+
+  it("a conversation older than a day is outside the 24h window", async () => {
+    const site = await makeSite((await makeAccount()).id);
+    const c = await makeConversation(site.id, { lastMessageAt: new Date(Date.now() - 2 * 24 * 3600_000) });
+    await makeMessage(c.id);
+    const callModel = vi.fn();
+    expect(await generateSiteInsights(site.id, { window: "24h", callModel })).toEqual({ status: "skipped", reason: "no-conversations" });
+  });
+
+  it("three or more conversations use the full instructions; up-to-date is checked per window", async () => {
+    const { site } = await siteWithChat();
+    for (let i = 0; i < 2; i++) await makeMessage((await makeConversation(site.id, { lastMessageAt: new Date(Date.now() - 90_000) })).id);
+    const callModel = vi.fn(async () => ({ content, model: "claude-opus-5-5", usage }));
+    const week = await generateSiteInsights(site.id, { window: "7d", callModel });
+    expect(week.status).toBe("created");
+    expect((callModel.mock.calls[0] as unknown as [string])[0]).not.toContain("Summarise these few conversations");
+    expect(await generateSiteInsights(site.id, { window: "7d", callModel })).toEqual({ status: "skipped", reason: "up-to-date" });
+    const month = await generateSiteInsights(site.id, { window: "30d", callModel });
+    expect(month.status === "created" && month.insight.window).toBe("30d");
+  });
+
   it("the default model call works with the fake model", async () => {
     const { site } = await siteWithChat();
-    const out = await generateSiteInsights(site.id);
+    const out = await generateSiteInsights(site.id, { window: "24h" });
     expect(out.status === "created" && out.insight.content.summary).toBe("Test insights");
   });
 });

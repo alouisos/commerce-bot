@@ -10,6 +10,8 @@ vi.mock("next/navigation", async (orig) => ({
   useRouter: () => ({ refresh: () => {} }),
 }));
 
+import { db } from "@/db/client";
+import { siteInsights } from "@/db/schema";
 import OverviewPage from "@/app/app/sites/[siteId]/overview/page";
 import WebsitesPage from "@/app/app/page";
 
@@ -23,11 +25,11 @@ async function signedInSite() {
   return makeSite(account.id, { name: "Shop" });
 }
 
-const render = async (siteId: string, range?: string) =>
+const render = async (siteId: string, range?: string, insights?: string) =>
   renderToStaticMarkup(
     await OverviewPage({
       params: Promise.resolve({ siteId }),
-      searchParams: Promise.resolve(range ? { range } : {}),
+      searchParams: Promise.resolve({ ...(range ? { range } : {}), ...(insights ? { insights } : {}) }),
     } as never),
   );
 
@@ -67,6 +69,27 @@ describe("site overview", () => {
     expect(html).toContain("<svg");
     expect((html.match(/<th scope="row">\d{4}-\d{2}-\d{2}<\/th><td>0<\/td>/g) ?? []).length).toBe(7);
     expect(html).toContain('aria-current="page"');
+  });
+
+  it("?insights=7d shows the 7 day insight, with its own control", async () => {
+    const site = await signedInSite();
+    const now = new Date();
+    await db.insert(siteInsights).values({
+      siteId: site.id,
+      window: "7d",
+      periodFrom: new Date(now.getTime() - 7 * 24 * 3600_000),
+      periodTo: now,
+      conversationCount: 5,
+      model: "m",
+      content: { summary: "A week of questions.", topQuestions: [], knowledgeGaps: [], objections: [], curiousProducts: [] },
+    });
+    const html = await render(site.id, "30d", "7d");
+    expect(html).toContain("A week of questions.");
+    expect(html).toMatch(/aria-label="Insights period"/);
+    expect(html).toMatch(/aria-current="page"[^>]*>7 days<\/a><a[^>]*>30 days</);
+    const day = await render(site.id);
+    expect(day).not.toContain("A week of questions.");
+    expect(day).toContain("Not enough conversations in this period");
   });
 
   it("another account's site is not found", async () => {

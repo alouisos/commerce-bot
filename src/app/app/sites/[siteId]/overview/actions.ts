@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import { requireSiteAccess } from "@/lib/access";
 import { NotFoundError } from "@/lib/errors";
+import { parseInsightWindow, type InsightWindow } from "@/lib/insights/prompt";
 import { enqueueInsights, lastInsightsAttempt } from "@/lib/insights/schedule";
 import { requireUser } from "@/lib/session";
 
@@ -11,8 +12,9 @@ const REFRESH_GAP_MS = 60 * 60 * 1000;
 
 export type RefreshResult = { ok: true } | { ok: false; error: string };
 
-/** Queues fresh insights for the site, at most once an hour. */
-export async function refreshInsightsAction(siteId: string): Promise<RefreshResult> {
+/** Queues fresh insights for one window of the site, at most once an hour. */
+export async function refreshInsightsAction(siteId: string, window: InsightWindow): Promise<RefreshResult> {
+  if (!parseInsightWindow(window)) return { ok: false, error: "Unknown insights window." };
   const user = await requireUser();
   let site;
   try {
@@ -26,7 +28,7 @@ export async function refreshInsightsAction(siteId: string): Promise<RefreshResu
   if (last && Date.now() - last.getTime() < REFRESH_GAP_MS) {
     return { ok: false, error: "Insights were refreshed less than an hour ago." };
   }
-  await enqueueInsights(site.id);
+  await enqueueInsights(site.id, window);
   revalidatePath(`/app/sites/${site.id}/overview`);
   return { ok: true };
 }
