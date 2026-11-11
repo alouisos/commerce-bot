@@ -64,6 +64,36 @@ describe("findRelevantConversations", () => {
     expect(found.map((f) => f.id)).toContain(butter.id);
   });
 
+  it("ranks by the question's rarer words: common words don't crowd out the subject", async () => {
+    const { site } = await shop();
+    for (let i = 0; i < 45; i++) {
+      await chat(site.id, ago(1 + i / 100), ["What is the price of the box, the shipping and the colour? What about the what?", "The box is 10 euros."]);
+    }
+    const butter = await chat(site.id, ago(30), ["is butter vegan?", "Yes."]);
+    const found = await findRelevantConversations(site.id, "What do people say about the butter?", { now });
+    expect(found[0].id).toBe(butter.id);
+  });
+
+  it("ranks a conversation matching more of the words above one repeating a single word", async () => {
+    const { site } = await shop();
+    const repeat = await chat(site.id, ago(1), ["shipping shipping shipping shipping shipping", "ok"]);
+    const both = await chat(site.id, ago(2), ["Is shipping to Cyprus free?", "Yes."]);
+    for (let i = 0; i < 12; i++) await chat(site.id, ago(3 + i), [`Hello number ${i}`, "Hi"]);
+    const found = await findRelevantConversations(site.id, "shipping cyprus", { now });
+    expect(found.map((f) => f.id)).toEqual([both.id, repeat.id]);
+  });
+
+  it("keeps the matching message in a long transcript's excerpt", async () => {
+    const { site } = await shop();
+    const filler = Array.from({ length: 30 }, (_, i) => `Message ${i} ${"lorem ipsum dolor sit amet ".repeat(4)}`);
+    await chat(site.id, ago(1), [...filler, "And is the butter vegan? Mail me at eleni@shop.gr", "Yes, it is."]);
+    const [found] = await findRelevantConversations(site.id, "butter", { now });
+    expect(found.transcript.length).toBeLessThanOrEqual(2_002);
+    expect(found.transcript).toContain("And is the butter vegan? Mail me at [email]");
+    expect(found.transcript.startsWith("…")).toBe(true);
+    expect(found.transcript).not.toMatch(EMAIL);
+  });
+
   it("falls back to the newest conversations when nothing matches, and respects the limit", async () => {
     const { site } = await shop();
     const older = await chat(site.id, ago(10), ["Hello", "Hi"]);
@@ -88,7 +118,9 @@ describe("answerQuestion", () => {
     const user = await makeUser();
     const a = await chat(site.id, ago(1), ["Is the butter vegan? write to nikos@mail.com", "Yes."]);
     const b = await chat(site.id, ago(2), ["Does the butter smell nice?", "It smells of shea."]);
-    const callModel = replying("People ask if it is vegan [c2] and how it smells [c1][c9]. Email eleni@shop.gr. See https://evil.example/x");
+    const callModel = replying(
+      "People ask if it is vegan [c2] and how it smells [c1][c9]. Both [c1-c2] (c2). Email eleni@shop.gr. See https://evil.example/x",
+    );
 
     const out = await answerQuestion(
       {
@@ -97,7 +129,7 @@ describe("answerQuestion", () => {
         question: "What do people say about the butter? (I'm owner@shop.example)",
         history: [
           { role: "user", content: "Hi, I'm boss@shop.example" },
-          { role: "assistant", content: "Hello [c3]" },
+          { role: "assistant", content: "Hello [c3] [2]." },
         ],
       },
       { callModel, now },
@@ -111,7 +143,10 @@ describe("answerQuestion", () => {
     expect(system).toMatch(/only/i);
     expect(msgs.at(-1)?.role).toBe("user");
     expect(msgs.at(-1)?.content).toContain("What do people say about the butter?");
-    expect(msgs.map((m) => m.content).join("\n")).not.toContain("[c3]");
+    expect(msgs.slice(0, -1)).toEqual([
+      { role: "user", content: "Hi, I'm [email]" },
+      { role: "assistant", content: "Hello." },
+    ]);
 
     // Labels follow the order the conversations were given to the model.
     const last = msgs.at(-1)!.content;
@@ -130,7 +165,8 @@ describe("answerQuestion", () => {
     expect(out.answer).not.toMatch(EMAIL);
     expect(out.answer).toContain("[email]");
     expect(out.answer).not.toContain("evil.example");
-    expect(out.answer).not.toMatch(/\[c\d+\]/);
+    expect(out.answer).not.toMatch(/c\d/);
+    expect(out.answer).toContain("Both.");
     expect(out.answer).toContain("vegan [1]");
     expect(out.answer).toContain("smells [2].");
 

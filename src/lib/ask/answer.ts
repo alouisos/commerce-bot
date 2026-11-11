@@ -75,7 +75,10 @@ const defaultCallModel: AskCallModel = async (system, messages) => {
 };
 
 const CITE = /\s*\[\s*(c\d+(?:\s*,\s*c\d+)*)\s*\]/gi;
-const stripCitations = (s: string) => s.replace(CITE, "");
+/** Any other label the model might write: [c1-c3], (c2), [c1–c3, c5]... */
+const STRAY_LABEL = /\s*[[(]\s*c\d+(?:\s*[-–,]\s*c?\d+)*\s*[\])]/gi;
+/** The [1], [2] an earlier answer showed. */
+const SHOWN_REF = /\s*\[\d+\]/g;
 /** Text inside a fence can't open or close one. */
 const defuse = (s: string) => s.replace(/<(\/?)\s*conversation/gi, (_, slash: string) => `<${slash} conversation`);
 
@@ -83,7 +86,11 @@ const defuse = (s: string) => s.replace(/<(\/?)\s*conversation/gi, (_, slash: st
 function cleanHistory(history: AskTurn[]): AskTurn[] {
   const out: AskTurn[] = [];
   for (const t of history.slice(-HISTORY_TURNS)) {
-    const content = redactEmails(stripCitations(t.content)).slice(0, TURN_MAX).trim();
+    // Old labels point at an earlier set of conversations, not this one.
+    const unlabelled = t.content.replace(CITE, "").replace(STRAY_LABEL, "");
+    const content = redactEmails(t.role === "assistant" ? unlabelled.replace(SHOWN_REF, "") : unlabelled)
+      .slice(0, TURN_MAX)
+      .trim();
     if (!content) continue;
     if (out.length === 0 && t.role !== "user") continue;
     if (out.at(-1)?.role === t.role) out[out.length - 1] = { role: t.role, content };
@@ -93,7 +100,7 @@ function cleanHistory(history: AskTurn[]): AskTurn[] {
   return out;
 }
 
-/** Turns [cN] labels into [1], [2]... in order of first use; labels the model made up are dropped. */
+/** Turns [cN] labels into [1], [2]... in order of first use; made-up and malformed labels are dropped. */
 function mapCitations(text: string, count: number): { text: string; used: number[] } {
   const used: number[] = [];
   const mapped = text.replace(CITE, (_m, list: string) => {
@@ -107,7 +114,7 @@ function mapCitations(text: string, count: number): { text: string; used: number
       });
     return refs.length > 0 ? ` ${[...new Set(refs)].join("")}` : "";
   });
-  return { text: mapped, used };
+  return { text: mapped.replace(STRAY_LABEL, ""), used };
 }
 
 /**
