@@ -1157,6 +1157,256 @@ html:has(.cx) {
   }
 }
 
+/* ---------------------------------------------------------------- landing (public) */
+
+@layer components {
+  /* A link that acts as a button; pairs with .btn-primary / .btn-ghost / .btn-lg. */
+  :where(.cx) .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 2.5rem;
+    padding: 0.5rem 1.05rem;
+    border: 1px solid var(--control);
+    border-radius: var(--radius);
+    color: var(--ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+      border-color 160ms var(--ease),
+      background-color 160ms var(--ease),
+      color 160ms var(--ease),
+      box-shadow 160ms var(--ease);
+  }
+  :where(.cx) .btn:hover {
+    border-color: var(--teal);
+    background: rgb(8 217 214 / 0.07);
+    color: #ffffff;
+  }
+  :where(.cx) .btn.btn-primary {
+    background: var(--sodium);
+    border-color: var(--sodium);
+    color: #16120a;
+  }
+  :where(.cx) .btn.btn-primary:hover {
+    background: #ffe07a;
+    border-color: #ffe07a;
+    color: #16120a;
+    box-shadow: 0 8px 26px -10px rgb(255 210 63 / 0.7);
+  }
+  :where(.cx) .btn.btn-ghost {
+    border-color: transparent;
+  }
+  :where(.cx) .btn.btn-ghost:hover {
+    border-color: var(--control);
+  }
+  :where(.cx) .btn-lg {
+    min-height: 3rem;
+    padding: 0.7rem 1.4rem;
+    font-size: 1rem;
+  }
+
+  .landing {
+    display: flex;
+    flex-direction: column;
+  }
+  .landing-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem clamp(1rem, 4vw, 3rem);
+    border-bottom: 1px solid var(--rule);
+    background: rgb(7 7 11 / 0.86);
+    backdrop-filter: blur(10px);
+  }
+  .landing-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: center;
+    gap: clamp(2rem, 5vw, 4.5rem);
+    width: 100%;
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: clamp(3rem, 9vh, 7rem) clamp(1rem, 4vw, 3rem) clamp(3rem, 8vh, 5rem);
+  }
+  .landing-title {
+    font-size: clamp(3rem, 1.6rem + 5.2vw, 6rem);
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+  }
+  .text-neon-lit {
+    color: var(--neon);
+    text-shadow: var(--glow-neon);
+  }
+  .landing-lead {
+    max-width: 34rem;
+    color: var(--ink-muted);
+    font-size: clamp(1.05rem, 1rem + 0.35vw, 1.25rem);
+    line-height: 1.6;
+  }
+  .landing-section {
+    width: 100%;
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 4vw, 3rem) clamp(3rem, 8vh, 5rem);
+  }
+  .landing-close {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+    padding-top: clamp(1rem, 4vh, 3rem);
+  }
+  .landing-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    margin-top: auto;
+    padding: 1.25rem clamp(1rem, 4vw, 3rem);
+    border-top: 1px solid var(--rule);
+    color: var(--ink-subtle);
+    font-size: 0.875rem;
+  }
+
+  /* The example visit: each page is a sign that lights in turn, then the next one does. */
+  .demo {
+    box-shadow: 0 30px 80px -40px rgb(255 46 99 / 0.45);
+  }
+  .demo-sign {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-width: 0;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: rgb(7 7 11 / 0.6);
+    color: var(--ink-subtle);
+    animation: demo-light 7.5s steps(1, end) infinite;
+    animation-delay: calc(var(--i) * 2.5s);
+  }
+  .demo-note {
+    flex: none;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  @keyframes demo-light {
+    0% {
+      color: #ffffff;
+      border-color: var(--neon);
+      box-shadow:
+        0 0 18px -4px rgb(255 46 99 / 0.6),
+        inset 0 0 14px -6px rgb(255 46 99 / 0.7);
+    }
+    2% {
+      color: var(--ink-subtle);
+      border-color: var(--rule-strong);
+      box-shadow: none;
+    }
+    4%,
+    33% {
+      color: #ffffff;
+      border-color: var(--neon);
+      box-shadow:
+        0 0 18px -4px rgb(255 46 99 / 0.6),
+        inset 0 0 14px -6px rgb(255 46 99 / 0.7);
+    }
+    34%,
+    100% {
+      color: var(--ink-subtle);
+      border-color: var(--rule-strong);
+      box-shadow: none;
+    }
+  }
+  .demo-prompt {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgb(8 217 214 / 0.3);
+    border-radius: var(--radius-lg);
+    background: rgb(8 217 214 / 0.06);
+  }
+  .demo-prompt .msg-who {
+    color: var(--teal);
+  }
+
+  /* What it does: a ruled two-column sheet, not a row of cards. */
+  .does {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .does > div {
+    display: grid;
+    grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 1.4fr);
+    gap: 0.4rem 1.25rem;
+    padding: 1.1rem 1.25rem;
+    border-top: 1px solid var(--rule);
+  }
+  .does > div:nth-child(-n + 2) {
+    border-top: 0;
+  }
+  .does > div:nth-child(odd) {
+    border-right: 1px solid var(--rule);
+  }
+  .does dt {
+    color: var(--sodium);
+    font-family: var(--font-sign);
+    font-weight: 700;
+    font-size: 1.125rem;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+  .does dd {
+    color: var(--ink-muted);
+    font-size: 0.9375rem;
+  }
+
+  @media (max-width: 960px) {
+    .landing-hero {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .does {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .does > div:nth-child(2) {
+      border-top: 1px solid var(--rule);
+    }
+    .does > div:nth-child(odd) {
+      border-right: 0;
+    }
+  }
+  @media (max-width: 520px) {
+    .does > div {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .landing-bar .brand-mark {
+      font-size: 1.35rem;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No sequence: the page that matters stays lit. */
+  .cx .demo-sign:nth-child(2) {
+    color: #ffffff;
+    border-color: var(--neon);
+  }
+}
+
 /* ---------------------------------------------------------------- motion opt-out */
 
 @media (prefers-reduced-motion: reduce) {
