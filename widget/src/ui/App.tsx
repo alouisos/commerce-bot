@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type { StoredMessage, WidgetConfig } from "../../../src/shared/widget-protocol";
 import { fetchConversation, sendChat, sendLead, sendSubscribe } from "../api";
 import { onColor } from "../color";
+import { consentReplies } from "../consent-timing";
 import { collectPageContext } from "../page-context";
 import { usePrompts } from "../prompts";
 import {
@@ -23,8 +24,6 @@ import { Teaser } from "./Teaser";
 export type ConciergeApi = { open(): void; close(): void };
 
 const TEASER_DELAY_MS = 1500;
-/** The email offer comes only after this many completed bot replies in the conversation. */
-const CONSENT_AFTER_REPLIES = 2;
 let localId = 0;
 const nextId = () => `local-${++localId}`;
 
@@ -202,9 +201,12 @@ export function App({
     [apiBase, siteKey, store],
   );
 
+  // The greeting is not in `messages`, so every bot message here is a reply to the visitor.
   const botReplies = messages.filter((m) => m.role === "bot").length;
+  // Read at decision time; null when there is no tracker (tracking not allowed).
+  const intent = tracker?.summary().intent ?? null;
   const offerConsent =
-    config.emailCapture && !fallback && consent !== "closed" && botReplies >= CONSENT_AFTER_REPLIES;
+    config.emailCapture && !fallback && consent !== "closed" && botReplies >= consentReplies(intent);
   const consentYes = useCallback(
     async (email: string) => {
       markConsentAsked(store);

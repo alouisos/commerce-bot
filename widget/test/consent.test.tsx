@@ -1,8 +1,9 @@
 /** @jsxImportSource preact */
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatEvent, WidgetConfig } from "../../src/shared/widget-protocol";
 import { App } from "../src/ui/App";
+import type { VisitTracker } from "../src/visit";
 import { API, config, mockFetch } from "./fixtures";
 
 const withEmail: WidgetConfig = { ...config, emailCapture: true, language: "el" };
@@ -28,6 +29,10 @@ async function chat(text: string, n: number) {
   await waitFor(() => expect(button.disabled).toBe(false));
   fireEvent.click(button);
   await waitFor(() => expect(screen.getAllByText("An answer")).toHaveLength(n));
+  // The streamed text shows before the reply is committed as a message; let that settle.
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 20));
+  });
 
 }
 
@@ -38,13 +43,15 @@ afterEach(() => {
 });
 
 describe("consent card", () => {
-  it("appears only after the 2nd bot reply, without taking focus", async () => {
+  it("appears only after the 3rd bot reply, without taking focus", async () => {
     vi.stubGlobal("fetch", mockFetch({ chat: reply("c1") }).fn);
     mount();
     await openPanel();
     await chat("first", 1);
     expect(screen.queryByText(withEmail.strings.consentAsk)).toBeNull();
     await chat("second", 2);
+    expect(screen.queryByText(withEmail.strings.consentAsk)).toBeNull();
+    await chat("third", 3);
     await screen.findByText(withEmail.strings.consentAsk);
     expect(screen.getByText(withEmail.strings.consentFine)).toBeTruthy();
     expect(document.activeElement?.tagName).not.toBe("INPUT");
@@ -56,6 +63,7 @@ describe("consent card", () => {
     await openPanel();
     await chat("first", 1);
     await chat("second", 2);
+    await chat("third", 3);
     expect(screen.queryByText(withEmail.strings.consentAsk)).toBeNull();
   });
 
@@ -77,6 +85,7 @@ describe("consent card", () => {
     await openPanel();
     await chat("first", 1);
     await chat("second", 2);
+    await chat("third", 3);
     const input = await screen.findByLabelText(withEmail.strings.emailLabel);
     fireEvent.input(input, { target: { value: "maria@example.com" } });
     fireEvent.submit(input.closest("form")!);
@@ -98,14 +107,39 @@ describe("consent card", () => {
     await openPanel();
     await chat("first", 1);
     await chat("second", 2);
+    await chat("third", 3);
     fireEvent.click(await screen.findByText(withEmail.strings.consentNo));
     expect(screen.queryByText(withEmail.strings.consentAsk)).toBeNull();
     cleanup();
     vi.stubGlobal("fetch", mockFetch({ chat: reply("c1") }).fn);
     mount();
     await openPanel();
-    await chat("third", 1);
-    await chat("fourth", 2);
+    await chat("fourth", 1);
+    await chat("fifth", 2);
+    await chat("sixth", 3);
     expect(screen.queryByText(withEmail.strings.consentAsk)).toBeNull();
+  });
+
+  it("appears after the 2nd reply when the visitor's intent is buying", async () => {
+    vi.stubGlobal("fetch", mockFetch({ chat: reply("c1") }).fn);
+    const tracker = { summary: () => ({ intent: "buying" }), pageKind: () => "other", dispose() {} } as unknown as VisitTracker;
+    render(<App config={withEmail} apiBase={API} siteKey="pk_test" store={sessionStorage} tracker={tracker} />);
+    await openPanel();
+    await chat("first", 1);
+    expect(screen.queryByText(withEmail.strings.consentAsk)).toBeNull();
+    await chat("second", 2);
+    await screen.findByText(withEmail.strings.consentAsk);
+  });
+
+  it("still waits for the 3rd reply when intent is exploring", async () => {
+    vi.stubGlobal("fetch", mockFetch({ chat: reply("c1") }).fn);
+    const tracker = { summary: () => ({ intent: "exploring" }), pageKind: () => "other", dispose() {} } as unknown as VisitTracker;
+    render(<App config={withEmail} apiBase={API} siteKey="pk_test" store={sessionStorage} tracker={tracker} />);
+    await openPanel();
+    await chat("first", 1);
+    await chat("second", 2);
+    expect(screen.queryByText(withEmail.strings.consentAsk)).toBeNull();
+    await chat("third", 3);
+    await screen.findByText(withEmail.strings.consentAsk);
   });
 });
