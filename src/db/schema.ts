@@ -34,6 +34,8 @@ export const accounts = pgTable("accounts", {
   trialEndsAt: timestamp("trial_ends_at"),
   /** Set by the platform owner; unset keys use the plan's limits. */
   limitOverrides: jsonb("limit_overrides").$type<LimitOverrides>(),
+  /** Set when the platform owner removes the customer: logins are deleted and the bot is off; data is kept. */
+  removedAt: timestamp("removed_at"),
   createdAt: createdAt(),
 });
 

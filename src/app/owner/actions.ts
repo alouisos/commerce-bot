@@ -9,6 +9,7 @@ import { isPlatformOwner } from "@/lib/access";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { cancelInvite, createInvite, INVITE_PLANS, resendInvite, type InvitePlan } from "@/lib/invites";
 import { parseLimitsForm, setAccountLimits, setTrialEnd } from "@/lib/limits";
+import { removeAccount, restoreAccount } from "@/lib/owner/accounts";
 import { PLAN_LIMITS, type PlanId } from "@/lib/plans";
 import { requireUser } from "@/lib/session";
 
@@ -27,6 +28,7 @@ export type OwnerFormState = { error?: string; saved?: boolean };
 async function requireOwner() {
   const user = await requireUser();
   if (!isPlatformOwner(user)) notFound();
+  return user;
 }
 
 /** The Limits form on an account's owner page: overrides over the plan, and a trial's end date. */
@@ -83,4 +85,34 @@ export async function cancelInviteAction(inviteId: string): Promise<void> {
     throw err;
   }
   revalidatePath("/owner");
+}
+
+/** Removes a customer: their logins are deleted and their bot stops answering. Needs the account's name typed. */
+export async function removeAccountAction(accountId: string, _prev: OwnerFormState, formData: FormData): Promise<OwnerFormState> {
+  const owner = await requireOwner();
+  const [account] = await db.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, accountId));
+  if (!account) notFound();
+  if (String(formData.get("confirmName") ?? "").trim() !== account.name) return { error: "The name doesn't match." };
+  try {
+    await removeAccount(accountId, owner.id);
+  } catch (err) {
+    if (err instanceof ValidationError) return { error: err.message };
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  }
+  revalidatePath("/owner");
+  return { saved: true };
+}
+
+export async function restoreAccountAction(accountId: string, _prev: OwnerFormState, formData: FormData): Promise<OwnerFormState> {
+  await requireOwner();
+  try {
+    await restoreAccount(accountId, String(formData.get("email") ?? ""));
+  } catch (err) {
+    if (err instanceof ValidationError) return { error: err.message };
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  }
+  revalidatePath("/owner");
+  return { saved: true };
 }

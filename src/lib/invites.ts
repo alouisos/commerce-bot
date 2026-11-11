@@ -64,6 +64,37 @@ export async function createInvite(
   return created;
 }
 
+/** An invite to join an account that already exists (e.g. restoring a removed customer). */
+export async function createInviteForAccount(
+  input: { accountId: string; email: string },
+  now: Date = new Date(),
+): Promise<{ inviteId: string }> {
+  const parsed = schema.pick({ email: true }).safeParse({ email: input.email });
+  if (!parsed.success) throw new ValidationError(parsed.error.issues.map((i) => i.message).join("; "));
+  const { email } = parsed.data;
+  const token = randomBytes(32).toString("base64url");
+
+  const { inviteId, accountName } = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`invite:${email}`}))`);
+    const [account] = await tx.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, input.accountId));
+    if (!account) throw new NotFoundError("Account not found");
+    const [existingUser] = await tx.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = ${email}`);
+    if (existingUser) throw new ValidationError("This person already has an account.");
+    const [pending] = await tx
+      .select({ id: accountInvites.id })
+      .from(accountInvites)
+      .where(and(eq(accountInvites.email, email), isNull(accountInvites.acceptedAt), gt(accountInvites.expiresAt, now)));
+    if (pending) throw new ValidationError("There's already a pending invite for this email. Resend it instead.");
+    const [invite] = await tx
+      .insert(accountInvites)
+      .values({ accountId: input.accountId, email, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + INVITE_DAYS * DAY), createdAt: now })
+      .returning();
+    return { inviteId: invite.id, accountName: account.name };
+  });
+  await sendInviteEmail(email, accountName, token);
+  return { inviteId };
+}
+
 async function pendingInvite(inviteId: string) {
   const [row] = await db
     .select({ invite: accountInvites, accountName: accounts.name })

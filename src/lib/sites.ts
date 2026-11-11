@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { accounts, kbSources, sites, type Account, type Site } from "@/db/schema";
 import { NotFoundError, PlanLimitError, ValidationError } from "@/lib/errors";
@@ -155,7 +155,7 @@ export async function getSiteByPublicKey(key: string): Promise<(Site & { account
     .select({ site: sites, account: accounts })
     .from(sites)
     .innerJoin(accounts, eq(accounts.id, sites.accountId))
-    .where(eq(sites.publicKey, key))
+    .where(and(eq(sites.publicKey, key), isNull(accounts.removedAt)))
     .limit(1);
   return row ? { ...row.site, account: row.account } : null;
 }

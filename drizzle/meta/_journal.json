@@ -78,6 +78,13 @@
       "when": 1794337767896,
       "tag": "0010_account_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794414759789,
+      "tag": "0011_wise_scream",
+      "breakpoints": true
     }
   ]
 }
