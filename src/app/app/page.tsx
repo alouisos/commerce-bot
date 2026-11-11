@@ -9,7 +9,9 @@ import { plural, relativeTime } from "@/lib/format";
 import { getTotalsBySite } from "@/lib/stats/queries";
 import { parseRange } from "@/lib/stats/range";
 import { requireUser } from "@/lib/session";
+import { isLive } from "@/lib/sites-status";
 import { AddSiteForm } from "./add-site-form";
+import { RemoveSiteForm } from "./remove-site-form";
 
 function crawlSummary(notice: CrawlNotice | null, ready: number): string {
   switch (notice?.kind) {
@@ -47,6 +49,7 @@ export default async function WebsitesPage() {
   const list = await db.select().from(sites).where(eq(sites.accountId, account.id)).orderBy(desc(sites.createdAt));
   const counts = await pageCounts(list.map((s) => s.id));
   const notices = new Map(list.map((s) => [s.id, crawlNotice(s, counts.get(s.id)!)]));
+  const now = new Date();
   const live = [...notices.values()].some(noticeIsLive);
   const totals = await getTotalsBySite(
     list.map((s) => s.id),
@@ -67,13 +70,20 @@ export default async function WebsitesPage() {
               const total = totals.get(s.id)!;
               return (
                 <li key={s.id} className="panel site-row">
-                  <span className={lampFor(notice, s.lastSeenAt !== null)} aria-hidden="true" />
+                  <span className={lampFor(notice, isLive(s.lastSeenAt, now))} aria-hidden="true" />
                   <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                       <Link href={`/app/sites/${s.id}/overview`} className="site-name">
                         {s.name}
                       </Link>
                       <span className="cell-mono text-ink-muted">{s.baseUrl}</span>
+                      {isLive(s.lastSeenAt, now) ? (
+                        <span className="badge badge-ok">
+                          <span className="lamp lamp-ok" aria-hidden="true" /> Live
+                        </span>
+                      ) : (
+                        <span className="badge">Not detected</span>
+                      )}
                     </div>
                     <p className="text-sm font-medium text-sodium">
                       Last 30 days: {plural(total.conversations, "conversation")} ·{" "}
@@ -88,6 +98,12 @@ export default async function WebsitesPage() {
                         Retry reading pages
                       </Link>
                     )}
+                    {!isLive(s.lastSeenAt, now) && (
+                      <Link href={`/app/sites/${s.id}/install`} className="self-start text-sm font-medium">
+                        Install
+                      </Link>
+                    )}
+                    <RemoveSiteForm siteId={s.id} name={s.name} />
                   </div>
                 </li>
               );

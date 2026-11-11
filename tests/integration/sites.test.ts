@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { siteGreetings, sites } from "@/db/schema";
@@ -7,8 +7,13 @@ import { PlanLimitError, ValidationError } from "@/lib/errors";
 import { createSite, getSiteByPublicKey } from "@/lib/sites";
 import { removeGreetingImage, setGreetingImage, updateSiteSettings } from "@/lib/site-settings";
 import { getStorage } from "@/lib/storage";
-import { makeAccount, makeSite } from "../helpers/factories";
+import { removeSiteAction } from "@/app/app/actions";
+import { makeAccount, makeMembership, makeSite, makeUser } from "../helpers/factories";
 import { resetDb } from "../helpers/db";
+
+const current = vi.hoisted(() => ({ user: { id: "", email: "a@example.com" } }));
+vi.mock("@/lib/session", () => ({ requireUser: async () => current.user }));
+vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const settings = (greetings: { language: string; message: string }[]) => ({
@@ -108,5 +113,43 @@ describe("greeting image", () => {
     const [c] = await db.select().from(sites).where(eq(sites.id, site.id));
     expect(c.greetingImageKey).toBeNull();
     expect(await getStorage().get(b.greetingImageKey!)).toBeNull();
+  });
+});
+
+describe("removeSiteAction", () => {
+  async function setup() {
+    const user = await makeUser();
+    const account = await makeAccount();
+    await makeMembership(account.id, user.id);
+    const site = await makeSite(account.id, { name: "Corner Shop" });
+    const otherAccount = await makeAccount();
+    const foreign = await makeSite(otherAccount.id, { name: "Elsewhere" });
+    current.user = { id: user.id, email: user.email };
+    return { site, foreign };
+  }
+  const form = (confirmName: string) => {
+    const f = new FormData();
+    f.set("confirmName", confirmName);
+    return f;
+  };
+  const exists = async (id: string) => (await db.select().from(sites).where(eq(sites.id, id))).length === 1;
+
+  it("keeps the site when the typed name is wrong", async () => {
+    const { site } = await setup();
+    const state = await removeSiteAction(site.id, {}, form("nope"));
+    expect(state).toEqual({ error: "Type the website's name exactly to delete it." });
+    expect(await exists(site.id)).toBe(true);
+  });
+  it("deletes the site when the name matches", async () => {
+    const { site } = await setup();
+    await removeSiteAction(site.id, {}, form("Corner Shop"));
+    expect(await exists(site.id)).toBe(false);
+  });
+  it("404s for another account's site and leaves it", async () => {
+    const { foreign } = await setup();
+    await expect(removeSiteAction(foreign.id, {}, form("Elsewhere"))).rejects.toMatchObject({
+      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+    });
+    expect(await exists(foreign.id)).toBe(true);
   });
 });

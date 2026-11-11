@@ -1144,6 +1144,21 @@ html:has(.cx) {
     border-color: rgb(8 217 214 / 0.45);
     background: rgb(24 24 36 / 0.9);
   }
+  .site-row {
+    position: relative;
+  }
+  /* The name link stretches over the whole row; the lamp-free controls sit above it. */
+  .site-name::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .site-row a:not(.site-name),
+  .site-row button,
+  .site-row form {
+    position: relative;
+    z-index: 1;
+  }
   .site-row > .lamp {
     margin-top: 0.55rem;
   }
