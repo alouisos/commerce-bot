@@ -1,12 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// EMAIL_FROM is read through a memoised env; let these tests set it per case.
+vi.mock("@/lib/env", async (orig) => {
+  const m = await orig<typeof import("@/lib/env")>();
+  return {
+    ...m,
+    env: new Proxy(m.env, { get: (t, p) => (p === "EMAIL_FROM" ? process.env.EMAIL_FROM : Reflect.get(t, p)) }),
+  };
+});
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
-import { contacts, conversations, emailMessages, leads, rateLimits } from "@/db/schema";
+import { contacts, conversations, emailMessages, leads, monthlyUsage, rateLimits, sites } from "@/db/schema";
 import { POST as subscribePOST } from "@/app/api/widget/subscribe/route";
 import ConfirmPage from "@/app/e/confirm/[token]/page";
 import { confirmContact, consentWording } from "@/lib/email/contacts";
+import { confirmationFrom } from "@/lib/email/domain";
+import { buildWidgetConfig } from "@/lib/widget/config";
+import { getSiteByPublicKey } from "@/lib/sites";
 import { setProviderForTests, type OutgoingEmail } from "@/lib/email/provider";
+import { monthKey } from "@/lib/usage/meter";
 import { hit } from "@/lib/usage/rate-limit";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeConversation, makeMessage, makeSite } from "../helpers/factories";
@@ -136,8 +149,9 @@ describe("subscribe", () => {
     expect(strangerLeads).toHaveLength(0);
   });
 
-  it("403 when the site can't send email", async () => {
-    const { site, sid, convo } = await setup(false);
+  it("403 when the month's emails are used up", async () => {
+    const { account, site, sid, convo } = await setup();
+    await db.insert(monthlyUsage).values({ accountId: account.id, month: monthKey(new Date()), emails: 1000 });
     const res = await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" });
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Email is not available" });
@@ -289,5 +303,59 @@ describe("confirm page", () => {
 
   it("an invalid token shows the expired text", async () => {
     expect(await render("bogus")).toContain("This link has expired or isn&#x27;t valid.");
+  });
+});
+
+describe("without a verified domain", () => {
+  const savedFrom = process.env.EMAIL_FROM;
+  afterEach(() => {
+    if (savedFrom === undefined) delete process.env.EMAIL_FROM;
+    else process.env.EMAIL_FROM = savedFrom;
+  });
+
+  it("offers the card, and confirms from the platform address under the shop's name", async () => {
+    process.env.EMAIL_FROM = "Concierge <hello@concierge.example>";
+    const { site, sid, convo } = await setup(false);
+    const cfg = await buildWidgetConfig((await getSiteByPublicKey(site.publicKey))!, "el");
+    expect(cfg.emailCapture).toBe(true);
+    const res = await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" });
+    expect(res.status).toBe(201);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].from).toBe('"Milian Jo via Concierge" <hello@concierge.example>');
+    expect((await contactOf("a@example.com")).status).toBe("pending");
+  });
+
+  it("takes a bare EMAIL_FROM address too", () => {
+    process.env.EMAIL_FROM = "alex@manxmachina.com";
+    const base = { emailFromName: null, emailFromLocal: "hello", sendingDomain: null, sendingDomainStatus: "none" as const };
+    expect(confirmationFrom({ ...base, name: 'Milian "Jo"' })).toBe('"Milian Jo via Concierge" <alex@manxmachina.com>');
+  });
+
+  it("a verified domain still confirms from the shop", () => {
+    process.env.EMAIL_FROM = "alex@manxmachina.com";
+    expect(
+      confirmationFrom({ name: "Milian Jo", emailFromName: null, emailFromLocal: "hello", sendingDomain: "milianjo.com", sendingDomainStatus: "verified" }),
+    ).toBe('"Milian Jo" <hello@milianjo.com>');
+  });
+
+  it("with no EMAIL_FROM nor provider, subscribing still succeeds (the provider layer just logs)", async () => {
+    delete process.env.EMAIL_FROM;
+    setProviderForTests(null);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { site, sid, convo } = await setup(false);
+    const res = await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" });
+    expect(res.status).toBe(201);
+    expect(await contactOf("a@example.com")).toBeDefined();
+    log.mockRestore();
+  });
+
+  it("emailAsk off: no card, and subscribe is refused", async () => {
+    const { site, sid, convo } = await setup(false);
+    await db.update(sites).set({ emailAsk: false }).where(eq(sites.id, site.id));
+    const cfg = await buildWidgetConfig((await getSiteByPublicKey(site.publicKey))!, "el");
+    expect(cfg.emailCapture).toBe(false);
+    const res = await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" });
+    expect(res.status).toBe(403);
+    expect(sent).toHaveLength(0);
   });
 });

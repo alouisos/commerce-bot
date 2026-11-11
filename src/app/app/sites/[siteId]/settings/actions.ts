@@ -78,6 +78,7 @@ export async function saveEmailSettingsAction(
       emailFromLocal: String(formData.get("emailFromLocal") ?? ""),
       retentionMonths: String(formData.get("retentionMonths") ?? ""),
       consentMode: String(formData.get("consentMode") ?? ""),
+      emailAsk: formData.get("emailAsk") === "on",
     }),
   );
 }

@@ -101,6 +101,8 @@ export const sites = pgTable("sites", {
     .notNull()
     .default("none"),
   retentionMonths: integer("retention_months").notNull().default(24),
+  /** Whether the widget offers visitors the email consent card. */
+  emailAsk: boolean("email_ask").notNull().default(true),
   consentMode: text("consent_mode", { enum: ["auto", "required", "off"] })
     .notNull()
     .default("auto"),

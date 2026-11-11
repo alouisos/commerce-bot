@@ -3,7 +3,7 @@ import { eq, or, isNull, lt, and, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { siteGreetings, sites, type Account, type Site } from "@/db/schema";
 import { COPY, copyFor, fillSite } from "@/lib/copy/defaults";
-import { canDraftEmail } from "@/lib/email/domain";
+import { canOfferEmail } from "@/lib/email/domain";
 import { atConversationLimit } from "@/lib/usage/levels";
 import { env } from "@/lib/env";
 import { planStatus } from "@/lib/plans";
@@ -64,7 +64,7 @@ export async function buildWidgetConfig(
     : null;
 
   // This month's conversations are used up: keep answering, but no suggestions. (Email offers follow
-  // canDraftEmail, which also stops when the emails are used up.)
+  // canOfferEmail, which also stops when the emails are used up.)
   const proactivity = (await atConversationLimit(site.account, now)) ? "off" : site.proactivity;
   return {
     botName: site.botName,
@@ -78,7 +78,7 @@ export async function buildWidgetConfig(
     mode,
     proactivity,
     pausedKinds: proactivity === "off" ? [] : await pausedKinds(site.id, now),
-    emailCapture: await canDraftEmail(site, site.account, now),
+    emailCapture: await canOfferEmail(site, site.account, now),
     consentMode: site.consentMode,
   };
 }

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { canDraftEmail } from "@/lib/email/domain";
+import { canOfferEmail } from "@/lib/email/domain";
 import { subscribe } from "@/lib/email/contacts";
 import { hit } from "@/lib/usage/rate-limit";
 import { sidSchema, WidgetError, type WidgetSite } from "@/lib/widget/guard";
@@ -23,10 +23,10 @@ export async function handleSubscribe(site: WidgetSite, body: unknown, ip: strin
     (await hit(`sub:${site.id}:${input.sid}`, 3, 3600)) &&
     (await hit(`sub:ip:${ip}`, 20, 3600)) &&
     (await hit(`sub:email:${site.id}:${emailKey(input.email)}`, 3, 86400)) &&
-    // Confirmation emails go out from the shop's own domain: a per-site ceiling protects its reputation.
+    // Confirmation emails go out under the shop's name: a per-site ceiling protects its reputation.
     (await hit(`sub:site:${site.id}:hour`, 30, 3600)) &&
     (await hit(`sub:site:${site.id}:day`, 200, 86400));
   if (!allowed) throw new WidgetError(429, "Too many requests");
-  if (!(await canDraftEmail(site, site.account))) throw new WidgetError(403, "Email is not available");
+  if (!(await canOfferEmail(site, site.account))) throw new WidgetError(403, "Email is not available");
   await subscribe(site, { sid: input.sid, cid: input.cid ?? null, email: input.email, language: input.language });
 }

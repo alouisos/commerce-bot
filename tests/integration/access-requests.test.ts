@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { db } from "@/db/client";
+import { rateLimits } from "@/db/schema";
 import { requestAccess, type SendFn } from "@/lib/access-requests";
 
 const at = new Date("2026-11-11T09:00:00Z");
@@ -28,6 +30,13 @@ describe("invite requests from the sign-up page", () => {
       error: "Enter a valid email address.",
     });
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("keeps no raw address in the rate-limit records", async () => {
+    await requestAccess({ email: "eleni@shop.gr", ip: "1.1.1.9" }, recorder(), at);
+    const keys = (await db.select().from(rateLimits)).map((r) => r.key);
+    expect(keys.some((k) => k.startsWith("access:email:"))).toBe(true);
+    expect(keys.filter((k) => k.includes("@"))).toEqual([]);
   });
 
   it("drops bots that fill the hidden field, while looking successful", async () => {

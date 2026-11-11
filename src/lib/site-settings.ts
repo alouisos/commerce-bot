@@ -89,6 +89,7 @@ export const emailSettingsSchema = z.object({
     .number()
     .refine((n) => (RETENTION_MONTHS as readonly number[]).includes(n), "Choose 6, 12, 24 or 36 months"),
   consentMode: z.enum(["auto", "required", "off"], { error: "Choose a cookie-consent mode" }),
+  emailAsk: z.boolean(),
 });
 
 export async function updateEmailSettings(siteId: string, input: unknown): Promise<void> {
@@ -117,6 +118,7 @@ export async function updateEmailSettings(siteId: string, input: unknown): Promi
       emailFromLocal: s.emailFromLocal.toLowerCase(),
       retentionMonths: s.retentionMonths,
       consentMode: s.consentMode,
+      emailAsk: s.emailAsk,
     })
     .where(eq(sites.id, siteId));
 }

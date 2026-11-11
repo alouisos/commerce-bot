@@ -63,6 +63,7 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
           emailFromLocal: site.emailFromLocal,
           retentionMonths: site.retentionMonths,
           consentMode: site.consentMode,
+          emailAsk: site.emailAsk,
         }}
       />
       <SendingDomain

@@ -11,6 +11,7 @@ type Initial = {
   emailFromLocal: string;
   retentionMonths: number;
   consentMode: "auto" | "required" | "off";
+  emailAsk: boolean;
 };
 
 const CONSENT = [
@@ -47,6 +48,16 @@ export function EmailSettingsForm({
   return (
     <form action={action} className="card">
       <h2>Email &amp; privacy</h2>
+
+      <label className="flex items-start gap-2">
+        <input type="checkbox" name="emailAsk" defaultChecked={initial.emailAsk} className="mt-1" />
+        <span>
+          Ask visitors for their email during a chat
+          <span className="block text-sm text-ink-muted font-normal">
+            Follow-up emails start once your sending domain is verified.
+          </span>
+        </span>
+      </label>
 
       <fieldset className="flex flex-col gap-2">
         <legend>How are follow-up emails sent?</legend>

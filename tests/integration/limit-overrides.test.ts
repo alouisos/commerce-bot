@@ -92,6 +92,7 @@ describe("limit overrides are honoured by every limit check", () => {
       emailFromLocal: "hello",
       retentionMonths: 24,
       consentMode: "auto",
+      emailAsk: true,
     });
   });
 

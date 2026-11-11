@@ -21,6 +21,7 @@ const valid = {
   emailFromLocal: "hello.team",
   retentionMonths: 12,
   consentMode: "required",
+  emailAsk: true,
 };
 
 describe("email and privacy settings", () => {

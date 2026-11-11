@@ -1,0 +1,1 @@
+ALTER TABLE "sites" ADD COLUMN "email_ask" boolean DEFAULT true NOT NULL;

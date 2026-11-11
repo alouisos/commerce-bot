@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { SIGNUP_EMAIL } from "@/lib/brand";
 import { env } from "@/lib/env";
@@ -22,6 +23,9 @@ export const sendAccessEmail: SendFn = async (msg) => {
   await sendMail({ from: env.EMAIL_FROM, ...msg });
 };
 
+/** Rate-limit records hold a hash of the address, never the address (as widget/subscribe.ts does). */
+const emailKey = (email: string) => createHash("sha256").update(email).digest("base64url").slice(0, 22);
+
 const emailSchema = z.email().max(254);
 
 /**
@@ -39,7 +43,7 @@ export async function requestAccess(
 
   const allowed =
     (await hit(`access:ip:${input.ip}`, 5, 3600, now)) &&
-    (await hit(`access:email:${email}`, 3, 86_400, now)) &&
+    (await hit(`access:email:${emailKey(email)}`, 3, 86_400, now)) &&
     (await hit("access:all", 100, 86_400, now));
   if (!allowed) return { ok: false, error: "Too many requests. Please try again later." };
 
