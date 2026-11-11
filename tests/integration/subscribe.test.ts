@@ -1,13 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// EMAIL_FROM is read through a memoised env; let these tests set it per case.
-vi.mock("@/lib/env", async (orig) => {
-  const m = await orig<typeof import("@/lib/env")>();
-  return {
-    ...m,
-    env: new Proxy(m.env, { get: (t, p) => (p === "EMAIL_FROM" ? process.env.EMAIL_FROM : Reflect.get(t, p)) }),
-  };
-});
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
@@ -15,7 +7,7 @@ import { contacts, conversations, emailMessages, leads, monthlyUsage, rateLimits
 import { POST as subscribePOST } from "@/app/api/widget/subscribe/route";
 import ConfirmPage from "@/app/e/confirm/[token]/page";
 import { confirmContact, consentWording } from "@/lib/email/contacts";
-import { confirmationFrom } from "@/lib/email/domain";
+import { fromAddress } from "@/lib/email/domain";
 import { buildWidgetConfig } from "@/lib/widget/config";
 import { getSiteByPublicKey } from "@/lib/sites";
 import { setProviderForTests, type OutgoingEmail } from "@/lib/email/provider";
@@ -306,51 +298,41 @@ describe("confirm page", () => {
   });
 });
 
-describe("without a verified domain", () => {
-  const savedFrom = process.env.EMAIL_FROM;
-  afterEach(() => {
-    if (savedFrom === undefined) delete process.env.EMAIL_FROM;
-    else process.env.EMAIL_FROM = savedFrom;
-  });
-
-  it("offers the card, and confirms from the platform address under the shop's name", async () => {
-    process.env.EMAIL_FROM = "Concierge <hello@concierge.example>";
+describe("email capture needs a verified sending domain", () => {
+  it("unverified: no card, and subscribe is refused", async () => {
     const { site, sid, convo } = await setup(false);
     const cfg = await buildWidgetConfig((await getSiteByPublicKey(site.publicKey))!, "el");
-    expect(cfg.emailCapture).toBe(true);
+    expect(cfg.emailCapture).toBe(false);
+    const res = await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: "Email is not available" });
+    expect(sent).toHaveLength(0);
+    expect(await contactOf("a@example.com")).toBeUndefined();
+  });
+
+  it("a domain still pending verification counts as unverified", async () => {
+    const { site, sid, convo } = await setup(false);
+    await db.update(sites).set({ sendingDomain: "milianjo.com", sendingDomainStatus: "pending" }).where(eq(sites.id, site.id));
+    const cfg = await buildWidgetConfig((await getSiteByPublicKey(site.publicKey))!, "el");
+    expect(cfg.emailCapture).toBe(false);
+    const res = await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" });
+    expect(res.status).toBe(403);
+  });
+
+  it("verified: the card is offered and the confirmation comes from the shop's own address", async () => {
+    const { site, sid, convo } = await setup(true);
+    const loaded = (await getSiteByPublicKey(site.publicKey))!;
+    expect((await buildWidgetConfig(loaded, "el")).emailCapture).toBe(true);
     const res = await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" });
     expect(res.status).toBe(201);
     expect(sent).toHaveLength(1);
-    expect(sent[0].from).toBe('"Milian Jo via Concierge" <hello@concierge.example>');
+    expect(sent[0].from).toBe(fromAddress(loaded));
+    expect(sent[0].from).toBe('"Milian Jo" <hello@milianjo.com>');
     expect((await contactOf("a@example.com")).status).toBe("pending");
   });
 
-  it("takes a bare EMAIL_FROM address too", () => {
-    process.env.EMAIL_FROM = "alex@manxmachina.com";
-    const base = { emailFromName: null, emailFromLocal: "hello", sendingDomain: null, sendingDomainStatus: "none" as const };
-    expect(confirmationFrom({ ...base, name: 'Milian "Jo"' })).toBe('"Milian Jo via Concierge" <alex@manxmachina.com>');
-  });
-
-  it("a verified domain still confirms from the shop", () => {
-    process.env.EMAIL_FROM = "alex@manxmachina.com";
-    expect(
-      confirmationFrom({ name: "Milian Jo", emailFromName: null, emailFromLocal: "hello", sendingDomain: "milianjo.com", sendingDomainStatus: "verified" }),
-    ).toBe('"Milian Jo" <hello@milianjo.com>');
-  });
-
-  it("with no EMAIL_FROM nor provider, subscribing still succeeds (the provider layer just logs)", async () => {
-    delete process.env.EMAIL_FROM;
-    setProviderForTests(null);
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { site, sid, convo } = await setup(false);
-    const res = await post(site.publicKey, { key: site.publicKey, sid, cid: convo.id, email: "a@example.com", language: "en" });
-    expect(res.status).toBe(201);
-    expect(await contactOf("a@example.com")).toBeDefined();
-    log.mockRestore();
-  });
-
-  it("emailAsk off: no card, and subscribe is refused", async () => {
-    const { site, sid, convo } = await setup(false);
+  it("emailAsk off on a verified site: no card, and subscribe is refused", async () => {
+    const { site, sid, convo } = await setup(true);
     await db.update(sites).set({ emailAsk: false }).where(eq(sites.id, site.id));
     const cfg = await buildWidgetConfig((await getSiteByPublicKey(site.publicKey))!, "el");
     expect(cfg.emailCapture).toBe(false);

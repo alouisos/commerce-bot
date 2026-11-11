@@ -1,10 +1,9 @@
 // Sending domains: a shop sends only from its own website's domain, once the provider has verified it.
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, emailMessages, sites, type Account, type Site } from "@/db/schema";
+import { sites, type Account, type Site } from "@/db/schema";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { planStatus } from "@/lib/plans";
-import { env } from "@/lib/env";
 import { atMonthlyLimit } from "@/lib/usage/levels";
 import { getMonthUsage } from "@/lib/usage/meter";
 import { EmailNotConfiguredError, createDomain, getDomain, verifyDomain, type DnsRecord } from "./provider";
@@ -65,25 +64,7 @@ export async function refreshSendingDomain(siteId: string): Promise<{ status: Do
   }
   const status = mapStatus(remote.status);
   await db.update(sites).set({ sendingDomainStatus: status }).where(eq(sites.id, siteId));
-  if (status === "verified" && site.sendingDomainStatus !== "verified") await startWaitingSequences(siteId);
   return { status, records: remote.records };
-}
-
-/**
- * People who subscribed while the domain was unverified have had nothing but the confirmation. Their
- * sequence starts now, so only the first follow-up becomes due.
- */
-async function startWaitingSequences(siteId: string, now: Date = new Date()): Promise<void> {
-  await db
-    .update(contacts)
-    .set({ sequenceStartedAt: now })
-    .where(
-      and(
-        eq(contacts.siteId, siteId),
-        eq(contacts.status, "subscribed"),
-        sql`not exists (select 1 from ${emailMessages} where ${emailMessages.contactId} = ${contacts.id} and ${emailMessages.status} = 'sent')`,
-      ),
-    );
 }
 
 /** The DNS records to show for a domain still being set up; empty when the provider can't be reached. */
@@ -132,41 +113,13 @@ export function fromAddress(site: Pick<Site, "name" | "emailFromName" | "emailFr
 }
 
 /**
- * Whether to offer the email card and accept a subscription: the site asks for emails, the plan is still
- * active, and this month's emails and conversations aren't used up. No verified domain is needed: the
- * confirmation goes out from the platform address (confirmationFrom) and follow-ups wait for the domain.
+ * Whether to offer the email card and accept a subscription: the site asks for emails, and its own
+ * sending domain is verified, the plan is active and this month's emails and conversations aren't used up.
  */
 export async function canOfferEmail(
-  site: Pick<Site, "emailAsk">,
+  site: Pick<Site, "emailAsk" | "sendingDomain" | "sendingDomainStatus">,
   account: Account,
   now: Date = new Date(),
 ): Promise<boolean> {
-  if (!site.emailAsk) return false;
-  const status = planStatus(account, now);
-  if (status.expired) return false;
-  const { emails } = await getMonthUsage(account.id, now);
-  return emails < status.limits.emailsPerMonth && !(await atMonthlyLimit(account, now));
-}
-
-/** The address part of EMAIL_FROM, which may be `addr` or `Name <addr>`; null when unset or unusable. */
-function platformAddress(): string | null {
-  const raw = env.EMAIL_FROM?.trim();
-  if (!raw) return null;
-  const angled = raw.match(/<([^<>\s]+)>\s*$/);
-  const addr = (angled ? angled[1] : raw).trim();
-  return /^[^\s@<>"]+@[^\s@<>"]+$/.test(addr) ? addr : null;
-}
-
-/**
- * The From of the double opt-in confirmation: the shop's own address once its domain is verified, else
- * "{shop} via Concierge" from the platform address. Without EMAIL_FROM there is no platform address to
- * use; the provider layer then logs the mail instead of sending, as for the platform's other emails.
- */
-export function confirmationFrom(
-  site: Pick<Site, "name" | "emailFromName" | "emailFromLocal" | "sendingDomain" | "sendingDomainStatus">,
-): string {
-  if (site.sendingDomain && site.sendingDomainStatus === "verified") return fromAddress(site);
-  const name = `${site.name.replace(/["<>\r\n]/g, "").trim()} via Concierge`;
-  const addr = platformAddress();
-  return addr ? `"${name}" <${addr}>` : name;
+  return site.emailAsk && (await canDraftEmail(site, account, now));
 }

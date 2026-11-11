@@ -8,7 +8,7 @@ import { copyFor, emailCopyFor, fillSite } from "@/lib/copy/defaults";
 import { appBaseUrl } from "@/lib/widget/config";
 import { findOwnedConversation } from "@/lib/widget/conversation";
 import type { WidgetSite } from "@/lib/widget/guard";
-import { confirmationFrom } from "./domain";
+import { fromAddress } from "./domain";
 import { sendMail } from "./provider";
 
 export const CONFIRM_VALID_MS = 7 * 86400_000;
@@ -33,7 +33,7 @@ async function sendConfirmation(
   const { copy } = emailCopyFor(contact.language);
   const link = `${appBaseUrl()}/e/confirm/${contact.token}`;
   await sendMail({
-    from: confirmationFrom(site),
+    from: fromAddress(site),
     to: contact.email,
     subject: fillSite(copy.confirmSubject, site.name),
     text: `${fillSite(copy.confirmBody, site.name)}\n\n${link}\n`,

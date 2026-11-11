@@ -173,6 +173,8 @@
 
 ### Task 10: Offer email capture without a verified domain
 
+> **Superseded in part (decided 2026-11-11, replaces the earlier choice):** the bot asks for emails only after the shop verifies its own sending domain. Task 10 kept the per-site `emailAsk` switch and the hashed access-request rate-limit key; Task 10b removed the platform-address confirmation (`confirmationFrom`) and the verification-time `startWaitingSequences`, and `canOfferEmail` = `emailAsk` AND `canDraftEmail`.
+
 **Files:**
 - Modify: `src/lib/email/domain.ts`, `src/lib/widget/config.ts`, `src/lib/widget/subscribe.ts`, `src/lib/email/contacts.ts` (`sendConfirmation`), `src/lib/email/domain.ts` (`refreshSendingDomain` on transition to verified), `src/db/schema.ts` (`sites.emailAsk boolean notNull default true`), `src/app/app/sites/[siteId]/settings/email-settings-form.tsx` + `actions.ts`, `src/lib/access-requests.ts` (hash email in rate-limit key); migration
 - Test: `tests/integration/subscribe.test.ts`, `tests/integration/sending-domain.test.ts`, `tests/integration/widget-routes.test.ts`

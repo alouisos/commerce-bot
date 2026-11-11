@@ -64,7 +64,7 @@ export async function buildWidgetConfig(
     : null;
 
   // This month's conversations are used up: keep answering, but no suggestions. (Email offers follow
-  // canOfferEmail, which also stops when the emails are used up.)
+  // canOfferEmail, which also needs a verified sending domain and stops when the emails are used up.)
   const proactivity = (await atConversationLimit(site.account, now)) ? "off" : site.proactivity;
   return {
     botName: site.botName,

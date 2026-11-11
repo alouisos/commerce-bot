@@ -109,20 +109,15 @@ it can't answer.
   for cookie consent, same as the chat today; the "2nd message if buying" shortcut applies only when intent
   is known **(my call)**.
 - **Current state (found in review):** the widget already shows this consent card after the bot's 2nd reply,
-  once per visit (`CONSENT_AFTER_REPLIES`, `consentAsked`), but only when `canDraftEmail` is true: verified
-  sending domain, active plan, emails and conversations left. Sites without a verified domain only ever see
+  once per visit (`CONSENT_AFTER_REPLIES`, `consentAsked`), only when `canDraftEmail` is true: verified
+  sending domain, active plan, emails and conversations left. Sites without a verified domain only see
   the fallback form.
-- **Ask even without a verified domain (decided):** the consent card is offered on every active site, not
-  only those with a verified sending domain. Without a verified domain:
-  - the address and the consent are stored exactly as today (same contacts, same consent record);
-  - the double opt-in confirmation email is sent from the Concierge platform address (`EMAIL_FROM`),
-    in the shop's name ("Milian Jo via Concierge") **(my call)**;
-  - no follow-up emails are drafted until the shop verifies its domain; confirmed contacts then enter the
-    normal follow-up flow from that point on (no catch-up burst for old contacts beyond the first email)
-    **(my call)**;
-  - the consent text must stay truthful: it promises follow-up from the shop, not an immediate email
-    **(builder: exact wording, in both el and en)**.
-  - Monthly email limits and an active plan still apply; `/api/widget/subscribe` follows the same rule.
+- **Ask only after the shop verifies its sending domain (decided 2026-11-11, replaces the earlier choice
+  to ask on every site):** the bot asks for emails on every website only after the owner has verified
+  their own sending domain. Until then the consent card is not offered and `/api/widget/subscribe`
+  answers 403. The double opt-in confirmation is always sent from the shop's own address
+  (`fromAddress`); there is no platform ("via Concierge") sender and no waiting contacts to start
+  when the domain is verified. Monthly email limits and an active plan still apply.
 - The website owner can turn it off per site in Settings; on by default **(my call)**.
 
 ## 6. Concierge icon image
