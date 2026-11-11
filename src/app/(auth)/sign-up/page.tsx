@@ -1,19 +1,13 @@
 import Link from "next/link";
-import { connection } from "next/server";
-import { contactEmail, SIGNUP_EMAIL, signupMailto } from "@/lib/brand";
+import { RequestAccessForm } from "./request-form";
 
-export default async function SignUpPage() {
-  // Rendered per request: the contact address comes from the server's settings, which a build doesn't have.
-  await connection();
-  const contact = contactEmail();
+export default function SignUpPage() {
   return (
     <main className="mx-auto max-w-sm p-6">
-      <h1 className="mb-5 text-3xl">Create your account</h1>
-      <p>Concierge is invite-only for now.{contact ? ` Contact ${contact}.` : ""}</p>
-      <a href={signupMailto} className="btn btn-primary mt-5 w-full whitespace-normal text-center">
-        Email {SIGNUP_EMAIL}
-      </a>
-      <p className="mt-4">
+      <h1 className="mb-3 text-3xl">Request an invite</h1>
+      <p className="mb-5 text-ink-muted">Concierge is invite-only. Leave your email and we&apos;ll send you an invite.</p>
+      <RequestAccessForm />
+      <p className="mt-5 text-sm text-ink-muted">
         Already have an account? <Link href="/sign-in">Sign in</Link>
       </p>
     </main>

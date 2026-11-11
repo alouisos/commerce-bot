@@ -86,11 +86,12 @@ describe("public sign-up is closed", () => {
     expect(await db.select().from(memberships)).toHaveLength(0);
   });
 
-  it("the sign-up page says it's invite-only, rendered per request so the contact comes from the server's settings", async () => {
-    server.connection.mockClear();
-    const html = renderToStaticMarkup(await SignUpPage());
-    expect(server.connection).toHaveBeenCalled();
-    expect(html).toContain("Concierge is invite-only for now. Contact help@example.com.");
+  it("the sign-up page says it's invite-only and asks only for an email", async () => {
+    const html = renderToStaticMarkup(SignUpPage());
+    expect(html).toContain("Concierge is invite-only. Leave your email and we&#x27;ll send you an invite.");
+    expect(html).toContain('name="email"');
+    expect(html).not.toContain('name="password"');
+    expect(html).not.toContain("mailto:");
     expect(html).toContain('href="/sign-in"');
   });
 });

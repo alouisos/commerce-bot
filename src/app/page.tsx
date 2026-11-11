@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRightIcon } from "@/components/icons";
-import { PRODUCT_NAME, SIGNUP_EMAIL, signupMailto } from "@/lib/brand";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 export const metadata: Metadata = {
   title: `${PRODUCT_NAME} · a chatbot that reads the room`,
@@ -36,9 +36,9 @@ export default function Home() {
           <Link href="/sign-in" className="btn btn-ghost">
             Sign in
           </Link>
-          <a href={signupMailto} className="btn btn-primary">
+          <Link href="/sign-up" className="btn btn-primary">
             Sign up
-          </a>
+          </Link>
         </nav>
       </header>
 
@@ -53,16 +53,14 @@ export default function Home() {
               moment. Then it gets out of the way.
             </p>
             <div className="flex flex-wrap items-center gap-3">
-              <a href={signupMailto} className="btn btn-primary btn-lg">
+              <Link href="/sign-up" className="btn btn-primary btn-lg">
                 Sign up <ArrowRightIcon />
-              </a>
+              </Link>
               <Link href="/sign-in" className="btn btn-lg">
                 Sign in
               </Link>
             </div>
-            <p className="text-sm text-ink-muted">
-              Invite-only for now. To sign up, email <a href={signupMailto}>{SIGNUP_EMAIL}</a>.
-            </p>
+            <p className="text-sm text-ink-muted">Invite-only for now: sign up to request an invite.</p>
           </div>
 
           <figure className="panel demo" aria-labelledby="demo-title">
@@ -112,13 +110,12 @@ export default function Home() {
             Want it on your site?
           </h2>
           <p className="text-ink-muted">
-            Email <a href={signupMailto}>{SIGNUP_EMAIL}</a> and we&apos;ll set up your account. Works on any site,
-            WordPress included.
+            Request an invite and we&apos;ll set up your account. Works on any site, WordPress included.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <a href={signupMailto} className="btn btn-primary btn-lg">
+            <Link href="/sign-up" className="btn btn-primary btn-lg">
               Sign up
-            </a>
+            </Link>
             <Link href="/sign-in" className="btn btn-lg">
               Sign in
             </Link>
@@ -127,9 +124,7 @@ export default function Home() {
       </main>
 
       <footer className="landing-foot">
-        <span>
-          {PRODUCT_NAME} · <a href={`mailto:${SIGNUP_EMAIL}`}>{SIGNUP_EMAIL}</a>
-        </span>
+        <span>{PRODUCT_NAME}</span>
         <Link href="/bot">About our crawler, ConciergeBot</Link>
       </footer>
     </div>
