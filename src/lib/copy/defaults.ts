@@ -60,6 +60,8 @@ export const EMAIL_COPY = {
     unsubscribePrompt: "Stop receiving emails from {site}?",
     unsubscribed: "You're unsubscribed from {site}.",
     footer: "You're getting this because you asked {site} for recommendations. Unsubscribe:",
+    buyerFooter: "You're getting this because you bought from {site}. Unsubscribe:",
+    buyerFeedback: "Tell us what you think of your purchase",
   },
   el: {
     confirmSubject: "Επιβεβαιώστε το email σας για το {site}",
@@ -72,6 +74,8 @@ export const EMAIL_COPY = {
     unsubscribePrompt: "Να σταματήσετε να λαμβάνετε email από το {site};",
     unsubscribed: "Διαγραφήκατε από το {site}.",
     footer: "Λαμβάνετε αυτό το email επειδή ζητήσατε προτάσεις από το {site}. Διαγραφή:",
+    buyerFooter: "Λαμβάνετε αυτό το email επειδή αγοράσατε από το {site}. Διαγραφή:",
+    buyerFeedback: "Πείτε μας τη γνώμη σας για την αγορά σας",
   },
 } as const;
 

@@ -1,7 +1,7 @@
 // What the links in our emails do: unsubscribe, and tracked clicks back to the shop.
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, emailMessages, sites } from "@/db/schema";
+import { buyerEmails, buyers, contacts, emailMessages, sites } from "@/db/schema";
 import { isUuid } from "@/lib/widget/conversation";
 
 const TOKEN = /^[A-Za-z0-9_-]{20,100}$/;
@@ -48,14 +48,25 @@ export async function unsubscribeState(
   return { state: row.status === "unsubscribed" ? "unsubscribed" : "subscribed", siteName: row.siteName, language: row.language };
 }
 
-/** The stored link behind a tracked URL, with the contact's attribution ref; null when unknown. */
+/**
+ * The stored link behind a tracked URL, with the recipient's attribution ref; null when unknown. The id is
+ * a chat follow-up or a buyer email: both are rendered with the same tracked links.
+ */
 export async function trackClick(messageId: string, index: number, now: Date = new Date()): Promise<string | null> {
   if (!isUuid(messageId) || !Number.isInteger(index) || index < 0) return null;
-  const [row] = await db
+  const [chat] = await db
     .select({ links: emailMessages.links, ref: contacts.ref })
     .from(emailMessages)
     .innerJoin(contacts, eq(contacts.id, emailMessages.contactId))
     .where(and(eq(emailMessages.id, messageId), eq(emailMessages.status, "sent")));
+  const [buyer] = chat
+    ? []
+    : await db
+        .select({ links: buyerEmails.links, ref: buyers.ref })
+        .from(buyerEmails)
+        .innerJoin(buyers, eq(buyers.id, buyerEmails.buyerId))
+        .where(and(eq(buyerEmails.id, messageId), eq(buyerEmails.status, "sent")));
+  const row = chat ?? buyer;
   const target = row?.links[index];
   if (!target) return null;
   let url: URL;
@@ -66,13 +77,14 @@ export async function trackClick(messageId: string, index: number, now: Date = n
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
   url.searchParams.set("cc_ref", row.ref);
+  const table = chat ? emailMessages : buyerEmails;
   await db
-    .update(emailMessages)
+    .update(table)
     .set({
-      clicks: sql`${emailMessages.clicks} + 1`,
-      clickedAt: sql`coalesce(${emailMessages.clickedAt}, ${now.toISOString()}::timestamp)`,
+      clicks: sql`${table.clicks} + 1`,
+      clickedAt: sql`coalesce(${table.clickedAt}, ${now.toISOString()}::timestamp)`,
       lastClickedAt: now,
     })
-    .where(eq(emailMessages.id, messageId));
+    .where(eq(table.id, messageId));
   return url.toString();
 }

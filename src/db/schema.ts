@@ -467,6 +467,60 @@ export const buyerOrders = pgTable(
   ],
 );
 
+/**
+ * The two follow-up emails of one order. A row starts "scheduled" (not yet written) and becomes a draft or
+ * an approved email when it is due, like email_messages.
+ */
+export const buyerEmails = pgTable(
+  "buyer_emails",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    buyerId: uuid("buyer_id")
+      .notNull()
+      .references(() => buyers.id, { onDelete: "cascade" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => buyerOrders.id, { onDelete: "cascade" }),
+    /** 1: about 5 days after the order (using it); 2: about 14 days after (feedback, related products). */
+    step: integer("step").notNull(),
+    status: text("status", {
+      enum: ["scheduled", "draft", "approved", "sending", "sent", "discarded", "failed", "skipped"],
+    }).notNull(),
+    subject: text("subject").notNull().default(""),
+    body: text("body").notNull().default(""),
+    language: text("language").notNull(),
+    links: jsonb("links").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    scheduledFor: timestamp("scheduled_for").notNull(),
+    sentAt: timestamp("sent_at"),
+    providerId: text("provider_id"),
+    /** Failed writes while scheduled, then failed sends once written. */
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    clickedAt: timestamp("clicked_at"),
+    lastClickedAt: timestamp("last_clicked_at"),
+    clicks: integer("clicks").notNull().default(0),
+    /** Secret in the email's "leave feedback" link. */
+    feedbackToken: text("feedback_token")
+      .notNull()
+      .unique()
+      .$defaultFn(() => randomBytes(24).toString("base64url")),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("buyer_emails_status_scheduled_idx").on(t.status, t.scheduledFor),
+    index("buyer_emails_buyer_idx").on(t.buyerId, t.createdAt),
+    index("buyer_emails_order_idx").on(t.orderId),
+    // At most one written, unsent email per buyer: overlapping ticks can't write or send a second one.
+    uniqueIndex("buyer_emails_one_open_idx")
+      .on(t.buyerId)
+      .where(sql`${t.status} in ('draft', 'approved', 'sending')`),
+  ],
+);
+
 /** A purchase attributed to the bot. Unattributed orders are never stored. */
 export const sales = pgTable(
   "sales",
@@ -555,4 +609,7 @@ export type Contact = typeof contacts.$inferSelect;
 export type EmailMessage = typeof emailMessages.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
 export type StoreConnection = typeof storeConnections.$inferSelect;
+export type Buyer = typeof buyers.$inferSelect;
+export type BuyerOrder = typeof buyerOrders.$inferSelect;
+export type BuyerEmail = typeof buyerEmails.$inferSelect;
 export type AccountInvite = typeof accountInvites.$inferSelect;

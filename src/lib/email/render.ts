@@ -18,6 +18,12 @@ export const unsubscribePageUrl = (token: string) => `${appBaseUrl()}/e/u/${toke
 /** The List-Unsubscribe target: a POST here unsubscribes at once (RFC 8058). */
 export const oneClickUrl = (token: string) => `${appBaseUrl()}/e/u/${token}/one-click`;
 
+/** A buyer's unsubscribe page and its List-Unsubscribe target (buyer emails only; chat follow-ups are separate). */
+export const buyerUnsubscribePageUrl = (token: string) => `${appBaseUrl()}/e/b/${token}`;
+export const buyerOneClickUrl = (token: string) => `${appBaseUrl()}/e/b/${token}/one-click`;
+/** The page where a buyer rates what they bought, one per buyer email. */
+export const feedbackUrl = (token: string) => `${appBaseUrl()}/e/f/${token}`;
+
 export const trackedUrl = (messageId: string, index: number) => `${appBaseUrl()}/e/c/${messageId}/${index}`;
 
 export function renderEmail(input: {
@@ -28,6 +34,10 @@ export function renderEmail(input: {
   unsubscribeUrl: string;
   imageUrl: (id: string) => string | null;
   language: string;
+  /** Why they get this email; the follow-up wording by default. */
+  kind?: "follow-up" | "buyer";
+  /** A "leave feedback" link shown before the footer. */
+  feedbackUrl?: string;
 }): { html: string; text: string } {
   const htmlParts: string[] = [];
   const textParts: string[] = [];
@@ -76,7 +86,11 @@ export function renderEmail(input: {
   }
 
   const { copy } = emailCopyFor(input.language);
-  const footer = fillSite(copy.footer, input.siteName);
+  if (input.feedbackUrl) {
+    htmlParts.push(`<p><a href="${escapeHtml(input.feedbackUrl)}">${escapeHtml(copy.buyerFeedback)}</a></p>`);
+    textParts.push(`${copy.buyerFeedback}: ${input.feedbackUrl}`);
+  }
+  const footer = fillSite(input.kind === "buyer" ? copy.buyerFooter : copy.footer, input.siteName);
   const unsub = escapeHtml(input.unsubscribeUrl);
   htmlParts.push(
     `<p style="font-size:12px;color:#666;margin-top:32px">${escapeHtml(footer)} <a href="${unsub}">${unsub}</a></p>`,

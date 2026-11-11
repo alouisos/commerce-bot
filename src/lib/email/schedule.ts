@@ -14,6 +14,8 @@ import {
   type EmailMessage,
   type Site,
 } from "@/db/schema";
+import { draftDueBuyerEmails, sendApprovedBuyerEmails } from "@/lib/buyers/sequence";
+import { gapUntil } from "@/lib/buyers/suppression";
 import { effectiveEmailMode } from "@/lib/site-settings";
 import { countEmailSent } from "@/lib/usage/meter";
 import { appBaseUrl } from "@/lib/widget/config";
@@ -237,7 +239,7 @@ async function setStatus(id: string, patch: Partial<EmailMessage>, now: Date) {
     .where(eq(emailMessages.id, id));
 }
 
-async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "error" | null> {
+async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "deferred" | "error" | null> {
   // Claim: only one tick can move a message from approved to sending.
   const [claimed] = await db
     .update(emailMessages)
@@ -257,6 +259,12 @@ async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "err
     return "skipped";
   }
   const { contact, site, account } = row;
+  // At most one email per 7 days to an address: wait after a buyer email (the chat's own pace is its interval).
+  const until = await gapUntil(site.id, contact.email, now, ["buyer"]);
+  if (until) {
+    await setStatus(id, { status: "approved", scheduledFor: until }, now);
+    return "deferred";
+  }
   const { html, text } = renderEmail({
     body: claimed.body,
     links: claimed.links,
@@ -296,7 +304,7 @@ async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "err
   }
 }
 
-async function sendApproved(now: Date, intervalMs: number): Promise<{ sent: number; skipped: number }> {
+async function sendApproved(now: Date, intervalMs: number): Promise<{ sent: number; skipped: number; lastSend: number }> {
   const due = await db
     .select({ id: emailMessages.id })
     .from(emailMessages)
@@ -314,15 +322,19 @@ async function sendApproved(now: Date, intervalMs: number): Promise<{ sent: numb
     if (r === "sent") sent++;
     else if (r === "skipped") skipped++;
   }
-  return { sent, skipped };
+  return { sent, skipped, lastSend };
 }
 
+/** Chat follow-ups first, so buyer emails never hold them up; then buyer emails, paced after the chat sends. */
 export async function emailTick(
   now: Date = new Date(),
   opts: { callModel?: CallModel; sendIntervalMs?: number } = {},
 ): Promise<{ drafted: number; sent: number; skipped: number }> {
+  const intervalMs = opts.sendIntervalMs ?? SEND_INTERVAL_MS;
   const drafted = await draftDueEmails(now, opts.callModel);
-  const { sent, skipped } = await sendApproved(now, opts.sendIntervalMs ?? SEND_INTERVAL_MS);
-  return { drafted, sent, skipped };
+  const chat = await sendApproved(now, intervalMs);
+  const buyerDrafted = await draftDueBuyerEmails(now, opts.callModel);
+  const buyer = await sendApprovedBuyerEmails(now, intervalMs, chat.lastSend);
+  return { drafted: drafted + buyerDrafted, sent: chat.sent + buyer.sent, skipped: chat.skipped + buyer.skipped };
 }
 

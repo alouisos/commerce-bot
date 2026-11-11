@@ -47,7 +47,8 @@ export type CallModel = (system: string, input: string) => Promise<{ content: un
 
 const ZERO: TokenUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
 
-const defaultCallModel: CallModel = async (system, input) => {
+/** Claude with the subject/body JSON schema; shared by every email writer. */
+export const defaultCallModel: CallModel = async (system, input) => {
   const model = env.CHAT_MODEL;
   if (env.FAKE_MODEL) {
     return { content: { subject: "Your recommendations", body: "Hello!\n\nThanks for chatting." }, model, usage: ZERO };

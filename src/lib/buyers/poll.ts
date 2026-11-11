@@ -1,5 +1,4 @@
-// Reads each opted-in shop's new orders and records who bought what. It records only; emails are
-// scheduled from the new orders by a later step.
+// Reads each opted-in shop's new orders, records who bought what, and schedules the follow-up emails.
 import { randomBytes } from "node:crypto";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -7,6 +6,7 @@ import { accounts, buyerOrders, buyers, sites, storeConnections } from "@/db/sch
 import { getStoreCredentials, markConnectionFailing } from "@/lib/sales/connections";
 import { utc } from "@/lib/sales/verify";
 import { listOrdersSince, productUrls, WooError, type WooOrder } from "@/lib/sales/woocommerce";
+import { scheduleForOrder } from "./sequence";
 
 const LOOKBACK_MS = 24 * 3600_000;
 const token = (bytes: number) => randomBytes(bytes).toString("base64url");
@@ -93,6 +93,12 @@ export async function pollOrders(now: Date = new Date(), opts: Deps = {}): Promi
       console.error(`[buyers] poll failed for ${r.id}`, e);
     }
   }
-  // Task 13: schedule an email for each id in `created`.
+  for (const orderId of created) {
+    try {
+      await scheduleForOrder(orderId, now);
+    } catch (e) {
+      console.error(`[buyers] scheduling failed for order ${orderId}`, e);
+    }
+  }
   return created.length;
 }

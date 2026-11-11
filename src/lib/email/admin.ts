@@ -2,7 +2,7 @@
 // Callers must have checked access to the site; every query is scoped to it.
 import { and, asc, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, conversations, emailMessages, leads, promptImpressions, sales, sites } from "@/db/schema";
+import { buyers, contacts, conversations, emailMessages, leads, promptImpressions, sales, sites } from "@/db/schema";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { BODY_MAX, SUBJECT_MAX, filterLinks } from "./writer";
 
@@ -110,7 +110,8 @@ export async function discardDraft(siteId: string, id: string): Promise<void> {
 
 /**
  * Deletes everything this site holds about one email address: its leads, the conversations linked to
- * those leads or to the contact (their messages cascade), and the contact (its emails cascade).
+ * those leads or to the contact (their messages cascade), the contact (its emails cascade), and the buyer
+ * (their orders, buyer emails and feedback cascade).
  */
 export async function deletePerson(siteId: string, rawEmail: string): Promise<{ deleted: boolean }> {
   const email = rawEmail.trim().toLowerCase();
@@ -154,6 +155,10 @@ export async function deletePerson(siteId: string, rawEmail: string): Promise<{ 
     }
     if (leadRows.length) await tx.delete(leads).where(inArray(leads.id, leadRows.map((l) => l.id)));
     if (contact) await tx.delete(contacts).where(eq(contacts.id, contact.id));
-    return { deleted: !!contact || leadRows.length > 0 };
+    const buyer = await tx
+      .delete(buyers)
+      .where(and(eq(buyers.siteId, siteId), eq(buyers.email, email)))
+      .returning({ id: buyers.id });
+    return { deleted: !!contact || leadRows.length > 0 || buyer.length > 0 };
   });
 }
