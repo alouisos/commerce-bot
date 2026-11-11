@@ -5,53 +5,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { ArrowLeftIcon } from "./icons";
-
-type Item = { href: string; label: string; match: (path: string) => boolean };
-
-const SITE_SECTIONS = [
-  ["overview", "Overview"],
-  ["conversations", "Conversations"],
-  ["knowledge", "Knowledge"],
-  ["leads", "Leads"],
-  ["emails", "Emails"],
-  ["settings", "Settings"],
-  ["install", "Install"],
-] as const;
-
-const startsWith = (prefix: string) => (path: string) => path === prefix || path.startsWith(`${prefix}/`);
+import { signItems } from "./sign-stack-items";
 
 /**
  * The main navigation: a vertical stack of signboards, the current section lit. Becomes a
  * horizontally scrolling strip on narrow screens. `foot` holds account controls (sign out).
  */
-export function SignStack({ area, foot }: { area: "app" | "owner"; foot?: ReactNode }) {
+export function SignStack({ area, foot, isOwner = false }: { area: "app" | "owner"; foot?: ReactNode; isOwner?: boolean }) {
   const path = usePathname() ?? "";
   const strip = useRef<HTMLDivElement>(null);
   const siteId = area === "app" ? /^\/app\/sites\/([^/]+)/.exec(path)?.[1] : undefined;
-
-  let label: string;
-  let items: Item[];
-  let back: Item | null = null;
-  if (area === "owner") {
-    label = "Owner";
-    items = [{ href: "/owner", label: "Accounts", match: startsWith("/owner") }];
-    back = { href: "/app", label: "Admin app", match: () => false };
-  } else if (siteId) {
-    label = "This website";
-    const base = `/app/sites/${siteId}`;
-    items = SITE_SECTIONS.map(([slug, text]) => ({
-      href: `${base}/${slug}`,
-      label: text,
-      match: slug === "overview" ? (p) => p === base || startsWith(`${base}/overview`)(p) : startsWith(`${base}/${slug}`),
-    }));
-    back = { href: "/app", label: "All websites", match: () => false };
-  } else {
-    label = "Account";
-    items = [
-      { href: "/app", label: "Websites", match: (p) => p === "/app" },
-      { href: "/app/usage", label: "Usage", match: startsWith("/app/usage") },
-    ];
-  }
+  const { label, groups, back, ownerLink } = signItems(area, path, isOwner);
 
   // On the phone strip, bring the lit sign into view without moving the page.
   useEffect(() => {
@@ -81,8 +45,8 @@ export function SignStack({ area, foot }: { area: "app" | "owner"; foot?: ReactN
       )}
       <div className="rail-group">
         <span className="rail-label">{label}</span>
-        {items.map((it) => (
-          <Link key={it.href} href={it.href} className="sign" aria-current={it.match(path) ? "page" : undefined}>
+        {groups.map((it) => (
+          <Link key={it.href} href={it.href} className="sign" aria-current={it.current ? "page" : undefined}>
             {it.label}
           </Link>
         ))}
@@ -92,6 +56,11 @@ export function SignStack({ area, foot }: { area: "app" | "owner"; foot?: ReactN
         {area === "app" && siteId && (
           <Link href="/app/usage" className="sign sign-quiet">
             Usage
+          </Link>
+        )}
+        {ownerLink && (
+          <Link href="/owner" className="sign sign-quiet">
+            Owner
           </Link>
         )}
         {foot}

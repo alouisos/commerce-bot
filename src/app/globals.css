@@ -239,6 +239,10 @@ html:has(.cx) {
     background-repeat: no-repeat;
     background-position: right 0.65rem center;
   }
+  :where(.cx) option {
+    background-color: var(--g1);
+    color: var(--ink);
+  }
   :where(.cx) input[type="checkbox"],
   :where(.cx) input[type="radio"] {
     accent-color: var(--teal);
