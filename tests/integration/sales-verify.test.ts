@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, emailMessages, sales, storeConnections } from "@/db/schema";
+import { accounts, contacts, emailMessages, sales, storeConnections } from "@/db/schema";
 import { deletePerson } from "@/lib/email/admin";
 import { clearEnqueuedJobs, enqueuedJobs, JOBS, type JobData } from "@/lib/jobs";
 import { connectWooCommerce } from "@/lib/sales/connections";
@@ -256,5 +256,16 @@ describe("verifyOrder", () => {
     await deletePerson(site.id, "maria@example.com");
     const [sale] = await allSales();
     expect(sale).toMatchObject({ contactId: null, emailMessageId: null, viaEmail: true, amountMinor: 3490 });
+  });
+});
+
+describe("verifyOrder and removed customers", () => {
+  it("rejects without calling the shop or recording a sale", async () => {
+    const { site } = await setup();
+    await db.update(accounts).set({ removedAt: now }).where(eq(accounts.id, site.accountId));
+    gets = [];
+    expect(await verifyOrder(job(site.id), { now })).toBe("rejected");
+    expect(gets).toHaveLength(0);
+    expect(await allSales()).toHaveLength(0);
   });
 });

@@ -1,6 +1,6 @@
 // Every 15 minutes: write the follow-up emails that are due, then send the approved ones.
 // Every unclear case means no email.
-import { and, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   accounts,
@@ -142,6 +142,7 @@ async function draftDueEmails(now: Date, callModel: CallModel | undefined): Prom
     .where(
       and(
         eq(contacts.status, "subscribed"),
+        isNull(accounts.removedAt),
         isNotNull(contacts.sequenceConversationId),
         eq(sites.sendingDomainStatus, "verified"),
         sql`not exists (select 1 from ${emailMessages} where ${emailMessages.contactId} = ${contacts.id} and ${emailMessages.status} in ('draft', 'approved', 'sending'))`,
@@ -251,7 +252,7 @@ async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "err
     .innerJoin(sites, eq(sites.id, contacts.siteId))
     .innerJoin(accounts, eq(accounts.id, sites.accountId))
     .where(eq(contacts.id, claimed.contactId));
-  if (!row || row.contact.status !== "subscribed" || !(await canSendEmail(row.site, row.account, now))) {
+  if (!row || row.contact.status !== "subscribed" || row.account.removedAt || !(await canSendEmail(row.site, row.account, now))) {
     await setStatus(id, { status: "skipped" }, now);
     return "skipped";
   }

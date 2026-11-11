@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
-import { sites, type Site } from "@/db/schema";
+import { accounts, sites, type Site } from "@/db/schema";
 import { CRAWL_MAX_SECONDS, enqueueCrawl } from "@/lib/jobs";
 
 type CrawlState = Pick<Site, "crawlStatus" | "crawlStartedAt">;
@@ -29,6 +29,10 @@ export async function recrawlNow(siteId: string): Promise<void> {
 }
 
 export async function weeklyRecrawl(): Promise<void> {
-  const all = await db.select({ id: sites.id }).from(sites);
+  const all = await db
+    .select({ id: sites.id })
+    .from(sites)
+    .innerJoin(accounts, eq(accounts.id, sites.accountId))
+    .where(isNull(accounts.removedAt));
   for (const s of all) await enqueueCrawl(s.id);
 }

@@ -190,3 +190,15 @@ describe("recrawl", () => {
     expect(crawlStatusLabel({ crawlStatus: "done", crawlStartedAt: at(4) }, now)).toBe("done");
   });
 });
+
+describe("weeklyRecrawl and removed customers", () => {
+  it("skips a removed account's sites", async () => {
+    const { accounts: accountsTable } = await import("@/db/schema");
+    const kept = await setup();
+    const gone = await setup();
+    await db.update(accountsTable).set({ removedAt: new Date() }).where(eq(accountsTable.id, gone.accountId));
+    clearEnqueuedJobs();
+    await weeklyRecrawl();
+    expect(enqueuedJobs().map((j) => (j.data as { siteId: string }).siteId)).toEqual([kept.id]);
+  });
+});

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, emailMessages, monthlyUsage, sites } from "@/db/schema";
+import { accounts, contacts, emailMessages, monthlyUsage, sites } from "@/db/schema";
 import { setProviderForTests, type OutgoingEmail } from "@/lib/email/provider";
 import { emailTick, restartSequence } from "@/lib/email/schedule";
 import type { CallModel } from "@/lib/email/writer";
@@ -331,5 +331,20 @@ describe("restartSequence", () => {
     expect(
       await db.select().from(emailMessages).where(and(eq(emailMessages.contactId, contact.id), eq(emailMessages.status, "draft"))),
     ).toHaveLength(0);
+  });
+});
+
+describe("emailTick: removed customers", () => {
+  it("neither drafts nor sends for a removed account", async () => {
+    const { account, contact } = await setup({ plan: "growth", mode: "automatic" });
+    await db.update(accounts).set({ removedAt: new Date() }).where(eq(accounts.id, account.id));
+    expect(await tick(at(3 * H))).toEqual({ drafted: 0, sent: 0, skipped: 0 });
+    expect(modelCalls).toBe(0);
+    expect(await messagesOf(contact.id)).toHaveLength(0);
+    // An email approved before the removal is skipped, not sent.
+    await db.insert(emailMessages).values({ siteId: contact.siteId, contactId: contact.id, step: 1, status: "approved", subject: "s", body: "b", language: "en", scheduledFor: at(H) });
+    expect(await tick(at(3 * H))).toEqual({ drafted: 0, sent: 0, skipped: 1 });
+    expect(sent).toHaveLength(0);
+    expect((await messagesOf(contact.id))[0].status).toBe("skipped");
   });
 });

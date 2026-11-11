@@ -142,3 +142,15 @@ describe("InsightsSection", () => {
     expect(html).toContain("Insights appear after your bot&#x27;s first conversations. They refresh every day.");
   });
 });
+
+describe("dailyInsights and removed customers", () => {
+  it("queues nothing for a removed account's site", async () => {
+    const { accounts } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const site = await memberSite();
+    await makeConversation(site.id, { lastMessageAt: new Date() });
+    await db.update(accounts).set({ removedAt: new Date() }).where(eq(accounts.id, site.accountId));
+    expect(await dailyInsights()).toBe(0);
+    expect(enqueuedJobs().filter((j) => j.name === JOBS.generateInsights)).toHaveLength(0);
+  });
+});

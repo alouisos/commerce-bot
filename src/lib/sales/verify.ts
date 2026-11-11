@@ -1,5 +1,8 @@
 // Checking a purchase the widget saw against the shop's WooCommerce: the order exists, its key matches
 // the page the visitor was on, and it's paid (or awaiting a bank transfer). Then attribution and the amount.
+import { and, eq, isNull } from "drizzle-orm";
+import { db } from "@/db/client";
+import { accounts, sites } from "@/db/schema";
 import { stopSequence } from "@/lib/email/schedule";
 import { enqueue, JOBS, type JobData } from "@/lib/jobs";
 import { contactFor, emailAttribution, visitAttribution } from "./attribution";
@@ -21,6 +24,13 @@ export async function verifyOrder(
   opts: { now?: Date } = {},
 ): Promise<"recorded" | "unattributed" | "rejected" | "retry"> {
   const now = opts.now ?? new Date();
+  // A removed customer's bot is off: no checks, no sales recorded.
+  const [active] = await db
+    .select({ id: sites.id })
+    .from(sites)
+    .innerJoin(accounts, eq(accounts.id, sites.accountId))
+    .where(and(eq(sites.id, data.siteId), isNull(accounts.removedAt)));
+  if (!active) return "rejected";
   let creds;
   try {
     creds = await getStoreCredentials(data.siteId);

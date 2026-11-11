@@ -1,6 +1,6 @@
-import { and, desc, eq, gte, max } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, max } from "drizzle-orm";
 import { db } from "@/db/client";
-import { conversations, siteInsights, usageEvents, type SiteInsight } from "@/db/schema";
+import { accounts, conversations, sites, siteInsights, usageEvents, type SiteInsight } from "@/db/schema";
 import { enqueue, JOBS } from "@/lib/jobs";
 
 const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -15,7 +15,9 @@ export async function dailyInsights(now: Date = new Date()): Promise<number> {
   const rows = await db
     .selectDistinct({ siteId: conversations.siteId })
     .from(conversations)
-    .where(gte(conversations.lastMessageAt, new Date(now.getTime() - WINDOW_MS)));
+    .innerJoin(sites, eq(sites.id, conversations.siteId))
+    .innerJoin(accounts, eq(accounts.id, sites.accountId))
+    .where(and(gte(conversations.lastMessageAt, new Date(now.getTime() - WINDOW_MS)), isNull(accounts.removedAt)));
   for (const r of rows) await enqueueInsights(r.siteId);
   return rows.length;
 }
