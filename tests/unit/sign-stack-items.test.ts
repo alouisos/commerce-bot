@@ -24,6 +24,7 @@ describe("signItems", () => {
       "Knowledge",
       "Leads",
       "Emails",
+      "Buyers",
       "Settings",
       "Install",
     ]);

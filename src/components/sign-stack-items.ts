@@ -14,6 +14,7 @@ const SITE_SECTIONS = [
   ["knowledge", "Knowledge"],
   ["leads", "Leads"],
   ["emails", "Emails"],
+  ["buyers", "Buyers"],
   ["settings", "Settings"],
   ["install", "Install"],
 ] as const;

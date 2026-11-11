@@ -5,6 +5,7 @@ import { registrableHost, sendingDomainRecords } from "@/lib/email/domain";
 import { planStatus } from "@/lib/plans";
 import { getStoreConnectionSummary } from "@/lib/sales/connections";
 import { loadSite } from "../load-site";
+import { BuyerEmailsForm } from "./buyer-emails-form";
 import { DeleteSiteForm } from "./delete-site-form";
 import { EmailSettingsForm } from "./email-settings-form";
 import { GreetingImageForm } from "./greeting-image-form";
@@ -66,6 +67,7 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
           emailAsk: site.emailAsk,
         }}
       />
+      <BuyerEmailsForm siteId={site.id} mode={site.buyerEmails} canAutoSend={canAutoSend} />
       <SendingDomain
         siteId={site.id}
         domain={site.sendingDomain}

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { requireSiteAccess } from "@/lib/access";
+import { setBuyerEmails } from "@/lib/buyers/admin";
 import { addSendingDomain, refreshSendingDomain, removeSendingDomain } from "@/lib/email/domain";
 import { EmailNotConfiguredError } from "@/lib/email/provider";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -81,6 +82,15 @@ export async function saveEmailSettingsAction(
       emailAsk: formData.get("emailAsk") === "on",
     }),
   );
+}
+
+export async function saveBuyerEmailsAction(
+  siteId: string,
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  await authorize(siteId);
+  return run(siteId, () => setBuyerEmails(siteId, String(formData.get("buyerEmails") ?? "")));
 }
 
 export async function uploadGreetingImageAction(
