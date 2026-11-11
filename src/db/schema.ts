@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   bigint,
+  check,
   boolean,
   index,
   integer,
@@ -521,6 +522,32 @@ export const buyerEmails = pgTable(
   ],
 );
 
+/** A buyer's rating and comment on the products of one buyer email. A second submission updates the row. */
+export const buyerFeedback = pgTable(
+  "buyer_feedback",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    buyerEmailId: uuid("buyer_email_id")
+      .notNull()
+      .references(() => buyerEmails.id, { onDelete: "cascade" }),
+    /** 1 to 5. */
+    rating: integer("rating").notNull(),
+    /** Visitor-written text: never rendered as HTML. At most 2000 characters. */
+    comment: text("comment").notNull().default(""),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("buyer_feedback_email_idx").on(t.buyerEmailId),
+    index("buyer_feedback_site_idx").on(t.siteId, t.createdAt),
+    check("buyer_feedback_rating_check", sql`${t.rating} between 1 and 5`),
+    check("buyer_feedback_comment_check", sql`char_length(${t.comment}) <= 2000`),
+  ],
+);
+
 /**
  * Addresses that must never be emailed again by a site, whichever track: kept after "Delete all data"
  * and when an unsubscribed buyer is pruned. Holds a hash of the address, never the address.
@@ -631,4 +658,5 @@ export type StoreConnection = typeof storeConnections.$inferSelect;
 export type Buyer = typeof buyers.$inferSelect;
 export type BuyerOrder = typeof buyerOrders.$inferSelect;
 export type BuyerEmail = typeof buyerEmails.$inferSelect;
+export type BuyerFeedback = typeof buyerFeedback.$inferSelect;
 export type AccountInvite = typeof accountInvites.$inferSelect;

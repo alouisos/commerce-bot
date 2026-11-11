@@ -134,6 +134,13 @@
       "when": 1794419891670,
       "tag": "0018_slippery_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794420619590,
+      "tag": "0019_rare_daredevil",
+      "breakpoints": true
     }
   ]
 }
