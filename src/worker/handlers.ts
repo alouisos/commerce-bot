@@ -8,6 +8,7 @@ import { sendDailyInsightEmails } from "@/lib/insights/email";
 import { dailyInsights } from "@/lib/insights/schedule";
 import { ingestSource } from "@/lib/kb/ingest";
 import { applyRetention } from "@/lib/privacy/retention";
+import { pollOrders } from "@/lib/buyers/poll";
 import { verifyOrder } from "@/lib/sales/verify";
 import { sendUsageNotices } from "@/lib/usage/notices";
 
@@ -38,6 +39,10 @@ export const handlers: Handlers = {
   [JOBS.verifyOrder]: async (data) => {
     const out = await verifyOrder(data);
     console.log(`[sales] order ${data.orderId} on ${data.siteId}: ${out}`);
+  },
+  [JOBS.pollOrders]: async () => {
+    const n = await pollOrders();
+    if (n) console.log(`[buyers] recorded ${n} new orders`);
   },
   [JOBS.usageNotices]: async () => {
     const n = await sendUsageNotices();

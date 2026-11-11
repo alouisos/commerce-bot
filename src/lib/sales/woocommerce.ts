@@ -16,6 +16,8 @@ export type WooOrder = {
   total: string | null;
   createdGmt: string;
   billingEmail: string | null;
+  firstName: string | null;
+  items: { productId: number; name: string }[];
 };
 
 type Transport = { fetch: typeof fetch; lookup: (host: string) => Promise<string[]> };
@@ -132,6 +134,13 @@ function asOrder(v: unknown): WooOrder | null {
     total: typeof o.total === "string" ? o.total : null,
     createdGmt: o.date_created_gmt,
     billingEmail: typeof billing.email === "string" && billing.email ? billing.email : null,
+    firstName: typeof billing.first_name === "string" && billing.first_name.trim() ? billing.first_name.trim() : null,
+    items: (Array.isArray(o.line_items) ? o.line_items : []).flatMap((l: unknown) => {
+      const li = (l ?? {}) as Record<string, unknown>;
+      return typeof li.product_id === "number" && li.product_id > 0 && typeof li.name === "string" && li.name
+        ? [{ productId: li.product_id, name: li.name }]
+        : [];
+    }),
   };
 }
 
@@ -167,6 +176,46 @@ export async function fetchOrder(creds: WooCredentials, id: string): Promise<Woo
   if (res.status === 401 || res.status === 403) throw new WooError("unauthorized", "WooCommerce refused the key");
   if (res.status !== 200) throw new WooError("unavailable", `WooCommerce answered ${res.status}`);
   return asOrder(res.json);
+}
+
+function throwFor(res: WooResponse): never {
+  if (res.status === 401 || res.status === 403) throw new WooError("unauthorized", "WooCommerce refused the key");
+  if (res.status === 404) throw new WooError("no-api", "Your shop's WooCommerce REST API can't be reached any more. Reconnect WooCommerce.");
+  if (res.status >= 300 && res.status < 400) throw new WooError("redirect", "Your shop redirects to another address. Reconnect WooCommerce.");
+  throw new WooError("unavailable", `WooCommerce answered ${res.status}`);
+}
+
+const MAX_PAGES = 10;
+
+/** Paid orders created after the time, oldest first, up to 500. Throws WooError when the shop can't be asked. */
+export async function listOrdersSince(creds: WooCredentials, after: Date): Promise<WooOrder[]> {
+  const out: WooOrder[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const q = `after=${encodeURIComponent(after.toISOString())}&status=processing,completed&per_page=50&orderby=date&order=asc&page=${page}`;
+    const res = await wooGet(creds, `/orders?${q}`);
+    if (res.status !== 200 || !Array.isArray(res.json)) throwFor(res);
+    for (const v of res.json) {
+      const o = asOrder(v);
+      if (o) out.push(o);
+    }
+    if (res.json.length < 50) break;
+  }
+  return out;
+}
+
+/** The shop's address for each product that has one. */
+export async function productUrls(creds: WooCredentials, ids: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  const unique = [...new Set(ids)];
+  for (let i = 0; i < unique.length; i += 50) {
+    const chunk = unique.slice(i, i + 50);
+    const res = await wooGet(creds, `/products?include=${chunk.join(",")}&per_page=50`);
+    if (res.status !== 200 || !Array.isArray(res.json)) throwFor(res);
+    for (const p of res.json as Record<string, unknown>[]) {
+      if (typeof p?.id === "number" && typeof p.permalink === "string" && /^https?:\/\//.test(p.permalink)) out.set(p.id, p.permalink);
+    }
+  }
+  return out;
 }
 
 export async function testConnection(creds: WooCredentials): Promise<{ ok: true } | { ok: false; error: string }> {

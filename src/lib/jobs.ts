@@ -13,6 +13,7 @@ export const JOBS = {
   retention: "retention",
   verifyOrder: "verify-order",
   usageNotices: "usage-notices",
+  pollOrders: "poll-orders",
 } as const;
 
 export type JobName = (typeof JOBS)[keyof typeof JOBS];
@@ -26,6 +27,7 @@ export type JobData = {
   "daily-insights-email": Record<string, never>;
   "email-tick": Record<string, never>;
   retention: Record<string, never>;
+  "poll-orders": Record<string, never>;
   "usage-notices": Record<string, never>;
   "verify-order": {
     siteId: string;
@@ -59,6 +61,8 @@ export const QUEUE_OPTIONS: Partial<Record<JobName, Omit<Queue, "name">>> = {
   // longer than 15 minutes (up to 50 model calls plus throttled sends), so it isn't expired at pg-boss's
   // 15-minute default, which would let the next tick start beside it.
   [JOBS.emailTick]: { policy: "singleton", retryLimit: 0, expireInSeconds: 3600 },
+  // One poll at a time; a failed poll is simply repeated by the next one 30 minutes later.
+  [JOBS.pollOrders]: { policy: "singleton", retryLimit: 0, expireInSeconds: 1800 },
   // One WooCommerce request; retried with backoff while the shop is unreachable.
   [JOBS.verifyOrder]: { retryLimit: 3, retryDelay: 120, retryBackoff: true, expireInSeconds: 300 },
 };

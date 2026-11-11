@@ -15,7 +15,7 @@ const COUNTED = new Set(["processing", "completed", "on-hold"]);
 /** A pending order is looked at again after these delays, then dropped. */
 const PENDING_RECHECK_MINUTES = [30, 60, 120];
 
-function utc(gmt: string): Date {
+export function utc(gmt: string): Date {
   return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(gmt) ? gmt : `${gmt}Z`);
 }
 

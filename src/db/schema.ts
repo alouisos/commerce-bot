@@ -106,6 +106,14 @@ export const sites = pgTable("sites", {
   consentMode: text("consent_mode", { enum: ["auto", "required", "off"] })
     .notNull()
     .default("auto"),
+  /** Follow-up emails to people who bought. Orders from before it was switched on are never imported. */
+  buyerEmails: text("buyer_emails", { enum: ["off", "approval", "automatic"] })
+    .notNull()
+    .default("off"),
+  /** Set when buyerEmails is switched on. */
+  buyerEmailsSince: timestamp("buyer_emails_since"),
+  /** The last time the shop's orders were read for buyers. */
+  ordersPolledAt: timestamp("orders_polled_at"),
   createdAt: createdAt(),
 });
 
@@ -412,6 +420,52 @@ export const storeConnections = pgTable("store_connections", {
   verifiedAt: timestamp("verified_at").notNull(),
   createdAt: createdAt(),
 });
+
+/** A person who bought from the shop. Separate from contacts: they never agreed to chat emails. */
+export const buyers = pgTable(
+  "buyers",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    /** Lowercased. */
+    email: text("email").notNull(),
+    firstName: text("first_name"),
+    status: text("status", { enum: ["subscribed", "unsubscribed"] }).notNull(),
+    /** Unsubscribes; never leaves the emails we send this person. */
+    token: text("token").notNull().unique(),
+    /** The attribution reference added to links (cc_ref). */
+    ref: text("ref").notNull().unique(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("buyers_site_email_idx").on(t.siteId, t.email)],
+);
+
+/** One order of a buyer, with what was in it. */
+export const buyerOrders = pgTable(
+  "buyer_orders",
+  {
+    id: id(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    buyerId: uuid("buyer_id")
+      .notNull()
+      .references(() => buyers.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    orderedAt: timestamp("ordered_at").notNull(),
+    items: jsonb("items")
+      .$type<{ productId: number; name: string; url: string | null }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("buyer_orders_site_external_idx").on(t.siteId, t.externalId),
+    index("buyer_orders_buyer_idx").on(t.buyerId, t.orderedAt),
+  ],
+);
 
 /** A purchase attributed to the bot. Unattributed orders are never stored. */
 export const sales = pgTable(
