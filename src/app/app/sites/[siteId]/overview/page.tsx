@@ -7,6 +7,7 @@ import { getStoreConnectionSummary } from "@/lib/sales/connections";
 import { getSalesTotals, type SalesTotals } from "@/lib/stats/sales";
 import { getDailyConversations, getTopStartPages, getTotals } from "@/lib/stats/queries";
 import { parseRange } from "@/lib/stats/range";
+import { requireUser } from "@/lib/session";
 import { loadSite } from "../load-site";
 import { InsightsSection } from "./insights-section";
 import { PromptPerformance } from "./prompt-performance";
@@ -15,6 +16,7 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
   const { siteId } = await params;
   // requireUser + requireSiteAccess (404 otherwise), checked here and not only in the layout.
   const site = await loadSite(siteId);
+  const user = await requireUser();
   const query = await searchParams;
   const range = parseRange(query.range);
   const window = parseInsightWindow(query.insights) ?? "24h";
@@ -26,7 +28,7 @@ export default async function OverviewPage({ params, searchParams }: PageProps<"
     getTotals(ids, range),
     getDailyConversations(ids, range),
     getTopStartPages(ids, range),
-    InsightsSection({ siteId: site.id, window, params: { range: keep(query.range) } }),
+    InsightsSection({ siteId: site.id, window, params: { range: keep(query.range) }, userId: user.id }),
     PromptPerformance({ siteId: site.id, proactivity: site.proactivity, range }),
     getSalesTotals(ids, range),
     getStoreConnectionSummary(site.id),

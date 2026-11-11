@@ -4,11 +4,13 @@ import { db } from "@/db/client";
 import { accounts, sites } from "@/db/schema";
 import type { ReactNode } from "react";
 import { plural, relativeTime } from "@/lib/format";
-import { INSIGHT_WINDOWS, WINDOW_LABELS, type InsightWindow } from "@/lib/insights/prompt";
+import { INSIGHT_WINDOWS, WINDOW_LABELS, WINDOW_MS, type InsightWindow } from "@/lib/insights/prompt";
 import { latestInsight } from "@/lib/insights/schedule";
 import { ownerAiBlocked } from "@/lib/usage/meter";
 import { pausedKinds } from "@/lib/prompts/backoff";
 import { PROMPT_KIND_LABELS } from "./prompt-performance";
+import { insightsEmailOn } from "@/lib/insights/email";
+import { InsightsEmailToggle } from "./email-toggle";
 import { RefreshInsightsButton } from "./refresh-button";
 
 function List<T>({ title, items, render }: { title: string; items: T[]; render: (item: T) => ReactNode }) {
@@ -26,18 +28,26 @@ export async function InsightsSection({
   siteId,
   window = "24h",
   params = {},
+  userId,
+  now = new Date(),
 }: {
   siteId: string;
   window?: InsightWindow;
   /** The page's search params, kept in the window links. */
   params?: Record<string, string | undefined>;
+  /** The signed-in member; when given, the panel shows their daily-email switch. */
+  userId?: string;
+  now?: Date;
 }) {
-  const [insight, paused, [row]] = await Promise.all([
+  const [latest, paused, [row]] = await Promise.all([
     latestInsight(siteId, window),
     pausedKinds(siteId),
     db.select({ account: accounts }).from(sites).innerJoin(accounts, eq(accounts.id, sites.accountId)).where(eq(sites.id, siteId)).limit(1),
   ]);
   const blocked = row ? await ownerAiBlocked(row.account) : false;
+  const emailOn = userId && row ? await insightsEmailOn(userId, row.account.id) : null;
+  // A quiet site keeps its last insight; one older than its window isn't that window's insight.
+  const insight = latest && latest.periodTo.getTime() >= now.getTime() - WINDOW_MS[window] ? latest : null;
   const href = (w: InsightWindow) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v && k !== "insights") q.set(k, v);
@@ -56,6 +66,7 @@ export async function InsightsSection({
           ))}
         </nav>
         <RefreshInsightsButton siteId={siteId} window={window} disabled={blocked} />
+        {emailOn !== null && <InsightsEmailToggle siteId={siteId} on={emailOn} />}
       </div>
       <div className="panel-body flex flex-col gap-4">
       {blocked && (

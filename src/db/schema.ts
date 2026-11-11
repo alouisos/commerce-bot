@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -50,6 +51,10 @@ export const memberships = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role", { enum: ["owner", "admin"] }).notNull(),
+    /** Whether this member gets the daily insights email. */
+    insightsEmail: boolean("insights_email").notNull().default(true),
+    /** Secret in the email's one-click "turn off" link. */
+    insightsToken: text("insights_token").unique().$defaultFn(() => randomBytes(24).toString("base64url")),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("memberships_account_user_idx").on(t.accountId, t.userId)],

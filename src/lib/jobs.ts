@@ -8,6 +8,7 @@ export const JOBS = {
   weeklyRecrawl: "weekly-recrawl",
   generateInsights: "generate-insights",
   dailyInsights: "daily-insights",
+  dailyInsightsEmail: "daily-insights-email",
   emailTick: "email-tick",
   retention: "retention",
   verifyOrder: "verify-order",
@@ -22,6 +23,7 @@ export type JobData = {
   "weekly-recrawl": Record<string, never>;
   "generate-insights": { siteId: string; window: InsightWindow };
   "daily-insights": Record<string, never>;
+  "daily-insights-email": Record<string, never>;
   "email-tick": Record<string, never>;
   retention: Record<string, never>;
   "usage-notices": Record<string, never>;

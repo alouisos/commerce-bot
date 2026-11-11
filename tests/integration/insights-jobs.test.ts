@@ -153,6 +153,17 @@ describe("InsightsSection", () => {
     expect(day).toContain("Not enough conversations in this period");
   });
 
+  it("doesn't show an insight older than its window as that window's insight", async () => {
+    const site = await memberSite();
+    await insightAt(site.id, new Date(Date.now() - 3 * DAY), "24h");
+    const html = renderToStaticMarkup(await InsightsSection({ siteId: site.id, window: "24h" }));
+    expect(html).not.toContain("Visitors want help choosing a shampoo.");
+    expect(html).toContain("Not enough conversations in this period");
+    await insightAt(site.id, new Date(Date.now() - 3 * DAY), "7d");
+    const week = renderToStaticMarkup(await InsightsSection({ siteId: site.id, window: "7d" }));
+    expect(week).toContain("Visitors want help choosing a shampoo.");
+  });
+
   it("says insights are paused and disables Refresh when the owner budget is used up", async () => {
     const site = await memberSite();
     const { accounts } = await import("@/db/schema");
@@ -161,6 +172,13 @@ describe("InsightsSection", () => {
     const html = renderToStaticMarkup(await InsightsSection({ siteId: site.id }));
     expect(html).toContain("Insights are paused until next month: this month&#x27;s owner AI budget is used up.");
     expect(html).toMatch(/<button[^>]*disabled[^>]*>Refresh/);
+  });
+
+  it("shows the member's daily email switch", async () => {
+    const site = await memberSite();
+    const html = renderToStaticMarkup(await InsightsSection({ siteId: site.id, userId: current.user.id }));
+    expect(html).toContain("Daily email: On");
+    expect(renderToStaticMarkup(await InsightsSection({ siteId: site.id }))).not.toContain("Daily email");
   });
 
   it("explains insights before there are any", async () => {

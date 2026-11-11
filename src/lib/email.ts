@@ -2,7 +2,12 @@ import { env } from "@/lib/env";
 import { logUnsent, sendMail } from "@/lib/email/provider";
 
 /** The platform's own notifications (password reset, lead alerts), sent from EMAIL_FROM. */
-export async function sendEmail(msg: { to: string; subject: string; text: string }): Promise<void> {
+export async function sendEmail(msg: {
+  to: string;
+  subject: string;
+  text: string;
+  headers?: Record<string, string>;
+}): Promise<void> {
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
     logUnsent(msg);
     return;

@@ -4,6 +4,7 @@ import { crawlSite } from "@/lib/crawl/crawl-site";
 import { weeklyRecrawl } from "@/lib/crawl/recrawl";
 import { emailTick } from "@/lib/email/schedule";
 import { generateSiteInsights } from "@/lib/insights/generate";
+import { sendDailyInsightEmails } from "@/lib/insights/email";
 import { dailyInsights } from "@/lib/insights/schedule";
 import { ingestSource } from "@/lib/kb/ingest";
 import { applyRetention } from "@/lib/privacy/retention";
@@ -25,6 +26,10 @@ export const handlers: Handlers = {
   },
   [JOBS.dailyInsights]: async () => {
     await dailyInsights();
+  },
+  [JOBS.dailyInsightsEmail]: async () => {
+    const n = await sendDailyInsightEmails();
+    if (n) console.log(`[insights-email] sent ${n}`);
   },
   [JOBS.emailTick]: async () => {
     const out = await emailTick();

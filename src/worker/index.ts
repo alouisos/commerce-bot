@@ -12,6 +12,7 @@ async function main() {
   // Queues exist already (getBoss creates them); schedule() upserts, so this is safe on every start.
   await boss.schedule(JOBS.weeklyRecrawl, "0 3 * * 1");
   await boss.schedule(JOBS.dailyInsights, "0 4 * * *");
+  await boss.schedule(JOBS.dailyInsightsEmail, "0 6 * * *");
   await boss.schedule(JOBS.emailTick, "*/15 * * * *");
   await boss.schedule(JOBS.retention, "30 3 * * *");
   await boss.schedule(JOBS.usageNotices, "0 9 * * *");

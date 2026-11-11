@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { requireSiteAccess } from "@/lib/access";
 import { NotFoundError } from "@/lib/errors";
 import { parseInsightWindow, type InsightWindow } from "@/lib/insights/prompt";
+import { setInsightsEmail } from "@/lib/insights/email";
 import { enqueueInsights, lastInsightsAttempt } from "@/lib/insights/schedule";
 import { requireUser } from "@/lib/session";
 
@@ -31,4 +32,18 @@ export async function refreshInsightsAction(siteId: string, window: InsightWindo
   await enqueueInsights(site.id, window);
   revalidatePath(`/app/sites/${site.id}/overview`);
   return { ok: true };
+}
+
+/** Turns the daily insights email on or off for the signed-in member. */
+export async function setInsightsEmailAction(siteId: string, on: boolean): Promise<void> {
+  const user = await requireUser();
+  let site;
+  try {
+    site = await requireSiteAccess(user.id, siteId);
+  } catch (err) {
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  }
+  await setInsightsEmail(user.id, site.accountId, on);
+  revalidatePath(`/app/sites/${site.id}/overview`);
 }
