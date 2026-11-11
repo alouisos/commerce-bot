@@ -66,6 +66,9 @@ export async function InsightsSection({
           ))}
         </nav>
         <RefreshInsightsButton siteId={siteId} window={window} disabled={blocked} />
+        <Link href={`/app/sites/${siteId}/ask`} className="btn btn-sm">
+          Ask the Concierge
+        </Link>
         {emailOn !== null && <InsightsEmailToggle siteId={siteId} on={emailOn} />}
       </div>
       <div className="panel-body flex flex-col gap-4">

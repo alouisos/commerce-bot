@@ -1249,6 +1249,12 @@ html:has(.cx) {
     padding: 0.7rem 1.4rem;
     font-size: 1rem;
   }
+  /* A link-button the size of a .btn-sm button (panel heads). */
+  :where(.cx) .btn.btn-sm {
+    min-height: 1.9rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8125rem;
+  }
 
   .landing {
     display: flex;

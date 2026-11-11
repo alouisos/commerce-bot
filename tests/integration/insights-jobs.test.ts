@@ -139,6 +139,8 @@ describe("InsightsSection", () => {
     expect(html).toContain(`href="/app/sites/${site.id}/knowledge"`);
     expect(html).not.toContain("Worries before buying");
     expect(html).toContain("Refresh");
+    expect(html).toContain(`href="/app/sites/${site.id}/ask"`);
+    expect(html).toContain("Ask the Concierge");
   });
 
   it("shows only the chosen window and marks it current", async () => {

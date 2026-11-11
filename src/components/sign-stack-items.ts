@@ -9,6 +9,7 @@ export type SignItems = {
 
 const SITE_SECTIONS = [
   ["overview", "Overview"],
+  ["ask", "Ask"],
   ["conversations", "Conversations"],
   ["knowledge", "Knowledge"],
   ["leads", "Leads"],

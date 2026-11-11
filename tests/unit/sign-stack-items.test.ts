@@ -15,6 +15,21 @@ describe("signItems", () => {
     expect(r.back).toEqual({ href: "/app", label: "All websites" });
   });
 
+  it("lists the site sections in order, Ask right after Overview", () => {
+    const r = signItems("app", "/app/sites/abc/ask", false);
+    expect(r.groups.map((g) => g.label)).toEqual([
+      "Overview",
+      "Ask",
+      "Conversations",
+      "Knowledge",
+      "Leads",
+      "Emails",
+      "Settings",
+      "Install",
+    ]);
+    expect(r.groups.find((g) => g.current)).toEqual({ href: "/app/sites/abc/ask", label: "Ask", current: true });
+  });
+
   it("lights Overview on the bare site path", () => {
     expect(signItems("app", "/app/sites/abc", false).groups.find((g) => g.current)?.label).toBe("Overview");
   });
