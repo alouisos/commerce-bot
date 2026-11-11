@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
-import { buyerEmails, buyerFeedback, buyerOrders, buyers, sites, storeConnections } from "@/db/schema";
+import { buyerEmails, buyerFeedback, buyerOrders, buyers, contacts, monthlyUsage, sites, storeConnections } from "@/db/schema";
+import { monthKey } from "@/lib/usage/meter";
+import { suppress } from "@/lib/buyers/suppression";
 import { ValidationError } from "@/lib/errors";
-import { approveBuyerDraft, discardBuyerDraft, listBuyerQueue, setBuyerEmails, updateBuyerDraft } from "@/lib/buyers/admin";
+import { approveBuyerDraft, discardBuyerDraft, listBuyers, listBuyerQueue, setBuyerEmails, updateBuyerDraft } from "@/lib/buyers/admin";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeMembership, makeSite, makeUser } from "../helpers/factories";
 
@@ -18,6 +20,7 @@ vi.mock("next/navigation", async (orig) => ({
   },
 }));
 
+import SettingsPage from "@/app/app/sites/[siteId]/settings/page";
 import BuyersPage from "@/app/app/sites/[siteId]/buyers/page";
 import { approveBuyerDraftAction, discardBuyerDraftAction } from "@/app/app/sites/[siteId]/buyers/actions";
 import { saveBuyerEmailsAction } from "@/app/app/sites/[siteId]/settings/actions";
@@ -182,6 +185,46 @@ describe("Buyers page and actions", () => {
     expect(fb).toContain("4 / 5");
     expect(fb).toContain("Lovely &lt;b&gt;stuff&lt;/b&gt;");
     expect(await render(site.id, "sent")).toContain("maria@example.com");
+  });
+
+  it("tells the owner when buyer emails are paused by the owner AI budget, on the Buyers tab and in Settings", async () => {
+    const site = await setup();
+    await setBuyerEmails(site.id, "approval");
+    const renderSettings = async () =>
+      renderToStaticMarkup(await SettingsPage({ params: Promise.resolve({ siteId: site.id }) } as never));
+    const text = "Buyer emails are paused until next month: this month&#x27;s owner AI budget is used up.";
+    expect(await render(site.id)).not.toContain("paused until next month");
+    expect(await renderSettings()).not.toContain("paused until next month");
+    await db.insert(monthlyUsage).values({ accountId: site.accountId, month: monthKey(new Date()), ownerAiCostMicros: 10_000_000_000 });
+    for (const html of [await render(site.id), await render(site.id, "queue"), await renderSettings()]) {
+      expect(html).toContain(text);
+      expect(html).toContain("notice notice-warn");
+    }
+  });
+
+  it("shows Suppressed for an address that chat-unsubscribed or was erased, and Unsubscribed for the buyer's own opt-out", async () => {
+    const site = await setup();
+    await buyer(site.id, "sub@example.com");
+    const chat = await buyer(site.id, "chat@example.com");
+    const erased = await buyer(site.id, "erased@example.com");
+    const own = await buyer(site.id, "own@example.com");
+    await db.update(buyers).set({ status: "unsubscribed" }).where(eq(buyers.id, own.id));
+    await db.insert(contacts).values({
+      siteId: site.id, email: "chat@example.com", language: "en", status: "unsubscribed", consentText: "x", consentLanguage: "en",
+      consentedAt: new Date(), token: "k".repeat(43), ref: "k".repeat(22),
+    });
+    await suppress(site.id, "Erased@Example.com", "erased");
+    const status = Object.fromEntries((await listBuyers(site.id)).map((r) => [r.email, r.status]));
+    expect(status).toEqual({
+      "sub@example.com": "subscribed",
+      "chat@example.com": "suppressed",
+      "erased@example.com": "suppressed",
+      "own@example.com": "unsubscribed",
+    });
+    expect([chat.id, erased.id]).toHaveLength(2);
+    const html = await render(site.id);
+    expect(html).toContain("Suppressed");
+    expect(html).toContain("Unsubscribed");
   });
 
   it("shows the queue and approves through the action", async () => {

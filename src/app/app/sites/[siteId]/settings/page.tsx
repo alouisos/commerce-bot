@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { accounts, siteGreetings } from "@/db/schema";
 import { registrableHost, sendingDomainRecords } from "@/lib/email/domain";
 import { planStatus } from "@/lib/plans";
+import { ownerAiBlocked } from "@/lib/usage/meter";
 import { getStoreConnectionSummary } from "@/lib/sales/connections";
 import { loadSite } from "../load-site";
 import { BuyerEmailsForm } from "./buyer-emails-form";
@@ -67,7 +68,12 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
           emailAsk: site.emailAsk,
         }}
       />
-      <BuyerEmailsForm siteId={site.id} mode={site.buyerEmails} canAutoSend={canAutoSend} />
+      <BuyerEmailsForm
+        siteId={site.id}
+        mode={site.buyerEmails}
+        canAutoSend={canAutoSend}
+        paused={site.buyerEmails !== "off" && (await ownerAiBlocked(account))}
+      />
       <SendingDomain
         siteId={site.id}
         domain={site.sendingDomain}

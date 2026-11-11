@@ -295,6 +295,26 @@ describe("buyer emails in emailTick", () => {
     expect((await byStep(1))[0].status).toBe("skipped");
   });
 
+  it("an approved email is skipped when the order predates buyerEmailsSince or is over 45 days old", async () => {
+    const { site, order } = await setup({ mode: "approval", plan: "starter" });
+    await scheduleForOrder(order.id, T0);
+    await tick(day(5));
+    await db.update(buyerEmails).set({ status: "approved", scheduledFor: day(5) }).where(eq(buyerEmails.status, "draft"));
+    // Switched off and on again after the order.
+    await db.update(sites).set({ buyerEmailsSince: day(2) }).where(eq(sites.id, site.id));
+    expect(await tick(day(6))).toMatchObject({ sent: 0, skipped: 1 });
+    expect((await byStep(1))[0].status).toBe("skipped");
+    expect(sent).toHaveLength(0);
+
+    await resetDb();
+    const s2 = await setup({ mode: "approval", plan: "starter" });
+    await scheduleForOrder(s2.order.id, T0);
+    await tick(day(5));
+    await db.update(buyerEmails).set({ status: "approved", scheduledFor: day(5) }).where(eq(buyerEmails.status, "draft"));
+    expect(await tick(day(46))).toMatchObject({ sent: 0, skipped: 1 });
+    expect(sent).toHaveLength(0);
+  });
+
   it("two ticks at once send exactly once", async () => {
     const { order } = await setup();
     await scheduleForOrder(order.id, T0);
@@ -472,6 +492,22 @@ describe("deletePerson", () => {
     await confirmContact(again.token, day(1));
     expect(await isSuppressed(site.id, EMAIL)).toBe(true);
     expect((await db.select().from(emailSuppressions)).map((x) => x.reason)).toEqual(["unsubscribed"]);
+  });
+
+  it("an unsubscribed buyer who is erased stays blocked after a later confirmed chat opt-in", async () => {
+    const { site, buyer } = await setup();
+    await db.update(buyers).set({ status: "unsubscribed" }).where(eq(buyers.id, buyer.id));
+    await deletePerson(site.id, EMAIL);
+    const contact = await makeContact(site.id, { status: "pending", confirmedAt: null, consentedAt: day(1) });
+    await makeConversation(site.id, { contactId: contact.id, lastMessageAt: day(1) });
+    expect(await confirmContact(contact.token, day(1))).not.toBeNull();
+    // Chat consent is back, but the buyer-email opt-out must survive.
+    await db.delete(contacts).where(eq(contacts.siteId, site.id));
+    expect(await isSuppressed(site.id, EMAIL)).toBe(true);
+    const [b] = await db.insert(buyers).values({ siteId: site.id, email: EMAIL, status: "subscribed", token: "c".repeat(43), ref: "d".repeat(22) }).returning();
+    const o = await makeOrder(site.id, b.id, "77", day(1));
+    await scheduleForOrder(o.id, day(1));
+    expect(await rows()).toHaveLength(0);
   });
 
   it("removes the buyer with their orders and emails", async () => {

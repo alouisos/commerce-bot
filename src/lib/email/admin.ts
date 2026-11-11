@@ -2,8 +2,8 @@
 // Callers must have checked access to the site; every query is scoped to it.
 import { and, asc, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { buyers, contacts, conversations, emailMessages, leads, promptImpressions, sales, sites } from "@/db/schema";
-import { suppress } from "@/lib/buyers/suppression";
+import { buyers, contacts, conversations, emailMessages, emailSuppressions, leads, promptImpressions, sales, sites } from "@/db/schema";
+import { emailHash, suppress } from "@/lib/buyers/suppression";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { BODY_MAX, SUBJECT_MAX, filterLinks } from "./writer";
 
@@ -157,12 +157,20 @@ export async function deletePerson(siteId: string, rawEmail: string): Promise<{ 
     }
     if (leadRows.length) await tx.delete(leads).where(inArray(leads.id, leadRows.map((l) => l.id)));
     if (contact) await tx.delete(contacts).where(eq(contacts.id, contact.id));
-    // Never email this address again from this site, on either track; only a hash is kept.
-    await suppress(siteId, email, "erased", tx);
     const buyer = await tx
       .delete(buyers)
       .where(and(eq(buyers.siteId, siteId), eq(buyers.email, email)))
-      .returning({ id: buyers.id });
+      .returning({ id: buyers.id, status: buyers.status });
+    // Never email this address again from this site, on either track; only a hash is kept. A buyer who had
+    // opted out keeps an "unsubscribed" hash: a later chat opt-in lifts "erased" but not that.
+    if (buyer.some((b) => b.status === "unsubscribed")) {
+      await tx
+        .delete(emailSuppressions)
+        .where(and(eq(emailSuppressions.siteId, siteId), eq(emailSuppressions.emailHash, emailHash(email))));
+      await suppress(siteId, email, "unsubscribed", tx);
+    } else {
+      await suppress(siteId, email, "erased", tx);
+    }
     return { deleted: !!contact || leadRows.length > 0 || buyer.length > 0 };
   });
 }

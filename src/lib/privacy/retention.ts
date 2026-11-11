@@ -41,11 +41,17 @@ export async function applyRetention(now: Date = new Date()): Promise<{
   const emails = await deleted(sql`
     DELETE FROM email_messages e USING sites s
     WHERE e.site_id = s.id AND e.created_at < ${cutoff}`);
-  const contacts = await deleted(sql`
-    DELETE FROM contacts k USING sites s
-    WHERE k.site_id = s.id AND (
-      (k.status = 'unsubscribed' AND k.unsubscribed_at < ${cutoff})
-      OR (k.status = 'pending' AND k.consented_at < ${at} - make_interval(days => ${PENDING_KEEP_DAYS})))`);
+  // A pruned unsubscribed contact leaves a hash behind, so the opt-out outlives the row (buyer emails too).
+  const contacts = await db.transaction(async (tx) => {
+    const gone = (await tx.execute(sql`
+      DELETE FROM contacts k USING sites s
+      WHERE k.site_id = s.id AND (
+        (k.status = 'unsubscribed' AND k.unsubscribed_at < ${cutoff})
+        OR (k.status = 'pending' AND k.consented_at < ${at} - make_interval(days => ${PENDING_KEEP_DAYS})))
+      RETURNING k.site_id, k.email, k.status`)) as unknown as { site_id: string; email: string; status: string }[];
+    for (const k of gone) if (k.status === "unsubscribed") await suppress(k.site_id, k.email, "unsubscribed", tx);
+    return gone.length;
+  });
   const sales = await deleted(sql`
     DELETE FROM sales x USING sites s
     WHERE x.site_id = s.id AND x.ordered_at < ${cutoff}`);

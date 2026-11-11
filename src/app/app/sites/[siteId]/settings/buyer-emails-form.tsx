@@ -7,10 +7,13 @@ export function BuyerEmailsForm({
   siteId,
   mode,
   canAutoSend,
+  paused = false,
 }: {
   siteId: string;
   mode: "off" | "approval" | "automatic";
   canAutoSend: boolean;
+  /** The owner AI budget is used up: drafting is on hold until next month. */
+  paused?: boolean;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveBuyerEmailsAction.bind(null, siteId), {});
   const current = mode === "automatic" && !canAutoSend ? "approval" : mode;
@@ -21,6 +24,12 @@ export function BuyerEmailsForm({
         Emails every customer who buys, about the products they bought. It&apos;s your responsibility that customers were
         offered an opt-out at checkout; every email includes one-click unsubscribe.
       </p>
+      {paused && (
+        <p role="status" className="notice notice-warn">
+          <span className="lamp lamp-warn" aria-hidden="true" />
+          <span>Buyer emails are paused until next month: this month&apos;s owner AI budget is used up.</span>
+        </p>
+      )}
       <fieldset className="flex flex-col gap-2">
         <legend>How are buyer emails sent?</legend>
         <label className="flex items-start gap-2">

@@ -15,6 +15,7 @@ import {
   rateLimits,
   sales,
 } from "@/db/schema";
+import { scheduleForOrder } from "@/lib/buyers/sequence";
 import { emailHash, isSuppressed } from "@/lib/buyers/suppression";
 import { applyRetention } from "@/lib/privacy/retention";
 import { resetDb } from "../helpers/db";
@@ -155,6 +156,25 @@ describe("applyRetention", () => {
     expect(supp.map((x) => [x.emailHash, x.reason])).toEqual([[emailHash("unsub@example.com"), "unsubscribed"]]);
     expect(await isSuppressed(site.id, "unsub@example.com")).toBe(true);
     expect(await isSuppressed(site.id, "old@example.com")).toBe(false);
+  });
+
+  it("pruning a chat-unsubscribed contact leaves a hash, so a later order never starts buyer emails", async () => {
+    const account = await makeAccount();
+    const site = await makeSite(account.id, { buyerEmails: "automatic", buyerEmailsSince: monthsAgo(1) });
+    await contact(site.id, { email: "optout@example.com", status: "unsubscribed", unsubscribedAt: monthsAgo(25) });
+    const res = await applyRetention(now);
+    expect(res.contacts).toBe(1);
+    expect(await db.select().from(contacts)).toHaveLength(0);
+    expect((await db.select().from(emailSuppressions)).map((x) => [x.emailHash, x.reason])).toEqual([
+      [emailHash("optout@example.com"), "unsubscribed"],
+    ]);
+    const [b] = await db
+      .insert(buyers)
+      .values({ siteId: site.id, email: "optout@example.com", status: "subscribed", token: "z".repeat(43), ref: "z".repeat(22) })
+      .returning();
+    const [o] = await db.insert(buyerOrders).values({ siteId: site.id, buyerId: b.id, externalId: "9", orderedAt: daysAgo(1) }).returning();
+    await scheduleForOrder(o.id, now);
+    expect(await db.select().from(buyerEmails)).toHaveLength(0);
   });
 
   it("clears rate-limit counters older than two days", async () => {

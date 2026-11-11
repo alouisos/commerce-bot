@@ -3,7 +3,8 @@
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { accounts, buyerEmails, buyerFeedback, buyerOrders, buyers, sites, storeConnections } from "@/db/schema";
+import { accounts, buyerEmails, buyerFeedback, buyerOrders, buyers, contacts, emailSuppressions, sites, storeConnections } from "@/db/schema";
+import { emailHash } from "./suppression";
 import { BODY_MAX, SUBJECT_MAX, cleanSubject, filterLinks } from "@/lib/email/writer";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { planStatus } from "@/lib/plans";
@@ -73,7 +74,15 @@ export async function listBuyers(siteId: string) {
     .innerJoin(buyerEmails, eq(buyerEmails.id, buyerFeedback.buyerEmailId))
     .where(eq(buyerFeedback.siteId, siteId))
     .orderBy(desc(buyerFeedback.updatedAt));
+  // One query each for the site's chat opt-outs and hashes, not one isSuppressed per buyer.
+  const chatOut = new Set(
+    (await db.select({ email: contacts.email }).from(contacts).where(and(eq(contacts.siteId, siteId), eq(contacts.status, "unsubscribed")))).map((c) => c.email),
+  );
+  const hashed = new Set(
+    (await db.select({ h: emailSuppressions.emailHash }).from(emailSuppressions).where(eq(emailSuppressions.siteId, siteId))).map((x) => x.h),
+  );
   return rows.map((r) => {
+    const suppressed = r.status === "subscribed" && (chatOut.has(r.email) || hashed.has(emailHash(r.email)));
     const mine = orders.filter((o) => o.buyerId === r.id);
     const products = [...new Set(mine.flatMap((o) => o.items.map((i) => i.name)).filter(Boolean))];
     // The newest email that isn't over: what the buyer's sequence is doing now; else the newest one.
@@ -81,6 +90,7 @@ export async function listBuyers(siteId: string) {
     const current = seq.find((e) => ["scheduled", "draft", "approved", "sending"].includes(e.status)) ?? seq[0];
     return {
       ...r,
+      status: suppressed ? ("suppressed" as const) : r.status,
       orders: mine.length,
       products,
       sequence: current ? { step: current.step, status: current.status } : null,

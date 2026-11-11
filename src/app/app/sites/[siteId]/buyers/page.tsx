@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { accounts } from "@/db/schema";
+import { db } from "@/db/client";
+import { eq } from "drizzle-orm";
+import { ownerAiBlocked } from "@/lib/usage/meter";
 import { listBuyerQueue, listBuyerSent, listBuyers, listFeedback } from "@/lib/buyers/admin";
 import { loadSite } from "../load-site";
 import { BuyerDraftEditor } from "./draft-editor";
@@ -27,6 +31,8 @@ export default async function BuyersPage({ params, searchParams }: PageProps<"/a
   const { siteId } = await params;
   const site = await loadSite(siteId);
   const sp = await searchParams;
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, site.accountId));
+  const paused = site.buyerEmails !== "off" && !!account && (await ownerAiBlocked(account));
   const tab: Tab = TABS.some((t) => t.id === sp.tab) ? (sp.tab as Tab) : "buyers";
   const base = `/app/sites/${site.id}/buyers`;
   // Awaited here rather than nested as async components (renderToStaticMarkup can't suspend).
@@ -50,6 +56,7 @@ export default async function BuyersPage({ params, searchParams }: PageProps<"/a
           </span>
         </p>
       )}
+      {paused && <BuyerEmailsPaused />}
       {site.buyerEmails === "automatic" && (
         <p role="status" className="notice notice-info">
           <span className="lamp lamp-live" aria-hidden="true" />
@@ -89,6 +96,7 @@ async function BuyersList({ siteId }: { siteId: string }) {
               <td data-label="Buyer" className="break-words font-medium">
                 {r.email}
                 {r.status === "unsubscribed" && <span className="badge ml-2">Unsubscribed</span>}
+                {r.status === "suppressed" && <span className="badge ml-2">Suppressed</span>}
               </td>
               <td data-label="Orders">{r.orders}</td>
               <td data-label="Products">{r.products.join(", ") || "—"}</td>
@@ -189,5 +197,14 @@ async function Feedback({ siteId }: { siteId: string }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function BuyerEmailsPaused() {
+  return (
+    <p role="status" className="notice notice-warn">
+      <span className="lamp lamp-warn" aria-hidden="true" />
+      <span>Buyer emails are paused until next month: this month&apos;s owner AI budget is used up.</span>
+    </p>
   );
 }

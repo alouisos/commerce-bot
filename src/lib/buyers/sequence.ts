@@ -28,6 +28,10 @@ const WRITE_RETRY_MS = D;
 /** An email that couldn't be written within this long after the order (domain unverified, caps) is dropped. */
 const MAX_ORDER_AGE_MS = 45 * D;
 
+/** Only orders placed since buyer emails were (last) switched on, and not older than the age limit, get an email. */
+const isFresh = (orderedAt: Date, since: Date | null, now: Date) =>
+  !!since && orderedAt >= since && now.getTime() - orderedAt.getTime() <= MAX_ORDER_AGE_MS;
+
 /**
  * Schedules the two emails of a newly recorded order, replacing the buyer's pending sequence. Nothing for
  * a suppressed buyer, a site with buyer emails off, a removed account, or an order older than the buyer's
@@ -118,9 +122,7 @@ export async function draftDueBuyerEmails(now: Date, callModel?: CallModel): Pro
   for (const { email: row, buyer, order, site: s, account } of rows) {
     if (attempts >= MAX_WRITES_PER_TICK) break;
     const site = { ...s, account };
-    const fresh =
-      !!s.buyerEmailsSince && order.orderedAt >= s.buyerEmailsSince && now.getTime() - order.orderedAt.getTime() <= MAX_ORDER_AGE_MS;
-    if (!fresh || buyer.status !== "subscribed" || (await isSuppressed(site.id, buyer.email))) {
+    if (!isFresh(order.orderedAt, s.buyerEmailsSince, now) || buyer.status !== "subscribed" || (await isSuppressed(site.id, buyer.email))) {
       await update(row.id, { status: "skipped" }, now, "scheduled");
       continue;
     }
@@ -192,10 +194,11 @@ async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "def
   if (!claimed) return null;
 
   const [row] = await db
-    .select({ buyer: buyers, site: sites, account: accounts, store: hasStore() })
+    .select({ buyer: buyers, site: sites, account: accounts, order: buyerOrders, store: hasStore() })
     .from(buyers)
     .innerJoin(sites, eq(sites.id, buyers.siteId))
     .innerJoin(accounts, eq(accounts.id, sites.accountId))
+    .innerJoin(buyerOrders, eq(buyerOrders.id, claimed.orderId))
     .where(eq(buyers.id, claimed.buyerId));
   if (
     !row ||
@@ -203,6 +206,7 @@ async function sendOne(id: string, now: Date): Promise<"sent" | "skipped" | "def
     row.account.removedAt ||
     row.site.buyerEmails === "off" ||
     !row.store ||
+    !isFresh(row.order.orderedAt, row.site.buyerEmailsSince, now) ||
     (await isSuppressed(row.site.id, row.buyer.email)) ||
     !(await canSendEmail(row.site, row.account, now))
   ) {
