@@ -257,7 +257,7 @@ export const usageEvents = pgTable("usage_events", {
     .notNull()
     .references(() => accounts.id, { onDelete: "cascade" }),
   siteId: uuid("site_id").references(() => sites.id, { onDelete: "set null" }),
-  kind: text("kind", { enum: ["chat", "image_description", "insights", "prompt", "email"] }).notNull(),
+  kind: text("kind", { enum: ["chat", "image_description", "insights", "prompt", "email", "ask", "buyer_email"] }).notNull(),
   model: text("model").notNull(),
   inputTokens: integer("input_tokens").notNull().default(0),
   outputTokens: integer("output_tokens").notNull().default(0),
@@ -277,6 +277,8 @@ export const monthlyUsage = pgTable(
     conversations: integer("conversations").notNull().default(0),
     aiCostMicros: bigint("ai_cost_micros", { mode: "number" }).notNull().default(0),
     emails: integer("emails").notNull().default(0),
+    /** Owner-facing AI spend (insights, Ask the Concierge, buyer emails): separate from the visitor bot's budget. */
+    ownerAiCostMicros: bigint("owner_ai_cost_micros", { mode: "number" }).notNull().default(0),
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.accountId, t.month] })],

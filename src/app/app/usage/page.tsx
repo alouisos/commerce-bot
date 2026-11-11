@@ -1,8 +1,9 @@
 import { AI_LIMIT_TEXT } from "@/components/QuotaBanner";
 import { getAccountForUser } from "@/lib/accounts";
+import { planStatus } from "@/lib/plans";
 import { requireUser } from "@/lib/session";
 import { usageLevels } from "@/lib/usage/levels";
-import { getQuota } from "@/lib/usage/meter";
+import { getMonthUsage, getQuota } from "@/lib/usage/meter";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const DAY = 86_400_000;
@@ -18,7 +19,12 @@ export default async function UsagePage() {
   const user = await requireUser();
   const account = await getAccountForUser(user.id);
   const now = new Date();
-  const [quota, levels] = await Promise.all([getQuota(account, now), usageLevels(account, now)]);
+  const [quota, levels, month] = await Promise.all([
+    getQuota(account, now),
+    usageLevels(account, now),
+    getMonthUsage(account.id, now),
+  ]);
+  const ownerCeilingMicros = planStatus(account, now).limits.ownerAiCeilingMicros;
   const mb = (b: number) => `${Math.round(b / (1024 * 1024)).toLocaleString("en")} MB`;
   const planName = quota.plan.charAt(0).toUpperCase() + quota.plan.slice(1);
   const pct = Math.min(100, Math.floor((quota.used / quota.limit) * 100));
@@ -99,6 +105,10 @@ export default async function UsagePage() {
         <div className="panel-body flex flex-col gap-2">
           <p>
             AI usage this month: {usd.format(quota.aiCostMicros / 1e6)} of {usd.format(quota.aiCostCeilingMicros / 1e6)}
+          </p>
+          <p>
+            Owner AI (insights, Ask the Concierge, buyer emails): {usd.format(month.ownerAiCostMicros / 1e6)} of{" "}
+            {usd.format(ownerCeilingMicros / 1e6)}
           </p>
           {quota.aiBudgetReached && (
             <p role="alert" className="text-sm text-danger">

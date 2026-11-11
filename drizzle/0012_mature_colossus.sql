@@ -1,0 +1,1 @@
+ALTER TABLE "monthly_usage" ADD COLUMN "owner_ai_cost_micros" bigint DEFAULT 0 NOT NULL;

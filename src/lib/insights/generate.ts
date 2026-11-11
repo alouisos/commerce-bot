@@ -4,7 +4,7 @@ import { accounts, conversations, messages, siteInsights, sites, type SiteInsigh
 import { getAnthropic } from "@/lib/ai/anthropic";
 import { meteredModel, type TokenUsage } from "@/lib/ai/pricing";
 import { env } from "@/lib/env";
-import { aiBlocked, getQuota, recordModelUsage } from "@/lib/usage/meter";
+import { ownerAiBlocked, recordModelUsage } from "@/lib/usage/meter";
 import {
   buildInsightsInput,
   INSIGHTS_JSON_SCHEMA,
@@ -93,7 +93,7 @@ export async function generateSiteInsights(
     .limit(MAX_CONVERSATIONS);
   if (recent.length === 0) return { status: "skipped", reason: "no-conversations" };
 
-  if (aiBlocked(await getQuota(account, now))) return { status: "skipped", reason: "ai-blocked" };
+  if (await ownerAiBlocked(account, now)) return { status: "skipped", reason: "ai-blocked" };
 
   const [[latestInsight], [{ lastMessage }]] = await Promise.all([
     db

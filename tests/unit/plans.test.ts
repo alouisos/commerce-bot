@@ -7,9 +7,9 @@ describe("plans", () => {
     expect(PLAN_LIMITS.starter).toMatchObject({ websites: 1, conversationsPerMonth: 500, emailsPerMonth: 1000, storageBytes: 100 * 1024 ** 2, admins: 2, autoSendEmails: false, removeBadge: false });
     expect(PLAN_LIMITS.growth).toMatchObject({ websites: 3, conversationsPerMonth: 2000, emailsPerMonth: 5000, storageBytes: 1024 ** 3, admins: 5, autoSendEmails: true, removeBadge: true });
     expect(PLAN_LIMITS.pro).toMatchObject({ websites: 10, conversationsPerMonth: 10000, emailsPerMonth: 25000, storageBytes: 5 * 1024 ** 3, admins: null });
-    // Trial has Growth limits except its AI cost ceiling, which is lower (10 USD vs 70 USD).
-    const { aiCostCeilingMicros: trialCeiling, ...trialRest } = PLAN_LIMITS.trial;
-    const { aiCostCeilingMicros: growthCeiling, ...growthRest } = PLAN_LIMITS.growth;
+    // Trial has Growth limits except its AI cost ceilings, which is lower (10 USD vs 70 USD).
+    const { aiCostCeilingMicros: trialCeiling, ...trialRest } = { ...PLAN_LIMITS.trial, ownerAiCeilingMicros: 0 };
+    const { aiCostCeilingMicros: growthCeiling, ...growthRest } = { ...PLAN_LIMITS.growth, ownerAiCeilingMicros: 0 };
     expect(trialRest).toEqual(growthRest);
     expect([trialCeiling, growthCeiling]).toEqual([10_000_000, 70_000_000]);
     expect(PLAN_LIMITS.complimentary).toEqual(PLAN_LIMITS.pro);
@@ -47,5 +47,11 @@ describe("plans", () => {
     expect(
       planStatus({ plan: "starter", trialEndsAt: null, limitOverrides: { websites: undefined } }, now).limits.websites,
     ).toBe(1);
+  });
+  it("owner AI ceilings per plan", () => {
+    const usd = 1_000_000;
+    expect(
+      (["trial", "starter", "growth", "pro", "complimentary"] as const).map((p) => PLAN_LIMITS[p].ownerAiCeilingMicros),
+    ).toEqual([2 * usd, 5 * usd, 15 * usd, 40 * usd, 40 * usd]);
   });
 });

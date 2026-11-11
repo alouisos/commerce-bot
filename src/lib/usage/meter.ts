@@ -34,16 +34,21 @@ export async function countEmailSent(accountId: string, now: Date = new Date()):
   return row.emails;
 }
 
+/** Model calls made for the owner (not visitors): metered to the owner AI budget, never to `aiCostMicros`. */
+export const OWNER_KINDS = ["insights", "ask", "buyer_email"] as const;
+type OwnerKind = (typeof OWNER_KINDS)[number];
+
 export async function recordModelUsage(input: {
   accountId: string;
   siteId: string | null;
-  kind: "chat" | "image_description" | "insights" | "prompt" | "email";
+  kind: "chat" | "image_description" | "prompt" | "email" | OwnerKind;
   model: string;
   usage: TokenUsage;
   now?: Date;
 }): Promise<void> {
   const cost = costMicros(input.model, input.usage);
   const month = monthKey(input.now ?? new Date());
+  const owner = (OWNER_KINDS as readonly string[]).includes(input.kind);
   await db.transaction(async (tx) => {
     await tx.insert(usageEvents).values({
       accountId: input.accountId,
@@ -58,10 +63,16 @@ export async function recordModelUsage(input: {
     });
     await tx
       .insert(monthlyUsage)
-      .values({ accountId: input.accountId, month, aiCostMicros: cost })
+      .values({
+        accountId: input.accountId,
+        month,
+        ...(owner ? { ownerAiCostMicros: cost } : { aiCostMicros: cost }),
+      })
       .onConflictDoUpdate({
         target: [monthlyUsage.accountId, monthlyUsage.month],
-        set: { aiCostMicros: sql`${monthlyUsage.aiCostMicros} + ${cost}` },
+        set: owner
+          ? { ownerAiCostMicros: sql`${monthlyUsage.ownerAiCostMicros} + ${cost}` }
+          : { aiCostMicros: sql`${monthlyUsage.aiCostMicros} + ${cost}` },
       });
   });
 }
@@ -69,16 +80,17 @@ export async function recordModelUsage(input: {
 export async function getMonthUsage(
   accountId: string,
   now: Date = new Date(),
-): Promise<{ conversations: number; aiCostMicros: number; emails: number }> {
+): Promise<{ conversations: number; aiCostMicros: number; ownerAiCostMicros: number; emails: number }> {
   const [row] = await db
     .select({
       conversations: monthlyUsage.conversations,
       aiCostMicros: monthlyUsage.aiCostMicros,
+      ownerAiCostMicros: monthlyUsage.ownerAiCostMicros,
       emails: monthlyUsage.emails,
     })
     .from(monthlyUsage)
     .where(and(eq(monthlyUsage.accountId, accountId), eq(monthlyUsage.month, monthKey(now))));
-  return row ?? { conversations: 0, aiCostMicros: 0, emails: 0 };
+  return row ?? { conversations: 0, aiCostMicros: 0, ownerAiCostMicros: 0, emails: 0 };
 }
 
 export type Quota = {
@@ -113,4 +125,12 @@ export async function getQuota(account: Account, now: Date = new Date()): Promis
 /** True when the bot must not call the model this month: trial over, conversation ceiling, or AI budget spent. */
 export function aiBlocked(q: Quota): boolean {
   return q.expired || q.state === "ceiling" || q.aiBudgetReached;
+}
+
+/** True when owner-facing AI (insights, Ask, buyer emails) must not run: trial over or this month's owner budget spent. */
+export async function ownerAiBlocked(account: Account, now: Date = new Date()): Promise<boolean> {
+  const status = planStatus(account, now);
+  if (status.expired) return true;
+  const { ownerAiCostMicros } = await getMonthUsage(account.id, now);
+  return ownerAiCostMicros >= status.limits.ownerAiCeilingMicros;
 }

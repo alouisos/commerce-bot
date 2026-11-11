@@ -4,7 +4,17 @@ import { db } from "@/db/client";
 import { monthlyUsage } from "@/db/schema";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeSite } from "../helpers/factories";
-import { countConversation, countEmailSent, getMonthUsage, getQuota, monthKey, recordModelUsage } from "@/lib/usage/meter";
+import {
+  aiBlocked,
+  countConversation,
+  countEmailSent,
+  getMonthUsage,
+  getQuota,
+  monthKey,
+  OWNER_KINDS,
+  ownerAiBlocked,
+  recordModelUsage,
+} from "@/lib/usage/meter";
 import { costMicros } from "@/lib/ai/pricing";
 
 beforeEach(async () => {
@@ -70,5 +80,46 @@ describe("metering", () => {
     expect(await countEmailSent(a.id, nov)).toBe(2);
     expect(await countEmailSent(a.id, dec)).toBe(1);
     expect(await getMonthUsage(a.id, nov)).toMatchObject({ emails: 2, conversations: 0 });
+  });
+  describe("owner AI budget", () => {
+    const usage = { inputTokens: 1000, outputTokens: 500, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    it("lists the owner kinds", () => {
+      expect([...OWNER_KINDS]).toEqual(["insights", "ask", "buyer_email"]);
+    });
+    it("meters owner kinds to ownerAiCostMicros, never to the visitor budget", async () => {
+      const a = await makeAccount({ plan: "starter" });
+      const s = await makeSite(a.id);
+      const cost = costMicros("claude-opus-5-5", usage);
+      for (const kind of OWNER_KINDS) {
+        await recordModelUsage({ accountId: a.id, siteId: s.id, kind, model: "claude-opus-5-5", usage, now: nov });
+      }
+      expect(await getMonthUsage(a.id, nov)).toMatchObject({ aiCostMicros: 0, ownerAiCostMicros: 3 * cost });
+    });
+    it("still meters chat to aiCostMicros", async () => {
+      const a = await makeAccount({ plan: "starter" });
+      await recordModelUsage({ accountId: a.id, siteId: null, kind: "chat", model: "claude-opus-5-5", usage, now: nov });
+      expect(await getMonthUsage(a.id, nov)).toMatchObject({
+        aiCostMicros: costMicros("claude-opus-5-5", usage),
+        ownerAiCostMicros: 0,
+      });
+    });
+    it("owner spend past the visitor ceiling leaves the bot on AI", async () => {
+      const a = await makeAccount({ plan: "starter" });
+      await db.insert(monthlyUsage).values({ accountId: a.id, month: monthKey(nov), ownerAiCostMicros: 500_000_000 });
+      expect(aiBlocked(await getQuota(a, nov))).toBe(false);
+      expect(await ownerAiBlocked(a, nov)).toBe(true);
+    });
+    it("ownerAiBlocked flips at the plan's owner ceiling and resets next month", async () => {
+      const a = await makeAccount({ plan: "starter" });
+      await db.insert(monthlyUsage).values({ accountId: a.id, month: monthKey(nov), ownerAiCostMicros: 4_999_999 });
+      expect(await ownerAiBlocked(a, nov)).toBe(false);
+      await db.update(monthlyUsage).set({ ownerAiCostMicros: 5_000_000 }).where(eq(monthlyUsage.accountId, a.id));
+      expect(await ownerAiBlocked(a, nov)).toBe(true);
+      expect(await ownerAiBlocked(a, dec)).toBe(false);
+    });
+    it("ownerAiBlocked is true for an expired trial", async () => {
+      const a = await makeAccount({ plan: "trial", trialEndsAt: new Date("2026-11-01T00:00:00Z") });
+      expect(await ownerAiBlocked(a, nov)).toBe(true);
+    });
   });
 });
