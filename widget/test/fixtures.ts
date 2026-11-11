@@ -8,6 +8,7 @@ export const config: WidgetConfig = {
   corner: "bottom-right",
   language: "en",
   greeting: { message: "Hi, ask me anything", imageUrl: null },
+  iconUrl: null,
   strings: {
     disclosure: "You are chatting with an AI assistant.",
     fallback: "We cannot answer right now. Leave your email.",

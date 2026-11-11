@@ -10,16 +10,17 @@ export function GreetingImageForm({ siteId, hasImage, version }: { siteId: strin
   );
   return (
     <section className="card">
-      <h2>Greeting image</h2>
+      <h2>Concierge icon image</h2>
+      <p>Shown as the round chat button on your website. Square images work best.</p>
       {hasImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`/app/sites/${siteId}/settings/greeting-image?v=${encodeURIComponent(version)}`}
-          alt="Greeting image preview"
+          alt="Concierge icon preview"
           className="max-h-40 w-fit border"
         />
       ) : (
-        <p>No greeting image yet.</p>
+        <p>No icon image yet.</p>
       )}
       <form action={action} className="flex flex-col gap-2">
         <label className="flex flex-col gap-1">

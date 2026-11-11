@@ -232,7 +232,7 @@ export function App({
       {teaser && !open && (
         <Teaser
           message={config.greeting.message}
-          imageUrl={config.greeting.imageUrl}
+          imageUrl={null}
           closeLabel={strings.close}
           onOpen={openPanel}
           onDismiss={() => setTeaser(false)}
@@ -269,6 +269,7 @@ export function App({
         expanded={open}
         onClick={() => (open ? closePanel() : openPanel())}
         buttonRef={launcherRef}
+        iconUrl={config.iconUrl}
       />
     </div>
   );

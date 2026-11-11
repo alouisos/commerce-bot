@@ -67,6 +67,8 @@ export type WidgetConfig = {
   corner: "bottom-right" | "bottom-left";
   language: string;
   greeting: { message: string; imageUrl: string | null };
+  /** The round launcher button's image (the site's uploaded image), or null for the default glyph. */
+  iconUrl: string | null;
   strings: WidgetStrings;
   showBadge: boolean;
   mode: "ai" | "fallback";

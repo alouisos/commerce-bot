@@ -59,7 +59,7 @@ export async function buildWidgetConfig(
   const mode = aiBlocked(quota) ? "fallback" : "ai";
 
   const message = greetings.find((g) => g.language.toLowerCase() === language)?.message ?? defaultGreeting;
-  const imageUrl = site.greetingImageKey
+  const iconUrl = site.greetingImageKey
     ? `${appBaseUrl()}/api/widget/greeting-image?key=${encodeURIComponent(site.publicKey)}&v=${greetingImageVersion(site.greetingImageKey)}`
     : null;
 
@@ -71,7 +71,8 @@ export async function buildWidgetConfig(
     accentColor: site.accentColor,
     corner: site.corner,
     language,
-    greeting: { message, imageUrl },
+    greeting: { message, imageUrl: null },
+    iconUrl,
     strings: { ...(strings as WidgetStrings), consentFine: fillSite(strings.consentFine, site.name) },
     showBadge: !status.limits.removeBadge,
     mode,

@@ -29,6 +29,7 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 .launcher svg { width: 28px; height: 28px; fill: currentColor; }
+.launcher img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .right .launcher { right: 20px; }
 .left .launcher { left: 20px; }
 

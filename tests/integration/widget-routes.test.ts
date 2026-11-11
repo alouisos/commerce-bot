@@ -157,7 +157,8 @@ describe("config", () => {
   it("greeting image url carries a version hash", async () => {
     const { site } = await setup("starter", { greetingImageKey: "sites/x/greeting/a.png" });
     const cfg = (await (await configGET(get(`/api/widget/config?key=${site.publicKey}`, ORIGIN))).json()) as WidgetConfig;
-    expect(cfg.greeting.imageUrl).toMatch(
+    expect(cfg.greeting.imageUrl).toBeNull();
+    expect(cfg.iconUrl).toMatch(
       new RegExp(`^http://localhost:3000/api/widget/greeting-image\\?key=${site.publicKey}&v=[0-9a-f]{8}$`),
     );
   });
