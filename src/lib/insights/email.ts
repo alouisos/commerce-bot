@@ -2,8 +2,11 @@ import { and, desc, eq, gte, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { accounts, memberships, sites, siteInsights, user } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import { filterLinks } from "@/lib/email/writer";
+import { redactEmails } from "@/lib/privacy/redact";
 import { appBaseUrl } from "@/lib/widget/config";
 import { WINDOW_MS, type InsightsContent } from "./prompt";
+import { isInsightFresh } from "./schedule";
 
 export const INSIGHTS_EMAIL_SUBJECT = "Milian Jo: what visitors asked in the last 24 hours";
 
@@ -16,7 +19,23 @@ function section(title: string, lines: string[]): string[] {
   return lines.length ? ["", `${title}:`, ...lines.map((l) => `- ${l}`)] : [];
 }
 
-function bodyText(site: { id: string; name: string }, content: InsightsContent, token: string): string {
+type EmailSite = { id: string; name: string; baseUrl: string; allowedOrigins: string[] };
+
+/**
+ * Model-written text goes out only after code has removed visitor addresses and any link that isn't on the
+ * shop's own hosts (a markdown link keeps its text; a bare off-site URL is dropped).
+ */
+const clean = (site: EmailSite, text: string) => filterLinks(redactEmails(text), site).body;
+
+function bodyText(site: EmailSite, raw: InsightsContent, token: string): string {
+  const c = (t: string) => clean(site, t);
+  const content: InsightsContent = {
+    summary: c(raw.summary),
+    topQuestions: raw.topQuestions.map((q) => ({ topic: c(q.topic), detail: c(q.detail) })),
+    knowledgeGaps: raw.knowledgeGaps.map((g) => ({ question: c(g.question), suggestion: c(g.suggestion) })),
+    objections: raw.objections.map((o) => ({ concern: c(o.concern), detail: c(o.detail) })),
+    curiousProducts: raw.curiousProducts.map((p) => ({ product: c(p.product), note: c(p.note) })),
+  };
   const base = `${appBaseUrl()}/app/sites/${site.id}`;
   return [
     `What visitors asked ${site.name} in the last 24 hours`,
@@ -42,17 +61,18 @@ function bodyText(site: { id: string; name: string }, content: InsightsContent, 
 export async function sendDailyInsightEmails(now: Date = new Date(), send: Send = sendEmail): Promise<number> {
   const since = new Date(now.getTime() - WINDOW_MS["24h"]);
   const rows = await db
-    .select({ siteId: sites.id, siteName: sites.name, accountId: sites.accountId, content: siteInsights.content })
+    .select({ siteId: sites.id, siteName: sites.name, baseUrl: sites.baseUrl, allowedOrigins: sites.allowedOrigins, accountId: sites.accountId, periodTo: siteInsights.periodTo, content: siteInsights.content })
     .from(siteInsights)
     .innerJoin(sites, eq(sites.id, siteInsights.siteId))
     .innerJoin(accounts, eq(accounts.id, sites.accountId))
-    .where(and(eq(siteInsights.window, "24h"), gte(siteInsights.createdAt, since), isNull(accounts.removedAt)))
+    .where(and(eq(siteInsights.window, "24h"), gte(siteInsights.periodTo, since), isNull(accounts.removedAt)))
     .orderBy(desc(siteInsights.createdAt));
   const seen = new Set<string>();
   let sent = 0;
   for (const r of rows) {
     if (seen.has(r.siteId)) continue; // newest insight per site
     seen.add(r.siteId);
+    if (!isInsightFresh(r, "24h", now)) continue;
     const members = await db
       .select({ email: user.email, token: memberships.insightsToken })
       .from(memberships)
@@ -64,7 +84,7 @@ export async function sendDailyInsightEmails(now: Date = new Date(), send: Send 
         await send({
           to: m.email,
           subject: INSIGHTS_EMAIL_SUBJECT,
-          text: bodyText({ id: r.siteId, name: r.siteName }, r.content, m.token),
+          text: bodyText({ id: r.siteId, name: r.siteName, baseUrl: r.baseUrl, allowedOrigins: r.allowedOrigins }, r.content, m.token),
           headers: {
             "List-Unsubscribe": `<${insightsOffUrl(m.token)}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",

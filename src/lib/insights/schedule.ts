@@ -21,6 +21,11 @@ export async function dailyInsights(now: Date = new Date()): Promise<number> {
   return rows.length;
 }
 
+/** Whether an insight still describes its window: a quiet site keeps old insights, which must not pass for current ones. */
+export function isInsightFresh(insight: { periodTo: Date }, window: InsightWindow, now: Date): boolean {
+  return insight.periodTo.getTime() >= now.getTime() - WINDOW_MS[window];
+}
+
 /** The site's newest insight for a window, if any. Callers must have checked access to the site. */
 export async function latestInsight(siteId: string, window: InsightWindow): Promise<SiteInsight | null> {
   const [row] = await db

@@ -4,8 +4,8 @@ import { db } from "@/db/client";
 import { accounts, sites } from "@/db/schema";
 import type { ReactNode } from "react";
 import { plural, relativeTime } from "@/lib/format";
-import { INSIGHT_WINDOWS, WINDOW_LABELS, WINDOW_MS, type InsightWindow } from "@/lib/insights/prompt";
-import { latestInsight } from "@/lib/insights/schedule";
+import { INSIGHT_WINDOWS, WINDOW_LABELS, type InsightWindow } from "@/lib/insights/prompt";
+import { isInsightFresh, latestInsight } from "@/lib/insights/schedule";
 import { ownerAiBlocked } from "@/lib/usage/meter";
 import { pausedKinds } from "@/lib/prompts/backoff";
 import { PROMPT_KIND_LABELS } from "./prompt-performance";
@@ -47,7 +47,7 @@ export async function InsightsSection({
   const blocked = row ? await ownerAiBlocked(row.account) : false;
   const emailOn = userId && row ? await insightsEmailOn(userId, row.account.id) : null;
   // A quiet site keeps its last insight; one older than its window isn't that window's insight.
-  const insight = latest && latest.periodTo.getTime() >= now.getTime() - WINDOW_MS[window] ? latest : null;
+  const insight = latest && isInsightFresh(latest, window, now) ? latest : null;
   const href = (w: InsightWindow) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v && k !== "insights") q.set(k, v);

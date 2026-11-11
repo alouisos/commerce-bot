@@ -12,6 +12,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 import { sendDailyInsightEmails, setInsightsEmail } from "@/lib/insights/email";
 import { setInsightsEmailAction } from "@/app/app/sites/[siteId]/overview/actions";
 import { GET, POST } from "@/app/e/i/[token]/route";
+import { isInsightFresh } from "@/lib/insights/schedule";
 import { JOBS } from "@/lib/jobs";
 import { handlers } from "@/worker/handlers";
 
@@ -35,6 +36,18 @@ async function insightAt(siteId: string, createdAt: Date) {
       objections: [{ concern: "Price", detail: "Seems high" }],
       curiousProducts: [{ product: "Argan oil", note: "Asked twice" }],
     },
+  });
+}
+
+async function insightWith(siteId: string, content: Record<string, unknown>) {
+  await db.insert(siteInsights).values({
+    siteId,
+    window: "24h",
+    periodFrom: new Date(Date.now() - 25 * HOUR),
+    periodTo: new Date(Date.now() - HOUR),
+    conversationCount: 2,
+    model: "claude-opus-5-5",
+    content: { summary: "", topQuestions: [], knowledgeGaps: [], objections: [], curiousProducts: [], ...content },
   });
 }
 
@@ -82,6 +95,23 @@ describe("sendDailyInsightEmails", () => {
     expect(m.text).not.toContain("off@example.com");
   });
 
+  it("removes visitor addresses and off-site links from the AI text, keeping the shop's own", async () => {
+    const { site } = await setup();
+    await insightWith(site.id, {
+      summary: "Bob (bob@x.com) asked; see http://evil.test/x and https://example.com/shipping for details.",
+      knowledgeGaps: [{ question: "Can carol@shop.org order?", suggestion: "Add [a page](https://evil.test/p) to Knowledge" }],
+    });
+    const { sent, send } = collector();
+    await sendDailyInsightEmails(new Date(), send);
+    const text = sent[0].text;
+    expect(text).not.toContain("bob@x.com");
+    expect(text).not.toContain("carol@shop.org");
+    expect(text).not.toContain("evil.test");
+    expect(text).toContain("[email]");
+    expect(text).toContain("https://example.com/shipping");
+    expect(text).toContain("Add a page to Knowledge");
+  });
+
   it("sends nothing without an insight from the last 24 hours", async () => {
     const { site } = await setup();
     await insightAt(site.id, new Date(Date.now() - 30 * HOUR));
@@ -119,6 +149,24 @@ describe("sendDailyInsightEmails", () => {
   });
 });
 
+describe("isInsightFresh", () => {
+  const now = new Date("2026-11-11T06:00:00Z");
+  it("is fresh exactly at the window edge and stale 1 ms older", () => {
+    const edge = new Date(now.getTime() - 24 * HOUR);
+    expect(isInsightFresh({ periodTo: edge }, "24h", now)).toBe(true);
+    expect(isInsightFresh({ periodTo: new Date(edge.getTime() - 1) }, "24h", now)).toBe(false);
+    expect(isInsightFresh({ periodTo: new Date(now.getTime() - 7 * 24 * HOUR) }, "7d", now)).toBe(true);
+    expect(isInsightFresh({ periodTo: new Date(now.getTime() - 7 * 24 * HOUR - 1) }, "7d", now)).toBe(false);
+  });
+  it("the email skips an insight whose period ended more than 24 hours ago", async () => {
+    const { site } = await setup();
+    await insightAt(site.id, new Date(Date.now() - 25 * HOUR));
+    const { sent, send } = collector();
+    expect(await sendDailyInsightEmails(new Date(), send)).toBe(0);
+    expect(sent).toHaveLength(0);
+  });
+});
+
 describe("turning the email off", () => {
   it("GET /e/i/<token> turns it off, and an unknown token changes nothing", async () => {
     const { onM } = await setup();
@@ -147,6 +195,22 @@ describe("turning the email off", () => {
 });
 
 describe("setInsightsEmail and its action", () => {
+  it("is a 404 for a non-member and changes nothing", async () => {
+    const { account, site } = await setup();
+    const stranger = await makeUser();
+    current.user = { id: stranger.id, email: stranger.email, emailVerified: true };
+    let digest: string | undefined;
+    try {
+      await setInsightsEmailAction(site.id, false);
+    } catch (e) {
+      digest = (e as { digest?: string }).digest;
+    }
+    expect(digest).toBe("NEXT_HTTP_ERROR_FALLBACK;404");
+    const rows = await db.select().from(memberships).where(eq(memberships.accountId, account.id));
+    expect(rows.find((r) => r.insightsEmail)).toBeTruthy();
+    expect(rows.filter((r) => r.insightsEmail)).toHaveLength(1);
+  });
+
   it("switches the member's own setting only", async () => {
     const { account, site, on, off } = await setup();
     current.user = { id: on.id, email: on.email, emailVerified: true };
