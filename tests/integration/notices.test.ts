@@ -96,6 +96,13 @@ describe("usage notices", () => {
     expect(mail.sent.filter((m) => m.to === "admin@example.com" && m.subject.startsWith("[Concierge admin]"))).toHaveLength(1);
   });
 
+  it("a limit of 0 emails sends no email warnings", async () => {
+    const { account } = await customer();
+    await setAccountLimits(account.id, { emailsPerMonth: 0 });
+    expect(await run(NOV)).toBe(0);
+    expect(await run(DEC)).toBe(0);
+  });
+
   it("complimentary accounts aren't warned about conversations", async () => {
     const { account } = await customer({ plan: "complimentary" });
     await conversations(account.id, 9000, NOV);

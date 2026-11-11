@@ -3,6 +3,7 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { isBlockedAddress } from "@/lib/crawl/ssrf";
+import { allowedPort, safeFetch } from "@/lib/net/safe-connect";
 import { env } from "@/lib/env";
 
 export type WooCredentials = { storeUrl: string; consumerKey: string; consumerSecret: string };
@@ -20,7 +21,9 @@ export type WooOrder = {
 type Transport = { fetch: typeof fetch; lookup: (host: string) => Promise<string[]> };
 
 const realTransport: Transport = {
-  fetch: (...args) => fetch(...args),
+  // The address is checked again in the socket's own lookup, so DNS rebinding can't redirect the key.
+  fetch: ((url: string, init?: RequestInit) =>
+    env.CRAWL_ALLOW_PRIVATE_HOSTS ? fetch(url, init) : safeFetch(url, init as never)) as typeof fetch,
   lookup: async (host) => (await dnsLookup(host, { all: true })).map((a) => a.address),
 };
 let transport: Transport = realTransport;
@@ -75,6 +78,7 @@ export async function wooGet(creds: WooCredentials, path: string): Promise<WooRe
     return { status: 0, json: null, location: null };
   }
   if (url.protocol !== "https:" && !env.CRAWL_ALLOW_PRIVATE_HOSTS) return { status: 0, json: null, location: null };
+  if (!env.CRAWL_ALLOW_PRIVATE_HOSTS && !allowedPort(url)) return { status: 0, json: null, location: null };
   if (!(await publicHost(url))) return { status: 0, json: null, location: null };
 
   const attempt = async (withQuery: boolean): Promise<WooResponse> => {

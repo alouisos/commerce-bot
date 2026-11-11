@@ -99,14 +99,14 @@ describe("ingestSource", () => {
     expect(await reload(src.id)).toMatchObject({ status: "failed", error: "No readable text found in this file" });
   });
 
-  it("stores a generic message for unexpected errors", async () => {
+  it("a file that can't be parsed gets a fixed, user-facing message", async () => {
     const site = await makeSite((await makeAccount()).id);
     const src = await addDocument(site.id, new File([readFileSync("tests/fixtures/kb/sample.md")], "a.md", { type: "text/markdown" }));
     await db.update(kbSources).set({ mimeType: "application/pdf" }).where(eq(kbSources.id, src.id));
     await ingestSource(src.id);
     const done = await reload(src.id);
     expect(done.status).toBe("failed");
-    expect(done.error).toBe("Processing failed. Please try again or upload a different file.");
+    expect(done.error).toBe("This file couldn't be read.");
   });
 
   it("resolves without writing anything for a missing source", async () => {

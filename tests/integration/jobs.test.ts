@@ -73,4 +73,8 @@ describe("job queues", () => {
     expect(await boss.send(JOBS.verifyOrder, data, opts)).toBeTruthy();
     expect(await boss.send(JOBS.verifyOrder, data, opts)).toBeNull();
   });
+
+  it("ingest-source is retried at most once and can't hang for long", () => {
+    expect(QUEUE_OPTIONS[JOBS.ingestSource]).toEqual({ retryLimit: 1, expireInSeconds: 300 });
+  });
 });

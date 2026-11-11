@@ -110,8 +110,10 @@ retry "${SSH[@]}" true
 if [[ -n $ENV_FILE ]]; then
   if [[ $REPLACE_ENV -eq 1 ]] || ! "${SSH[@]}" 'test -f /etc/concierge.env'; then
     say "installing /etc/concierge.env"
-    retry scp -q -i "$KEY" "${SSH_OPTS[@]}" "$ENV_FILE" "$USER@$HOST:/tmp/concierge.env.upload"
-    "${SSH[@]}" 'sudo install -o root -g ubuntu -m 640 /tmp/concierge.env.upload /etc/concierge.env && rm -f /tmp/concierge.env.upload'
+    # Through stdin: the secrets never sit in a temporary file on the server.
+    getent_cmd='getent passwd concierge >/dev/null || sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin concierge'
+    "${SSH[@]}" "$getent_cmd"
+    "${SSH[@]}" 'sudo install -o root -g concierge -m 640 /dev/stdin /etc/concierge.env' < "$ENV_FILE"
   else
     echo "/etc/concierge.env already exists; not replacing it (use --replace-env)"
   fi
@@ -140,8 +142,35 @@ say "syncing to $APP_DIR"
 # .next/node_modules, the links Turbopack uses to load server externals such as pg.
 retry rsync -az --delete --partial -e "$SSH_CMD" \
   --exclude /node_modules --exclude /.lock-hash --exclude /.storage \
-  --exclude /.next/cache --exclude /tests --exclude /e2e --exclude /docs \
+  --exclude /.next/cache --exclude /.next/server/route-cache --exclude /tests --exclude /e2e --exclude /docs \
   "$BUILD/" "$USER@$HOST:$APP_DIR/"
+
+say "service user, permissions, units"
+"${SSH[@]}" 'rm -rf /tmp/concierge-units && mkdir -p /tmp/concierge-units'
+retry scp -q -i "$KEY" "${SSH_OPTS[@]}" \
+  "$BUILD/deploy/concierge-web.service" "$BUILD/deploy/concierge-worker.service" \
+  "$BUILD/deploy/concierge-backup.service" "$BUILD/deploy/concierge-backup.timer" "$BUILD/deploy/concierge-backup.sh" \
+  "$USER@$HOST:/tmp/concierge-units/"
+# Idempotent. The app runs as the unprivileged user `concierge`; the code stays owned by ubuntu and is
+# only readable by that user, so the app can't change what a later deploy runs.
+"${SSH[@]}" "bash -s" <<'UNITS'
+set -euo pipefail
+getent passwd concierge >/dev/null || sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin concierge
+sudo install -d -o concierge -g concierge -m 750 /srv/concierge/.next/cache
+sudo chown -R concierge:concierge /srv/concierge-data
+sudo chown root:concierge /etc/concierge.env
+sudo chmod 640 /etc/concierge.env
+for b in /etc/concierge.env.bak-*; do [[ -e $b ]] && sudo chown root:concierge "$b" && sudo chmod 640 "$b"; done
+cd /tmp/concierge-units
+changed=0
+for f in concierge-web.service concierge-worker.service concierge-backup.service concierge-backup.timer; do
+  if ! cmp -s "$f" "/etc/systemd/system/$f"; then sudo install -m 644 "$f" "/etc/systemd/system/$f"; changed=1; fi
+done
+cmp -s concierge-backup.sh /usr/local/sbin/concierge-backup || sudo install -m 750 concierge-backup.sh /usr/local/sbin/concierge-backup
+if [[ $changed -eq 1 ]]; then sudo systemctl daemon-reload; fi
+sudo systemctl enable --quiet --now concierge-backup.timer
+rm -rf /tmp/concierge-units
+UNITS
 
 say "install, migrate, restart"
 "${SSH[@]}" "bash -s" <<EOF
@@ -154,7 +183,20 @@ if [[ ! -d node_modules || "\$(cat .lock-hash 2>/dev/null)" != "\$LOCK" ]]; then
   npm ci --include=dev --no-audit --no-fund --loglevel=error
   echo "\$LOCK" > .lock-hash
 fi
-set -a; . /etc/concierge.env; set +a
+# Code readable by the service user only (group), never writable by it.
+sudo chgrp -R concierge $APP_DIR
+sudo chmod -R g+rX,g-w,o-rwx $APP_DIR
+sudo chmod 750 $APP_DIR
+sudo chown -R concierge:concierge $APP_DIR/.next/cache
+# Next writes its page cache here at runtime; a new build starts with an empty one.
+sudo rm -rf $APP_DIR/.next/server/route-cache
+sudo install -d -o concierge -g concierge -m 750 $APP_DIR/.next/server/route-cache
+# A database dump before every migration (the 10 most recent are kept).
+sudo install -d -m 700 /var/backups/concierge
+sudo -u postgres pg_dump -Fc concierge | sudo tee /var/backups/concierge/pre-deploy-$REV-\$(date +%s).dump >/dev/null
+sudo bash -c 'ls -1t /var/backups/concierge/pre-deploy-*.dump 2>/dev/null | tail -n +11 | xargs -r rm -f'
+# The env file is readable by root and the service user only.
+set -a; . <(sudo cat /etc/concierge.env); set +a
 npm run --silent db:migrate
 sudo systemctl restart $SERVICES
 EOF

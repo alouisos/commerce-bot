@@ -12,6 +12,8 @@ import { resetDb } from "../helpers/db";
 type Email = { to: string; subject: string; text: string };
 const email = vi.hoisted(() => ({ sent: [] as Email[] }));
 vi.mock("@/lib/email", () => ({ sendEmail: async (m: Email) => void email.sent.push(m) }));
+const server = vi.hoisted(() => ({ connection: vi.fn(async () => {}) }));
+vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), connection: server.connection }));
 
 import { POST as authPOST } from "@/app/api/auth/[...all]/route";
 import InvitePage from "@/app/invite/[token]/page";
@@ -39,6 +41,37 @@ describe("public sign-up is closed", () => {
     expect(await db.select().from(session)).toHaveLength(0);
   });
 
+  it("the HTTP sign-up endpoint answers not found, so it can't reveal which emails have accounts", async () => {
+    const { token } = await invited();
+    await acceptInvite(token, { name: "Eleni", password: "password-12345" });
+    const res = await authPOST(
+      new Request("http://localhost:3000/api/auth/sign-up/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
+        body: JSON.stringify({ email: "eleni@shop.gr", password: "long-enough-pass", name: "Eve" }),
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("one email gets at most 30 sign-in attempts an hour, even with the right password after that", async () => {
+    const { token } = await invited("target@shop.gr");
+    await acceptInvite(token, { name: "T", password: "right-password-123" });
+    const windowMs = 3600_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / windowMs) * windowMs + 1000);
+    try {
+      for (let i = 0; i < 30; i++) {
+        await expect(auth.api.signInEmail({ body: { email: "target@shop.gr", password: `wrong-${i}-password` } })).rejects.toBeTruthy();
+      }
+      await expect(
+        auth.api.signInEmail({ body: { email: "Target@Shop.gr", password: "right-password-123" } }),
+      ).rejects.toMatchObject({ status: "TOO_MANY_REQUESTS" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("so does the HTTP endpoint, even for an invited address", async () => {
     await invited();
     const res = await authPOST(
@@ -53,8 +86,10 @@ describe("public sign-up is closed", () => {
     expect(await db.select().from(memberships)).toHaveLength(0);
   });
 
-  it("the sign-up page says it's invite-only", () => {
-    const html = renderToStaticMarkup(SignUpPage());
+  it("the sign-up page says it's invite-only, rendered per request so the contact comes from the server's settings", async () => {
+    server.connection.mockClear();
+    const html = renderToStaticMarkup(await SignUpPage());
+    expect(server.connection).toHaveBeenCalled();
     expect(html).toContain("Concierge is invite-only for now. Contact help@example.com.");
     expect(html).toContain('href="/sign-in"');
   });
@@ -115,6 +150,25 @@ describe("accepting an invite", () => {
     ]);
     expect(await db.select().from(user)).toHaveLength(1);
     expect(await db.select().from(memberships)).toHaveLength(1);
+  });
+});
+
+describe("trial invites", () => {
+  it("the 14 days start when the invitee joins, not when the invite was sent", async () => {
+    const sentAt = new Date(Date.now() - 6 * 86400_000);
+    const { accountId } = await createInvite({ email: "late@shop.gr", accountName: "Late", plan: "trial" }, sentAt);
+    const before = Date.now();
+    expect((await acceptInvite(tokenOf("late@shop.gr"), { name: "Late", password: "password-12345" })).ok).toBe(true);
+    const [acc] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+    expect(acc.trialEndsAt!.getTime()).toBeGreaterThanOrEqual(before + 14 * 86400_000 - 1000);
+    expect(acc.trialEndsAt!.getTime()).toBeLessThanOrEqual(Date.now() + 14 * 86400_000 + 1000);
+  });
+
+  it("a paid-plan invite gets no trial date", async () => {
+    const { accountId, token } = await invited("paid@shop.gr", "pro");
+    await acceptInvite(token, { name: "P", password: "password-12345" });
+    const [acc] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+    expect(acc.trialEndsAt).toBeNull();
   });
 });
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
-import { storeConnections } from "@/db/schema";
+import { sites, storeConnections } from "@/db/schema";
 import { ValidationError } from "@/lib/errors";
 import { connectWooCommerce, disconnectStore, getStoreConnectionSummary, getStoreCredentials } from "@/lib/sales/connections";
 import { setWooTransportForTests } from "@/lib/sales/woocommerce";
@@ -126,6 +126,15 @@ describe("connecting WooCommerce", () => {
     const { site } = await shop();
     addresses = ["10.0.0.5"];
     await expect(connectWooCommerce(site.id, input())).rejects.toThrow("Couldn't reach your shop. Try again in a minute.");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a store address on another port is refused without sending the key", async () => {
+    const { site } = await shop();
+    await db.update(sites).set({ allowedOrigins: ["https://milianjo.com", "https://milianjo.com:8443"] }).where(eq(sites.id, site.id));
+    await expect(connectWooCommerce(site.id, input({ storeUrl: "https://milianjo.com:8443" }))).rejects.toThrow(
+      "Couldn't reach your shop. Try again in a minute.",
+    );
     expect(calls).toHaveLength(0);
   });
 

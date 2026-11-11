@@ -2,7 +2,7 @@
 // Callers must have checked access to the site; every query is scoped to it.
 import { and, asc, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, conversations, emailMessages, leads, sites } from "@/db/schema";
+import { contacts, conversations, emailMessages, leads, promptImpressions, sales, sites } from "@/db/schema";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { BODY_MAX, SUBJECT_MAX, filterLinks } from "./writer";
 
@@ -130,7 +130,27 @@ export async function deletePerson(siteId: string, rawEmail: string): Promise<{ 
       ...(contact ? [eq(conversations.contactId, contact.id)] : []),
     ];
     if (convoConditions.length) {
+      // Everything from the same visits goes too: other conversations, suggestions, and the visit id and
+      // order address on their sales (the sale itself stays as an anonymous count).
+      const visits = await tx
+        .selectDistinct({ sid: conversations.visitorSessionId })
+        .from(conversations)
+        .where(and(eq(conversations.siteId, siteId), or(...convoConditions)));
+      const sids = visits.map((v) => v.sid);
       await tx.delete(conversations).where(and(eq(conversations.siteId, siteId), or(...convoConditions)));
+      if (sids.length) {
+        await tx.delete(conversations).where(and(eq(conversations.siteId, siteId), inArray(conversations.visitorSessionId, sids)));
+        await tx
+          .delete(promptImpressions)
+          .where(and(eq(promptImpressions.siteId, siteId), inArray(promptImpressions.visitorSessionId, sids)));
+        await tx
+          .update(sales)
+          .set({ visitorSessionId: "", pageUrl: "" })
+          .where(and(eq(sales.siteId, siteId), inArray(sales.visitorSessionId, sids)));
+      }
+    }
+    if (contact) {
+      await tx.update(sales).set({ visitorSessionId: "", pageUrl: "" }).where(and(eq(sales.siteId, siteId), eq(sales.contactId, contact.id)));
     }
     if (leadRows.length) await tx.delete(leads).where(inArray(leads.id, leadRows.map((l) => l.id)));
     if (contact) await tx.delete(contacts).where(eq(contacts.id, contact.id));

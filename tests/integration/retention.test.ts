@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, conversations, emailMessages, leads, messages, promptImpressions, sales } from "@/db/schema";
+import { contacts, conversations, emailMessages, leads, messages, promptImpressions, rateLimits, sales } from "@/db/schema";
 import { applyRetention } from "@/lib/privacy/retention";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeConversation, makeImpression, makeLead, makeMessage, makeSite } from "../helpers/factories";
@@ -105,5 +105,14 @@ describe("applyRetention", () => {
     const [kept] = await db.insert(sales).values({ ...base, orderedAt: monthsAgo(23), pageUrl: "https://example.com/b" }).returning();
     expect((await applyRetention(now)).sales).toBe(1);
     expect(await ids(db.select({ id: sales.id }).from(sales))).toEqual([kept.id]);
+  });
+
+  it("clears rate-limit counters older than two days", async () => {
+    await db.insert(rateLimits).values([
+      { key: "old", windowStart: daysAgo(3), count: 1 },
+      { key: "new", windowStart: daysAgo(0.5), count: 1 },
+    ]);
+    await applyRetention(now);
+    expect((await db.select().from(rateLimits)).map((r) => r.key)).toEqual(["new"]);
   });
 });

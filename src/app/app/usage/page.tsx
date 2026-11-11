@@ -73,10 +73,20 @@ export default async function UsagePage() {
             Emails this month: {levels.emails.used} / {levels.emails.limit}
           </p>
           {levels.emails.level !== "ok" && (
-            <p className={levels.emails.level === "full" ? "text-sm text-danger" : "text-sm text-warn"}>
-              {levels.emails.level === "full"
-                ? "This month's emails are used up: no new emails until next month."
-                : "You are close to this month's email limit."}
+            <p
+              className={
+                levels.emails.level === "off"
+                  ? "text-sm text-ink-muted"
+                  : levels.emails.level === "full"
+                    ? "text-sm text-danger"
+                    : "text-sm text-warn"
+              }
+            >
+              {levels.emails.level === "off"
+                ? "Email is switched off for this account."
+                : levels.emails.level === "full"
+                  ? "This month's emails are used up: no new emails until next month."
+                  : "You are close to this month's email limit."}
             </p>
           )}
           <p>

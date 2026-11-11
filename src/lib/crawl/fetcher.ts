@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { allowedPort, safeFetch } from "@/lib/net/safe-connect";
 import { isBlockedAddress } from "./ssrf";
 
 export type FetchResult = { status: number; finalUrl: string; contentType: string; body: string };
@@ -88,10 +89,16 @@ export function createHttpFetcher(opts: { allowPrivate?: boolean } = {}): Fetche
       };
       for (let hop = 0; hop <= MAX_HOPS; hop++) {
         const u = new URL(current);
-        if ((u.protocol !== "http:" && u.protocol !== "https:") || (!allowPrivate && !(await hostAllowed(u)))) {
+        if (
+          (u.protocol !== "http:" && u.protocol !== "https:") ||
+          (!allowPrivate && (!allowedPort(u) || !(await hostAllowed(u))))
+        ) {
           return { status: 0, finalUrl: current, contentType: "", body: "" };
         }
-        const res = await fetch(current, { redirect: "manual", signal, headers });
+        // Guarded requests re-check the address in the socket's own lookup (no DNS-rebinding window).
+        const res = allowPrivate
+          ? await fetch(current, { redirect: "manual", signal, headers })
+          : await safeFetch(current, { redirect: "manual", signal, headers });
         const location = res.headers.get("location");
         if (REDIRECTS.has(res.status) && location) {
           await res.body?.cancel().catch(() => {});

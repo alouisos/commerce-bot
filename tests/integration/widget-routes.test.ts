@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { leads, monthlyUsage, promptImpressions, siteGreetings, sites } from "@/db/schema";
 import { getStorage } from "@/lib/storage";
+import { hit } from "@/lib/usage/rate-limit";
 import { monthKey } from "@/lib/usage/meter";
 import { COPY } from "@/lib/copy/defaults";
 import { GET as configGET, OPTIONS as configOPTIONS } from "@/app/api/widget/config/route";
@@ -265,6 +266,22 @@ describe("lead", () => {
     expect(res.status).toBe(429);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
     expect((await leadPOST(post(url, body(31), ORIGIN, "198.51.100.8"))).status).toBe(201);
+  });
+
+  it("a site takes at most 50 leads an hour, whatever the IP or visit", async () => {
+    const { site } = await setup();
+    const url = `/api/widget/lead?key=${site.publicKey}`;
+    const windowMs = 3600_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / windowMs) * windowMs + 1000);
+    try {
+      for (let i = 0; i < 49; i++) await hit(`lead:site:${site.id}`, 50, 3600);
+      const body = (i: number) => ({ key: site.publicKey, sid: `site_cap_sid_${i}`, cid: null, email: "a@b.co", message: "m" });
+      expect((await leadPOST(post(url, body(1), ORIGIN, "203.0.113.1"))).status).toBe(201);
+      expect((await leadPOST(post(url, body(2), ORIGIN, "203.0.113.2"))).status).toBe(429);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("stores cid only when it belongs to the site and sid", async () => {

@@ -79,15 +79,19 @@ const defaultCallModel: CallModel = async (system, input) => {
   return { content, model: meteredModel(res.model, model), usage };
 };
 
-/** The hosts an email may link to: the website and its allowed origins. */
+/**
+ * The hosts an email may link to: the website's own host and its www twin. Allowed origins aren't
+ * included: an admin can add any origin there, and tracked links would then redirect anywhere from our domain.
+ */
 export function siteHosts(site: Pick<Site, "baseUrl" | "allowedOrigins">): Set<string> {
   const hosts = new Set<string>();
-  for (const u of [site.baseUrl, ...site.allowedOrigins]) {
-    try {
-      hosts.add(new URL(u).hostname.toLowerCase());
-    } catch {
-      // ignore malformed entries
-    }
+  try {
+    const host = new URL(site.baseUrl).hostname.toLowerCase();
+    const bare = host.replace(/^www\./, "");
+    hosts.add(bare);
+    hosts.add(`www.${bare}`);
+  } catch {
+    // no usable base URL: no links
   }
   return hosts;
 }
@@ -102,7 +106,17 @@ function onSite(url: string, hosts: Set<string>): boolean {
 }
 
 const MD_LINK = /\[([^\]\n]{1,300})\]\(([^)\s]{1,2000})\)/g;
-const BARE_URL = /\bhttps?:\/\/[^\s<>()[\]]+/g;
+const BARE_URL = /\bhttps?:\/\/[^\s<>()[\]]+/gi;
+// Hosts written without a scheme ("www.example.com", "example.shop/deal"), which mail clients turn into links.
+// Not after "@" (an email address) or "/" (inside a URL already handled).
+const TLDS =
+  "com|net|org|info|biz|io|co|gr|eu|uk|de|fr|it|es|nl|be|ch|at|pl|ru|cn|us|ca|au|me|app|dev|shop|store|online|site|xyz|top|link|club|live|tv|cc|ly|gl|to";
+const LABEL = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
+// Three shapes mail clients autolink: "www.<anything>", "<host>.<tld>/path", and "<host>.<known tld>".
+const BARE_HOST = new RegExp(
+  `(?<![@\\w./-])(www\\.(?:${LABEL}\\.)+[a-z]{2,24}|(?:${LABEL}\\.)+[a-z]{2,24}(?=\\/)|(?:${LABEL}\\.)+(?:${TLDS}))(\\/[^\\s<>()[\\]]*)?(?![\\w-])`,
+  "gi",
+);
 
 /**
  * Keeps [text](url) links to the site's own hosts and lists them (deduplicated, at most 10); any other
@@ -123,10 +137,16 @@ export function filterLinks(
     }
     return text;
   });
-  const stripped = marked.replace(BARE_URL, (url) => {
-    const trimmed = url.replace(/[.,;:!?]+$/, "");
-    return onSite(trimmed, hosts) ? url : url.slice(trimmed.length);
-  });
+  const stripped = marked
+    .replace(BARE_URL, (url) => {
+      const trimmed = url.replace(/[.,;:!?]+$/, "");
+      return onSite(trimmed, hosts) ? url : url.slice(trimmed.length);
+    })
+    .replace(BARE_HOST, (all, host: string, path: string | undefined) => {
+      if (hosts.has(host.toLowerCase())) return all;
+      const tail = (path ?? "").match(/[.,;:!?]+$/)?.[0] ?? "";
+      return tail;
+    });
   const restored = stripped.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => kept[Number(i)]);
   return { body: restored, links };
 }

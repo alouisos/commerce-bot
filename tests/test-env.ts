@@ -2,7 +2,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-export const TEST_DATABASE_URL = "postgres://concierge:concierge@localhost:5433/concierge_test";
+/** Overridable so two checkouts can run their tests at the same time without sharing a database. */
+export const TEST_DATABASE_URL =
+  process.env.CONCIERGE_TEST_DATABASE_URL ?? "postgres://concierge:concierge@localhost:5433/concierge_test";
 
 /** Forces the test environment; never points at the dev database. */
 export function applyTestEnv() {

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/db/client";
-import { contacts, conversations, emailMessages, leads, messages } from "@/db/schema";
+import { contacts, conversations, emailMessages, leads, messages, promptImpressions, sales } from "@/db/schema";
 import { ValidationError } from "@/lib/errors";
 import { approveDraft, deletePerson, discardDraft, listPeople, listQueue, listSent, updateDraft } from "@/lib/email/admin";
 import { resetDb } from "../helpers/db";
@@ -221,6 +221,33 @@ describe("sent and people", () => {
     expect(people.find((p) => p.email === "p@example.com")).toMatchObject({ status: "pending", sent: 0 });
     expect(await render(site.id, "sent")).toContain("New");
     expect(await render(site.id, "people")).toContain("p@example.com");
+  });
+});
+
+describe("deletePerson: everything from the same visit", () => {
+  it("also removes the visit's other conversations and suggestions, and anonymises its sales", async () => {
+    const { site } = await setup();
+    const sid = "visit_to_erase_1";
+    const withLead = await makeConversation(site.id, { visitorSessionId: sid });
+    const sameVisit = await makeConversation(site.id, { visitorSessionId: sid });
+    await makeLead(site.id, { email: "erase@example.com", conversationId: withLead.id });
+    await db.insert(promptImpressions).values({
+      siteId: site.id, visitorSessionId: sid, kind: "question", intent: "exploring", confidence: 0.8, language: "en",
+      pageUrl: "https://milianjo.com/p", text: "t", question: "q",
+    });
+    const [sale] = await db.insert(sales).values({
+      siteId: site.id, source: "woocommerce", externalId: "77", verified: true, orderedAt: new Date(),
+      visitorSessionId: sid, pageUrl: "https://milianjo.com/checkout/order-received/77/", viaChat: true,
+    }).returning();
+    const otherVisit = await makeConversation(site.id, { visitorSessionId: "someone_else_visit" });
+
+    await deletePerson(site.id, "erase@example.com");
+
+    expect(await db.select().from(conversations).where(eq(conversations.id, sameVisit.id))).toHaveLength(0);
+    expect(await db.select().from(promptImpressions).where(eq(promptImpressions.visitorSessionId, sid))).toHaveLength(0);
+    const [kept] = await db.select().from(sales).where(eq(sales.id, sale.id));
+    expect(kept).toMatchObject({ visitorSessionId: "", pageUrl: "", viaChat: true });
+    expect(await db.select().from(conversations).where(eq(conversations.id, otherVisit.id))).toHaveLength(1);
   });
 });
 

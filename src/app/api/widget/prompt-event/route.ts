@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { promptImpressions } from "@/db/schema";
 import { hit } from "@/lib/usage/rate-limit";
-import { corsHeaders, preflight, resolveWidgetRequest, sidSchema, WidgetError, withWidgetErrors } from "@/lib/widget/guard";
+import { clientIp, corsHeaders, preflight, resolveWidgetRequest, sidSchema, WidgetError, withWidgetErrors } from "@/lib/widget/guard";
 
 const schema = z.object({
   sid: sidSchema,
@@ -22,7 +22,10 @@ export const POST = withWidgetErrors(async (req) => {
     body = null;
   }
   const input = schema.parse(body);
-  if (!(await hit(`promptev:sid:${input.sid}`, 30, 300))) throw new WidgetError(429, "Too many requests");
+  // Per visit and per IP: forged dismissals could otherwise pause a site's suggestions.
+  if (!(await hit(`promptev:sid:${input.sid}`, 30, 300)) || !(await hit(`promptev:ip:${clientIp(req)}`, 120, 300))) {
+    throw new WidgetError(429, "Too many requests");
+  }
 
   const mine = and(
     eq(promptImpressions.id, input.id),

@@ -5,7 +5,7 @@ import { contacts, conversations, messages, promptImpressions, type Conversation
 import { copyFor } from "@/lib/copy/defaults";
 import { restartAfterClick } from "@/lib/email/schedule";
 import { searchKnowledge } from "@/lib/kb/search";
-import { MAX_VISITOR_MESSAGES_PER_CONVERSATION } from "@/lib/plans";
+import { MAX_VISITOR_MESSAGES_PER_CONVERSATION, planStatus } from "@/lib/plans";
 import { aiBlocked, countConversation, getQuota, recordModelUsage } from "@/lib/usage/meter";
 import { hit } from "@/lib/usage/rate-limit";
 import { appBaseUrl, siteLanguages } from "@/lib/widget/config";
@@ -255,10 +255,19 @@ async function runModelReply(
   await recordModelUsage({ accountId: site.accountId, siteId: site.id, kind: "chat", model: result.model, usage: result.usage });
 }
 
+/** New conversations one IP may start per hour: generous for real visitors, slow for a quota-burning script. */
+const NEW_CONVERSATIONS_PER_IP_PER_HOUR = 20;
+
+/** New conversations a site may get per day: a fifth of its monthly quota, and at least 50. */
+function newConversationsPerDay(conversationsPerMonth: number): number {
+  return Math.max(50, Math.ceil(conversationsPerMonth / 5));
+}
+
 export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, opts) => {
-  const input = await parseBody(req);
+  // The site key and Origin are checked before the body is read.
   const key = new URL(req.url).searchParams.get("key");
   const { site, origin } = await resolveWidgetRequest(req, key);
+  const input = await parseBody(req);
 
   if (
     !(await hit(`chat:sid:${input.sid}`, 20, 300)) ||
@@ -277,6 +286,14 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
     : {};
   let conversation = await findConversation(site.id, input.sid, input.cid);
   if (!conversation) {
+    // Starting a conversation counts toward the month's quota, so it's limited per IP and per site per day.
+    const { limits } = planStatus(site.account, now);
+    if (
+      !(await hit(`chat:newconv:ip:${clientIp(req)}`, NEW_CONVERSATIONS_PER_IP_PER_HOUR, 3600)) ||
+      !(await hit(`chat:newconv:site:${site.id}`, newConversationsPerDay(limits.conversationsPerMonth), 86_400))
+    ) {
+      throw new WidgetError(429, "Too many requests");
+    }
     const language = resolveLanguage(input.page.lang, await siteLanguages(site.id), site.defaultLanguage);
     const impression = await claimImpression(site.id, input.sid, input.promptId);
     const contact = await subscribedContactByRef(site.id, input.ref);

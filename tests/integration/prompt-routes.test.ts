@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { promptCache, promptImpressions, usageEvents } from "@/db/schema";
+import { hit } from "@/lib/usage/rate-limit";
 import { resetDb } from "../helpers/db";
 import { makeAccount, makeImpression, makeSite, makeSource } from "../helpers/factories";
 import { offerPrompt } from "@/lib/prompts/offer";
@@ -232,6 +233,13 @@ describe("POST /api/widget/prompt-event", () => {
     expect(row.shownAt).toBeInstanceOf(Date);
     expect(row.outcome).toBe("dismissed");
     expect(row.outcomeAt).toBeInstanceOf(Date);
+  });
+
+  it("one IP sends at most 120 suggestion events in 5 minutes, whatever the sid", async () => {
+    const site = await widgetSite();
+    const imp = await makeImpression(site.id, { visitorSessionId: "sid-dddddddd" });
+    for (let i = 0; i < 120; i++) await hit("promptev:ip:unknown", 120, 300);
+    expect((await send(site.publicKey, "sid-dddddddd", imp.id, "dismissed")).status).toBe(429);
   });
 
   it("ignores another visit's or another site's impression", async () => {
