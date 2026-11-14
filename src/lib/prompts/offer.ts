@@ -1,10 +1,12 @@
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db/client";
-import { kbChunks, kbSources, promptCache, promptImpressions } from "@/db/schema";
+import { kbChunks, kbSources, messages, promptCache, promptImpressions } from "@/db/schema";
 import { getAnthropic } from "@/lib/ai/anthropic";
 import { meteredModel, type TokenUsage } from "@/lib/ai/pricing";
 import { buildContext } from "@/lib/chat/prompt";
 import { env } from "@/lib/env";
+import { redactEmails } from "@/lib/privacy/redact";
+import { findOwnedConversation } from "@/lib/widget/conversation";
 import { searchKnowledge } from "@/lib/kb/search";
 import { atConversationLimit } from "@/lib/usage/levels";
 import { aiBlocked, getQuota, recordModelUsage } from "@/lib/usage/meter";
@@ -16,10 +18,13 @@ import type { Intent, PageContext, PromptOffer } from "@/shared/widget-protocol"
 import { pausedKinds } from "./backoff";
 import { normalizeUrl } from "@/lib/crawl/discover";
 import { LIMITS } from "@/shared/widget-protocol";
-import { cleanSuggestion, KIND_INSTRUCTIONS, PROMPT_JSON_SCHEMA, promptSystem } from "./writer";
+import { cleanSuggestion, conversationSection, KIND_INSTRUCTIONS, PROMPT_JSON_SCHEMA, promptSystem } from "./writer";
 
 const CACHE_MS = 7 * 24 * 3600_000;
 const SEARCH_K = 6;
+/** What a suggestion after a chat sees of it: the last few messages, each cut short. */
+const EXCERPT_MESSAGES = 6;
+const EXCERPT_CHARS = 300;
 
 type CallModel = (system: string, input: string) => Promise<{ content: unknown; model: string; usage: TokenUsage }>;
 
@@ -100,12 +105,38 @@ async function crawledPage(siteId: string, url: string): Promise<{ url: string; 
 }
 
 /**
+ * The end of this visit's own conversation (site and sid must own it), oldest first, with email
+ * addresses removed before each message is cut short. Anything else, or an empty chat, gives null.
+ */
+async function conversationExcerpt(
+  siteId: string,
+  sid: string,
+  cid: string | null | undefined,
+): Promise<{ role: "visitor" | "bot"; content: string }[] | null> {
+  const owned = cid ? await findOwnedConversation(siteId, sid, cid) : null;
+  if (!owned) return null;
+  const rows = await db
+    .select({ role: messages.role, content: messages.content })
+    .from(messages)
+    .where(eq(messages.conversationId, owned))
+    .orderBy(desc(messages.createdAt), desc(messages.id))
+    .limit(EXCERPT_MESSAGES);
+  const lines = rows
+    .reverse()
+    .map((m) => ({ role: m.role, content: redactEmails(m.content).replace(/\s+/g, " ").trim().slice(0, EXCERPT_CHARS) }))
+    .filter((m) => m.content);
+  return lines.length > 0 ? lines : null;
+}
+
+/**
  * A suggestion for this visitor on this page, or null. Never calls the model when suggestions are off,
  * on checkout, for a paused type, when the account can't use AI, or when the page's suggestion is cached.
+ * After a chat (`cid` of this visit's own conversation) the suggestion builds on it and is personal:
+ * the cache is neither read nor written. Any other cid is ignored.
  */
 export async function offerPrompt(
   site: WidgetSite,
-  input: { sid: string; page: PageContext; intent: Intent; confidence: number },
+  input: { sid: string; page: PageContext; intent: Intent; confidence: number; cid?: string | null },
   opts: { now?: Date; callModel?: CallModel; testMode?: boolean } = {},
 ): Promise<PromptOffer | null> {
   const now = opts.now ?? new Date();
@@ -121,19 +152,23 @@ export async function offerPrompt(
   if (!crawled) return null;
   const key = crawled.url;
   const language = resolveLanguage(input.page.lang, await siteLanguages(site.id), site.defaultLanguage);
-  const [cached] = await db
-    .select()
-    .from(promptCache)
-    .where(
-      and(
-        eq(promptCache.siteId, site.id),
-        eq(promptCache.urlKey, key),
-        eq(promptCache.kind, kind),
-        eq(promptCache.language, language),
-        gte(promptCache.createdAt, new Date(now.getTime() - CACHE_MS)),
-      ),
-    )
-    .limit(1);
+  const conversation = await conversationExcerpt(site.id, input.sid, input.cid);
+  // A suggestion that builds on this visitor's chat is personal: never taken from the cache.
+  const [cached] = conversation
+    ? []
+    : await db
+        .select()
+        .from(promptCache)
+        .where(
+          and(
+            eq(promptCache.siteId, site.id),
+            eq(promptCache.urlKey, key),
+            eq(promptCache.kind, kind),
+            eq(promptCache.language, language),
+            gte(promptCache.createdAt, new Date(now.getTime() - CACHE_MS)),
+          ),
+        )
+        .limit(1);
 
   let suggestion: { text: string; question: string } | null;
   if (cached) {
@@ -154,8 +189,10 @@ export async function offerPrompt(
       KIND_INSTRUCTIONS[kind],
       "",
       buildContext(page, hits, []),
+      ...(conversation ? ["", conversationSection(conversation)] : []),
     ].join("\n");
-    const reply = await (opts.callModel ?? defaultCallModel)(promptSystem(site.guardrails), prompt);
+    const system = promptSystem(site.guardrails, { conversation: conversation !== null });
+    const reply = await (opts.callModel ?? defaultCallModel)(system, prompt);
     await recordModelUsage({
       accountId: site.accountId,
       siteId: site.id,
@@ -165,14 +202,17 @@ export async function offerPrompt(
       now,
     });
     suggestion = cleanSuggestion(reply.content);
-    const values = { text: suggestion?.text ?? null, question: suggestion?.question ?? null, model: reply.model, createdAt: now };
-    await db
-      .insert(promptCache)
-      .values({ siteId: site.id, urlKey: key, kind, language, ...values })
-      .onConflictDoUpdate({
-        target: [promptCache.siteId, promptCache.urlKey, promptCache.kind, promptCache.language],
-        set: values,
-      });
+    // ... nor written to it.
+    if (!conversation) {
+      const values = { text: suggestion?.text ?? null, question: suggestion?.question ?? null, model: reply.model, createdAt: now };
+      await db
+        .insert(promptCache)
+        .values({ siteId: site.id, urlKey: key, kind, language, ...values })
+        .onConflictDoUpdate({
+          target: [promptCache.siteId, promptCache.urlKey, promptCache.kind, promptCache.language],
+          set: values,
+        });
+    }
   }
   if (!suggestion) return null;
 

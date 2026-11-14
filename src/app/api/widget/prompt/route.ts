@@ -10,6 +10,8 @@ const schema = z.object({
   page: pageSchema,
   intent: z.enum(INTENTS),
   confidence: z.number().min(0).max(1),
+  // After a chat: the visit's conversation. Optional; anything malformed is dropped, never an error.
+  cid: z.string().max(100).nullish().catch(null).transform((v) => v ?? null),
   test: testKeySchema,
 });
 

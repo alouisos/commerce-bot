@@ -4,7 +4,7 @@ import { db } from "@/db/client";
 import { promptCache, promptImpressions, usageEvents } from "@/db/schema";
 import { hit } from "@/lib/usage/rate-limit";
 import { resetDb } from "../helpers/db";
-import { makeAccount, makeImpression, makeSite, makeSource } from "../helpers/factories";
+import { makeAccount, makeConversation, makeImpression, makeMessage, makeSite, makeSource } from "../helpers/factories";
 import { offerPrompt } from "@/lib/prompts/offer";
 import { replaceChunks } from "@/lib/kb/store";
 import { addText } from "@/lib/kb/sources";
@@ -176,6 +176,103 @@ describe("offerPrompt", () => {
   });
 });
 
+describe("offerPrompt after a chat", () => {
+  const SID = "sid-aaaaaaaa";
+  const RULE = "CONVERSATION is what this visitor already discussed with the assistant.";
+
+  /** A conversation of this visit with eight messages, the last ones mentioning an email address. */
+  async function chatOf(siteId: string, sid = SID) {
+    const conv = await makeConversation(siteId, { visitorSessionId: sid });
+    const t0 = Date.now() - 60_000;
+    const texts = [
+      "m1 first question",
+      "m2 first answer",
+      "m3 is it sulfate-free?",
+      "m4 yes, it is sulfate-free",
+      "m5 does it suit dry hair?",
+      `m6 it suits dry hair best ${"x".repeat(400)}`,
+      "m7 mail me at jo.doe@example.com please",
+      "m8 we will, thanks",
+    ];
+    for (const [i, content] of texts.entries()) {
+      await makeMessage(conv.id, { role: i % 2 === 0 ? "visitor" : "bot", content, createdAt: new Date(t0 + i * 1000) });
+    }
+    return conv.id;
+  }
+
+  it("builds on the visit's own conversation: a redacted excerpt, and the cache neither read nor written", async () => {
+    const site = await widgetSite();
+    const cid = await chatOf(site.id);
+    const callModel = reply(good);
+    // A cached suggestion for this page exists ...
+    await offerPrompt(site, input(), { callModel: reply({ ...good, text: "Cached text?" }) });
+    // ... but a suggestion after a chat is written for this visitor.
+    const offer = await offerPrompt(site, input({ cid }), { callModel });
+    expect(callModel).toHaveBeenCalledTimes(1);
+    expect(offer).toMatchObject({ text: good.text });
+    const [system, userText] = callModel.mock.calls[0] as unknown as [string, string];
+    expect(system).toContain(RULE);
+    expect(system).toContain("never mention that you saw the conversation");
+    expect(userText).toContain("CONVERSATION");
+    // The last six messages, oldest first, each trimmed to 300 characters, emails removed.
+    expect(userText).not.toContain("m1 first question");
+    expect(userText).not.toContain("m2 first answer");
+    const lines = userText.slice(userText.indexOf("CONVERSATION")).split("\n").slice(1, 7);
+    expect(lines.map((l) => l.slice(0, 13))).toEqual([
+      "Visitor: m3 i",
+      "Assistant: m4",
+      "Visitor: m5 d",
+      "Assistant: m6",
+      "Visitor: m7 m",
+      "Assistant: m8",
+    ]);
+    expect(lines[3].length).toBeLessThanOrEqual("Assistant: ".length + 300);
+    expect(userText).toContain("Visitor: m7 mail me at [email] please");
+    expect(userText).not.toContain("jo.doe@example.com");
+    const rows = await db.select().from(promptCache).where(eq(promptCache.siteId, site.id));
+    expect(rows.map((r) => r.text)).toEqual(["Cached text?"]);
+  });
+
+  it("never writes a personal suggestion to the cache", async () => {
+    const site = await widgetSite();
+    const cid = await chatOf(site.id);
+    await offerPrompt(site, input({ cid }), { callModel: reply(good) });
+    expect(await db.select().from(promptCache).where(eq(promptCache.siteId, site.id))).toHaveLength(0);
+    expect((await db.select().from(usageEvents).where(eq(usageEvents.siteId, site.id))).map((e) => e.kind)).toEqual(["prompt"]);
+  });
+
+  it("ignores another visit's or another site's conversation, and a malformed cid: the cache path as today", async () => {
+    const site = await widgetSite();
+    const other = await widgetSite();
+    const otherVisit = await chatOf(site.id, "sid-someone-else");
+    const otherSite = await chatOf(other.id);
+    const first = reply(good);
+    await offerPrompt(site, input(), { callModel: first });
+    const callModel = reply(good);
+    for (const cid of [otherVisit, otherSite, "not-a-uuid"]) {
+      const offer = await offerPrompt(site, input({ cid }), { callModel });
+      expect(offer).toMatchObject({ text: good.text });
+    }
+    expect(callModel).not.toHaveBeenCalled();
+    // Without a cache entry, the model is asked without anyone's conversation.
+    await db.delete(promptCache);
+    await offerPrompt(site, input({ cid: otherVisit }), { callModel });
+    const [system, userText] = callModel.mock.calls[0] as unknown as [string, string];
+    expect(system).not.toContain(RULE);
+    expect(userText).not.toContain("CONVERSATION");
+    expect(userText).not.toContain("sulfate-free?");
+    expect(await db.select().from(promptCache).where(eq(promptCache.siteId, site.id))).toHaveLength(1);
+  });
+
+  it("in a test tab the conversation is used too", async () => {
+    const site = await widgetSite();
+    const cid = await chatOf(site.id);
+    const callModel = reply(good);
+    await offerPrompt(site, input({ cid }), { callModel, testMode: true });
+    expect((callModel.mock.calls[0] as unknown as [string, string])[1]).toContain("CONVERSATION");
+  });
+});
+
 describe("POST /api/widget/prompt", () => {
   const body = (key: string, over: Record<string, unknown> = {}) => ({
     key,
@@ -209,6 +306,16 @@ describe("POST /api/widget/prompt", () => {
     expect((await promptPOST(post(url, body(site.publicKey, { confidence: 2 })))).status).toBe(400);
     expect((await promptPOST(post(url, body(site.publicKey, { intent: "shopping" })))).status).toBe(400);
     expect((await promptPOST(post(url, body(site.publicKey, { sid: "x" })))).status).toBe(400);
+  });
+
+  it("accepts the visit's cid, and ignores a malformed one", async () => {
+    const site = await widgetSite();
+    const url = `/api/widget/prompt?key=${site.publicKey}`;
+    const conv = await makeConversation(site.id, { visitorSessionId: "sid-bbbbbbbb" });
+    await makeMessage(conv.id, { content: "Is it sulfate-free?" });
+    expect((await promptPOST(post(url, body(site.publicKey, { cid: conv.id })))).status).toBe(200);
+    expect((await promptPOST(post(url, body(site.publicKey, { cid: 42 })))).status).toBe(200);
+    expect((await promptPOST(post(url, body(site.publicKey, { cid: "x".repeat(500) })))).status).toBe(200);
   });
 
   it("limits each visit to 6 requests per 30 minutes", async () => {
