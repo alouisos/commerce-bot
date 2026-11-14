@@ -3,6 +3,7 @@ import type { WidgetStrings } from "@/shared/widget-protocol";
 export const COPY: Record<"en" | "el", WidgetStrings & { defaultGreeting: string }> = {
   en: {
     disclosure: "AI can make mistakes. Check important info.",
+    continueChat: "Continue our conversation",
     defaultGreeting: "Hi! Questions about our products? I'm happy to help.",
     fallback: "I can't answer right now. Leave your email and your question, and the team will get back to you.",
     leadThanks: "Thanks, we'll be in touch soon.",
@@ -23,6 +24,7 @@ export const COPY: Record<"en" | "el", WidgetStrings & { defaultGreeting: string
   },
   el: {
     disclosure: "Η τεχνητή νοημοσύνη μπορεί να κάνει λάθη. Ελέγξτε τις σημαντικές πληροφορίες.",
+    continueChat: "Συνεχίστε τη συζήτησή μας",
     defaultGreeting: "Γεια σας! Έχετε ερωτήσεις για τα προϊόντα μας; Είμαι εδώ να βοηθήσω.",
     fallback: "Δεν μπορώ να απαντήσω αυτή τη στιγμή. Αφήστε το email και την ερώτησή σας και η ομάδα θα επικοινωνήσει μαζί σας.",
     leadThanks: "Ευχαριστούμε, θα επικοινωνήσουμε μαζί σας σύντομα.",

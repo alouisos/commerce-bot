@@ -11,6 +11,7 @@ export const config: WidgetConfig = {
   iconUrl: null,
   strings: {
     disclosure: "AI can make mistakes. Check important info.",
+    continueChat: "Continue our conversation",
     fallback: "We cannot answer right now. Leave your email.",
     leadThanks: "Thanks, we will be in touch.",
     open: "Open chat",

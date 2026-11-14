@@ -12,8 +12,10 @@ import {
   getSession,
   hasTeased,
   markConsentAsked,
+  markReopen,
   markTeased,
   setConversationId,
+  takeReopen,
 } from "../session";
 import type { VisitTracker } from "../visit";
 import { Launcher } from "./Launcher";
@@ -51,6 +53,8 @@ export function App({
   const forcedFallback = config.mode === "fallback";
   const [open, setOpen] = useState(false);
   const [teaser, setTeaser] = useState(false);
+  // After following a chat link on a narrow screen: offer to continue rather than cover the new page.
+  const [continueOffer, setContinueOffer] = useState(false);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [pending, setPending] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -83,6 +87,16 @@ export function App({
   }, [register, openPanel, closePanel]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Arriving from a link in the chat: carry the conversation on. Wide screens reopen the panel;
+  // on phones (where the panel is full-screen) a bubble offers it instead of hiding the page.
+  useEffect(() => {
+    if (!takeReopen(store)) return;
+    if (window.matchMedia?.("(max-width: 479px)").matches) setContinueOffer(true);
+    else openPanel();
+    // Runs once per page load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Teaser: once per session, 1.5 s after load.
   useEffect(() => {
@@ -231,7 +245,19 @@ export function App({
       class={`cc ${config.corner === "bottom-left" ? "left" : "right"}`}
       style={{ "--accent": config.accentColor, "--on-accent": onColor(config.accentColor) }}
     >
-      {teaser && !open && (
+      {continueOffer && !open && (
+        <Teaser
+          message={strings.continueChat}
+          imageUrl={null}
+          closeLabel={strings.close}
+          onOpen={() => {
+            setContinueOffer(false);
+            openPanel();
+          }}
+          onDismiss={() => setContinueOffer(false)}
+        />
+      )}
+      {teaser && !open && !continueOffer && (
         <Teaser
           message={config.greeting.message}
           imageUrl={null}
@@ -262,6 +288,7 @@ export function App({
           fallback={fallback}
           onSend={(text) => void send(text)}
           onLead={lead}
+          onFollowLink={() => markReopen(store)}
           onClose={closePanel}
           consent={offerConsent ? { done: consent === "thanks", onYes: consentYes, onNo: consentNo } : null}
         />

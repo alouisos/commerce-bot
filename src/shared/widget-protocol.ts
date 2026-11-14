@@ -59,6 +59,8 @@ export type WidgetStrings = {
   consentYes: string;
   consentNo: string;
   consentThanks: string;
+  /** Bubble offering to reopen the chat after following one of its links (narrow screens). */
+  continueChat: string;
 };
 
 export type WidgetConfig = {

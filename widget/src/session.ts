@@ -7,8 +7,12 @@ const TEASED = "concierge.teased";
 const CONSENT_ASKED = "concierge.consentAsked";
 const REF = "concierge.ref";
 const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const REOPEN = "concierge.reopen";
+/** How long after clicking a link in the chat the next page still reopens it. */
+export const REOPEN_MAX_AGE_MS = 120_000;
 
-const memory: { sid: string | null; cid: string | null; teased: boolean; consentAsked: boolean; ref: string | null } = {
+const memory: { sid: string | null; cid: string | null; teased: boolean; consentAsked: boolean; ref: string | null; reopen: number | null } = {
+  reopen: null,
   sid: null,
   cid: null,
   teased: false,
@@ -76,6 +80,25 @@ export function consentAsked(store: Storage): boolean {
 export function markConsentAsked(store: Storage): void {
   memory.consentAsked = true;
   write(store, CONSENT_ASKED, "1");
+}
+
+/** The visitor followed a link from the chat: the next page load continues the conversation. */
+export function markReopen(store: Storage, now: number = Date.now()): void {
+  memory.reopen = now;
+  write(store, REOPEN, String(now));
+}
+
+/** True once if a chat link was followed within the last two minutes; clears the mark either way. */
+export function takeReopen(store: Storage, now: number = Date.now()): boolean {
+  const v = read(store, REOPEN);
+  const at = v === undefined ? memory.reopen : v === null ? null : Number(v);
+  memory.reopen = null;
+  try {
+    store.removeItem(REOPEN);
+  } catch {
+    // storage blocked: memory was cleared above
+  }
+  return at !== null && Number.isFinite(at) && at <= now && now - at <= REOPEN_MAX_AGE_MS;
 }
 
 /** The email attribution reference (cc_ref) this visit arrived with, if any. */

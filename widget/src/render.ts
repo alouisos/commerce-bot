@@ -15,6 +15,24 @@ function safeHref(raw: string): boolean {
   }
 }
 
+const bareHost = (h: string) => h.toLowerCase().replace(/^www\./, "");
+
+/**
+ * The link rewritten onto the current page's origin when it points at the same site (www and the bare
+ * domain count as one, since a visit's session lives per origin); null for any other site.
+ */
+function sameSiteHref(doc: Document, raw: string): string | null {
+  const here = doc.defaultView?.location;
+  if (!here || !/^https?:$/.test(here.protocol)) return null;
+  try {
+    const u = new URL(raw);
+    if (bareHost(u.hostname) !== bareHost(here.hostname) || (u.port || "") !== (here.port || "")) return null;
+    return `${here.origin}${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 function inline(doc: Document, text: string, parent: Node, allowBold = true): void {
   let last = 0;
   const re = new RegExp(INLINE_SRC.source, "g"); // per call: inline() recurses
@@ -30,9 +48,16 @@ function inline(doc: Document, text: string, parent: Node, allowBold = true): vo
       }
     } else if (safeHref(m[3])) {
       const a = doc.createElement("a");
-      a.setAttribute("href", m[3]);
-      a.setAttribute("target", "_blank");
-      a.setAttribute("rel", "noopener noreferrer");
+      const own = sameSiteHref(doc, m[3]);
+      if (own) {
+        // The shop's own page: open it here so the visit (and the chat) carry on.
+        a.setAttribute("href", own);
+        a.setAttribute("data-cc-nav", "");
+      } else {
+        a.setAttribute("href", m[3]);
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
       a.textContent = m[2];
       parent.appendChild(a);
     } else {

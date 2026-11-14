@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { renderMessage } from "../src/render";
 
 function html(text: string, images: Parameters<typeof renderMessage>[2] = [], apiBase = "http://app.test") {
@@ -59,5 +59,32 @@ describe("renderMessage", () => {
     expect(imgs[0].getAttribute("alt")).toBe("cap");
     expect(imgs[0].getAttribute("loading")).toBe("lazy");
     expect(div.lastElementChild!.contains(imgs[0])).toBe(true);
+  });
+});
+
+describe("links to the shop's own site", () => {
+  beforeEach(() => {
+    (window as unknown as { happyDOM: { setURL(u: string): void } }).happyDOM.setURL("https://shop.test/products/butter");
+  });
+
+  it("open in the same tab and are marked for the chat to follow", () => {
+    const a = html("[ritual](https://shop.test/ritual?x=1#top)").querySelector("a")!;
+    expect(a.getAttribute("href")).toBe("https://shop.test/ritual?x=1#top");
+    expect(a.getAttribute("target")).toBeNull();
+    expect(a.hasAttribute("data-cc-nav")).toBe(true);
+  });
+
+  it("treat www and the bare domain as the same site and keep the current origin", () => {
+    const a = html("[cart](https://www.shop.test/cart)").querySelector("a")!;
+    expect(a.getAttribute("href")).toBe("https://shop.test/cart");
+    expect(a.getAttribute("target")).toBeNull();
+    expect(a.hasAttribute("data-cc-nav")).toBe(true);
+  });
+
+  it("other sites still open in a new tab", () => {
+    const a = html("[other](https://other.test/page)").querySelector("a")!;
+    expect(a.getAttribute("target")).toBe("_blank");
+    expect(a.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(a.hasAttribute("data-cc-nav")).toBe(false);
   });
 });

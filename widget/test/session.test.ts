@@ -65,3 +65,25 @@ describe("prompt state", () => {
     expect(getPromptState(broken).silenced).toBe(true);
   });
 });
+
+describe("reopen after a chat link", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it("is taken once while fresh", async () => {
+    const { markReopen, takeReopen } = await import("../src/session");
+    markReopen(sessionStorage, 1_000);
+    expect(takeReopen(sessionStorage, 1_000 + 30_000)).toBe(true);
+    expect(takeReopen(sessionStorage, 1_000 + 30_000)).toBe(false);
+  });
+
+  it("expires after two minutes", async () => {
+    const { markReopen, takeReopen } = await import("../src/session");
+    markReopen(sessionStorage, 1_000);
+    expect(takeReopen(sessionStorage, 1_000 + 120_001)).toBe(false);
+  });
+
+  it("is false when never set", async () => {
+    const { takeReopen } = await import("../src/session");
+    expect(takeReopen(sessionStorage, Date.now())).toBe(false);
+  });
+});

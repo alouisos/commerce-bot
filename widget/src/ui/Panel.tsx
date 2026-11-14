@@ -28,6 +28,7 @@ export function Panel({
   fallback,
   onSend,
   onLead,
+  onFollowLink,
   onClose,
   consent,
 }: {
@@ -40,6 +41,8 @@ export function Panel({
   fallback: boolean;
   onSend: (text: string) => void;
   onLead: (email: string, message: string) => Promise<void>;
+  /** A link to the shop's own site was followed from the chat. */
+  onFollowLink?: () => void;
   onClose: () => void;
   /** The email offer, when it should be shown. */
   consent?: { done: boolean; onYes: (email: string) => Promise<void>; onNo: () => void } | null;
@@ -105,7 +108,14 @@ export function Panel({
           <span aria-hidden="true">×</span>
         </button>
       </div>
-      <div class="scroll">
+      <div
+        class="scroll"
+        onClick={(e) => {
+          // Covers finished replies and one still streaming in.
+          const link = (e.target as Element | null)?.closest?.("a[data-cc-nav]");
+          if (link) onFollowLink?.();
+        }}
+      >
         <div class="messages" role="log" aria-live="polite" aria-relevant="additions">
           {messages.map((m) => (
             <div key={m.id} class={`msg ${m.role}`}>
