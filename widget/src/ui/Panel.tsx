@@ -105,7 +105,6 @@ export function Panel({
           <span aria-hidden="true">×</span>
         </button>
       </div>
-      <p class="disclosure">{strings.disclosure}</p>
       <div class="scroll">
         <div class="messages" role="log" aria-live="polite" aria-relevant="additions">
           {messages.map((m) => (
@@ -153,6 +152,8 @@ export function Panel({
           </button>
         </div>
       )}
+      {/* The AI note sits under the message box once the bot has actually answered. */}
+      {!fallback && messages.some((m) => m.role === "bot") && <p class="disclosure">{strings.disclosure}</p>}
       {config.showBadge && (
         <div class="badge">
           <a href={apiBase} target="_blank" rel="noopener noreferrer">

@@ -10,7 +10,7 @@ export const config: WidgetConfig = {
   greeting: { message: "Hi, ask me anything", imageUrl: null },
   iconUrl: null,
   strings: {
-    disclosure: "You are chatting with an AI assistant.",
+    disclosure: "AI can make mistakes. Check important info.",
     fallback: "We cannot answer right now. Leave your email.",
     leadThanks: "Thanks, we will be in touch.",
     open: "Open chat",

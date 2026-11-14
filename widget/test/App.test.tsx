@@ -120,7 +120,7 @@ describe("panel", () => {
     const dialog = await openPanel();
     expect(dialog.getAttribute("aria-modal")).toBe("true");
     expect(launcher.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText(config.strings.disclosure)).toBeTruthy();
+    expect(screen.queryByText(config.strings.disclosure)).toBeNull();
     const ta = screen.getByPlaceholderText("Type a message") as HTMLTextAreaElement;
     expect(ta.getAttribute("maxlength")).toBe("2000");
     await waitFor(() => expect(document.activeElement).toBe(ta));
