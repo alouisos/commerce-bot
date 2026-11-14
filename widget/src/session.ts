@@ -9,6 +9,7 @@ const REF = "concierge.ref";
 const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const REOPEN = "concierge.reopen";
 const TEST = "concierge.test";
+const CONSENT_ASKED_CID = "concierge.consentAskedCid";
 const TEST_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
 /** How long after clicking a link in the chat the next page still reopens it. */
 export const REOPEN_MAX_AGE_MS = 120_000;
@@ -21,9 +22,11 @@ const memory: {
   ref: string | null;
   reopen: number | null;
   test: string | null;
+  consentAskedCid: string | null;
 } = {
   reopen: null,
   test: null,
+  consentAskedCid: null,
   sid: null,
   cid: null,
   teased: false,
@@ -91,6 +94,18 @@ export function consentAsked(store: Storage): boolean {
 export function markConsentAsked(store: Storage): void {
   memory.consentAsked = true;
   write(store, CONSENT_ASKED, "1");
+}
+
+/** Test tab: the conversation the email offer was last answered in (it asks again in a new one). */
+export function consentAskedCid(store: Storage): string | null {
+  const v = read(store, CONSENT_ASKED_CID);
+  return v === undefined ? memory.consentAskedCid : v;
+}
+
+export function markConsentAskedCid(store: Storage, cid: string | null): void {
+  if (!cid) return;
+  memory.consentAskedCid = cid;
+  write(store, CONSENT_ASKED_CID, cid);
 }
 
 /** The visitor followed a link from the chat: the next page load continues the conversation. */

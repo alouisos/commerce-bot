@@ -33,6 +33,7 @@ import { dailyInsights } from "@/lib/insights/schedule";
 import { enqueuedJobs } from "@/lib/jobs";
 import { replaceChunks } from "@/lib/kb/store";
 import { pausedKinds, promptStats } from "@/lib/prompts/backoff";
+import { visitAttribution } from "@/lib/sales/attribution";
 import { getSiteByPublicKey } from "@/lib/sites";
 import { getDailyConversations, getTopStartPages, getTotals } from "@/lib/stats/queries";
 import { getPlatformTotals } from "@/lib/stats/platform";
@@ -198,6 +199,28 @@ describe("test conversations are left out of insights and Ask", () => {
     await makeMessage(test.id, { content: "Do you ship to Cyprus? (test)" });
     const found = await findRelevantConversations(site.id, "ship to Cyprus");
     expect(found.map((f) => f.id)).toEqual([real.id]);
+  });
+});
+
+describe("sales attribution", () => {
+  it("an order after a test chat or a tapped test suggestion is not credited to the bot", async () => {
+    const site = await makeSite((await makeAccount()).id);
+    const sid = "sid-testorder";
+    const c = await makeConversation(site.id, { isTest: true, visitorSessionId: sid, createdAt: new Date(Date.now() - 60_000) });
+    await makeMessage(c.id, { content: "test question" });
+    await makeImpression(site.id, {
+      isTest: true,
+      visitorSessionId: sid,
+      outcome: "tapped",
+      shownAt: new Date(Date.now() - 60_000),
+      createdAt: new Date(Date.now() - 60_000),
+    });
+    expect(await visitAttribution(site.id, sid, new Date())).toEqual({ conversationId: null, promptImpressionId: null });
+
+    // The same visit without the test flag is credited as today.
+    const real = await makeConversation(site.id, { visitorSessionId: "sid-realorder", createdAt: new Date(Date.now() - 60_000) });
+    await makeMessage(real.id, { content: "real question" });
+    expect((await visitAttribution(site.id, "sid-realorder", new Date())).conversationId).toBe(real.id);
   });
 });
 

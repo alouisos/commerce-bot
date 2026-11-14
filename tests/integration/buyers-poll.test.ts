@@ -165,5 +165,5 @@ describe("pollOrders", () => {
     const asked: Date[] = [];
     await pollOrders(now, { list: async (_c, a) => (asked.push(a), ret([])), urls });
     expect(asked[0]).toEqual(lastAt);
-  });
+  }, 20_000); // 500 orders: about 5 s on a busy machine
 });

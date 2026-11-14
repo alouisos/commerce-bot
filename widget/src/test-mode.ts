@@ -12,11 +12,17 @@ export function captureTestKey(win: Window, store: Storage): void {
     const parts = hash.split("&");
     const mine = parts.find((p) => p.startsWith(`${PARAM}=`));
     if (!mine) return;
-    const key = decodeURIComponent(mine.slice(PARAM.length + 1));
-    if (key) setTestKey(store, key);
+    // The key leaves the address bar first, whatever happens to it next.
     const rest = parts.filter((p) => p !== mine).join("&");
     const { pathname, search } = win.location;
     win.history.replaceState(win.history.state, "", `${pathname}${search}${rest ? `#${rest}` : ""}`);
+    let key = "";
+    try {
+      key = decodeURIComponent(mine.slice(PARAM.length + 1));
+    } catch {
+      return; // a malformed escape: no test mode
+    }
+    if (key) setTestKey(store, key);
   } catch {
     // no usable location or history: test mode just doesn't start
   }

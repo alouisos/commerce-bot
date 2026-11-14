@@ -95,6 +95,15 @@ describe("turning test mode on", () => {
     expect(calls[0]).toContain(`test=${KEY}`);
   });
 
+  it("always takes a malformed key out of the address bar", async () => {
+    window.history.replaceState(null, "", `/product/shampoo/#reviews&concierge-test=%E0${KEY}`);
+    stubConfig(config);
+    await boot(document, window, script());
+    expect(window.location.hash).toBe("#reviews");
+    expect(window.location.href).not.toContain("concierge-test");
+    expect(sessionStorage.getItem("concierge.test")).toBeNull();
+  });
+
   it("keeps the rest of the fragment", async () => {
     window.history.replaceState(null, "", `/product/shampoo/#reviews&concierge-test=${KEY}`);
     stubConfig(config);
@@ -170,6 +179,47 @@ describe("in test mode", () => {
     expect(chat.test).toBe(KEY);
   });
 
+  it("once answered, the email ask stays closed for that conversation on later pages; a new one asks again", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        chat: reply("c1"),
+        conversation: { messages: [{ id: "m1", role: "visitor", content: "first", images: [], kind: "chat" }, { id: "m2", role: "bot", content: "An answer", images: [], kind: "chat" }] },
+      }).fn,
+    );
+    const cfg = { ...testConfig, emailCapture: true };
+    mount(cfg);
+    fireEvent.click(screen.getByLabelText("Open chat"));
+    await screen.findByRole("dialog");
+    const ta = screen.getByPlaceholderText("Type a message") as HTMLTextAreaElement;
+    fireEvent.input(ta, { target: { value: "first" } });
+    fireEvent.click(screen.getByLabelText("Send"));
+    await screen.findByText(cfg.strings.consentAsk);
+    fireEvent.click(screen.getByText(cfg.strings.consentNo));
+    expect(screen.queryByText(cfg.strings.consentAsk)).toBeNull();
+
+    // Next page, same conversation (restored from the server): not asked again.
+    cleanup();
+    mount(cfg);
+    fireEvent.click(screen.getByLabelText("Open chat"));
+    await screen.findByRole("dialog");
+    await waitFor(() => expect(screen.getAllByText("An answer").length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText(cfg.strings.consentAsk)).toBeNull();
+
+    // A new conversation asks again.
+    cleanup();
+    sessionStorage.removeItem("concierge.cid");
+    vi.stubGlobal("fetch", mockFetch({ chat: reply("c2") }).fn);
+    mount(cfg);
+    fireEvent.click(screen.getByLabelText("Open chat"));
+    await screen.findByRole("dialog");
+    const ta2 = screen.getByPlaceholderText("Type a message") as HTMLTextAreaElement;
+    fireEvent.input(ta2, { target: { value: "again" } });
+    fireEvent.click(screen.getByLabelText("Send"));
+    await screen.findByText(cfg.strings.consentAsk);
+  });
+
   it("the email ask still needs the site to be able to send email", async () => {
     vi.stubGlobal("fetch", mockFetch({ chat: reply("c1") }).fn);
     mount({ ...testConfig, emailCapture: false });
@@ -212,6 +262,20 @@ describe("in test mode", () => {
     fireEvent.pointerDown(document.body); // the greeting goes away on the first click elsewhere
     await advance(4_000);
     expect(promptCalls()).toHaveLength(2);
+  });
+
+  it("the greeting doesn't hold a suggestion back: the suggestion takes its place", async () => {
+    vi.useFakeTimers();
+    const m = mockFetch({ prompt: offer });
+    vi.stubGlobal("fetch", m.fn);
+    mount(testConfig, { tracker: true });
+    await advance(1_600);
+    expect(screen.getByText(testConfig.greeting.message)).toBeTruthy();
+    await advance(2_000);
+    expect(m.calls.filter((c) => c.url.pathname.endsWith("/prompt"))).toHaveLength(1);
+    await advance(10);
+    expect(screen.getByText(offer.text)).toBeTruthy();
+    expect(screen.queryByText(testConfig.greeting.message)).toBeNull();
   });
 
   it("shows a TEST MODE tag and Exit clears the key and reloads", async () => {

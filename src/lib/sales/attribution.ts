@@ -17,6 +17,8 @@ export async function visitAttribution(
       and(
         eq(conversations.siteId, siteId),
         eq(conversations.visitorSessionId, sid),
+        // The owner trying checkout in a test tab is not a sale the bot helped with.
+        eq(conversations.isTest, false),
         lt(conversations.createdAt, before),
         sql`exists (select 1 from messages m where m.conversation_id = ${sql.raw('"conversations"."id"')} and m.role = 'visitor')`,
       ),
@@ -31,6 +33,7 @@ export async function visitAttribution(
         eq(promptImpressions.siteId, siteId),
         eq(promptImpressions.visitorSessionId, sid),
         eq(promptImpressions.outcome, "tapped"),
+        eq(promptImpressions.isTest, false),
         lt(promptImpressions.createdAt, before),
       ),
     )

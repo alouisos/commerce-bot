@@ -9,11 +9,13 @@ import { usePrompts, withTest } from "../prompts";
 import {
   clearTestKey,
   consentAsked,
+  consentAskedCid,
   getRef,
   getSession,
   getTestKey,
   hasTeased,
   markConsentAsked,
+  markConsentAskedCid,
   markReopen,
   markTeased,
   setConversationId,
@@ -68,16 +70,19 @@ export function App({
   const [streaming, setStreaming] = useState(false);
   const [fallback, setFallback] = useState(forcedFallback);
   // "open" while offered, "thanks" after yes, "closed" when asked before this visit or after no.
-  // A test tab asks in every conversation.
-  const [consent, setConsent] = useState<"open" | "thanks" | "closed">(() =>
-    !testMode && consentAsked(store) ? "closed" : "open",
-  );
+  // A test tab asks once in every conversation (not again on later pages of one it was answered in).
+  const [consent, setConsent] = useState<"open" | "thanks" | "closed">(() => {
+    if (!testMode) return consentAsked(store) ? "closed" : "open";
+    const asked = consentAskedCid(store);
+    return asked !== null && asked === getSession(store).cid ? "closed" : "open";
+  });
   const launcherRef = useRef<HTMLButtonElement>(null);
   const cidRef = useRef<string | null>(null);
   const restoredRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const prompts = usePrompts({ tracker, config, apiBase, siteKey, store, busy: open || teaser, testKey });
+  // In a test tab the greeting doesn't hold suggestions back: a suggestion takes its place.
+  const prompts = usePrompts({ tracker, config, apiBase, siteKey, store, busy: open || (teaser && !testMode), testKey });
   const { silence } = prompts;
 
   const openPanel = useCallback(() => {
@@ -116,6 +121,10 @@ export function App({
     }, TEASER_DELAY_MS);
     return () => clearTimeout(t);
   }, [store, testMode]);
+
+  useEffect(() => {
+    if (testMode && prompts.offer) setTeaser(false);
+  }, [testMode, prompts.offer]);
 
   // Full-screen layout: lock host page scroll while open.
   useEffect(() => {
@@ -235,6 +244,7 @@ export function App({
   const consentYes = useCallback(
     async (email: string) => {
       markConsentAsked(store);
+      if (testMode) markConsentAskedCid(store, cidRef.current);
       const { sid } = getSession(store);
       try {
         await sendSubscribe(apiBase, {
@@ -251,12 +261,13 @@ export function App({
         setConsent("closed");
       }
     },
-    [apiBase, siteKey, store, config.language, testKey],
+    [apiBase, siteKey, store, config.language, testKey, testMode],
   );
   const consentNo = useCallback(() => {
     markConsentAsked(store);
+    if (testMode) markConsentAskedCid(store, cidRef.current);
     setConsent("closed");
-  }, [store]);
+  }, [store, testMode]);
 
   const exitTest = useCallback(() => {
     clearTestKey(store);
