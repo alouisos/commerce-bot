@@ -7,9 +7,11 @@ export type Totals = { conversations: number; visitorMessages: number; emailsCap
 
 const zero = (): Totals => ({ conversations: 0, visitorMessages: 0, emailsCaptured: 0, unanswered: 0 });
 
+/** Conversations started in the range, leaving out the owner's test conversations. */
 const convInRange = (siteIds: string[], range: StatsRange) =>
   and(
     inArray(conversations.siteId, siteIds),
+    eq(conversations.isTest, false),
     gte(conversations.createdAt, range.from),
     lte(conversations.createdAt, range.to),
   );

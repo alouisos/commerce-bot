@@ -95,6 +95,7 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
                   <Link href={`${base}/${r.id}`}>
                     <time dateTime={r.createdAt.toISOString()}>{relativeTime(r.createdAt, now)}</time>
                   </Link>
+                  {r.isTest && <span className="badge ml-2">Test</span>}
                 </td>
                 <td data-label="Page" className="cell-mono max-w-48 truncate">{pathOf(r.firstPageUrl)}</td>
                 <td data-label="Messages">{r.visitorMessages}</td>

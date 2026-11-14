@@ -20,7 +20,8 @@ import {
   type WidgetSite,
 } from "@/lib/widget/guard";
 import { resolveLanguage } from "@/lib/widget/language";
-import { pageSchema, visitSchema } from "@/lib/widget/schemas";
+import { pageSchema, testKeySchema, visitSchema } from "@/lib/widget/schemas";
+import { isValidTestKey } from "@/lib/widget/test-mode";
 import { LIMITS, type ChatEvent, type WidgetImage } from "@/shared/widget-protocol";
 import { createMarkerFilter, extractImageMarkers } from "./images";
 import { streamModelReply, type ModelRequest } from "./model";
@@ -39,6 +40,8 @@ const chatSchema = z.object({
   promptId: z.string().max(100).nullish().transform((v) => v ?? null),
   // From an email link; anything malformed is ignored.
   ref: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).nullish().catch(null).transform((v) => v ?? null),
+  // The owner's test tab: a valid key marks a new conversation as a test.
+  test: testKeySchema,
 });
 
 type ChatInput = z.infer<typeof chatSchema>;
@@ -306,6 +309,7 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
         firstPageUrl: input.page.url,
         promptImpressionId: impression?.id ?? null,
         contactId: contact?.id ?? null,
+        isTest: isValidTestKey(site.publicKey, input.test),
         ...visitFields,
       })
       .returning();
@@ -320,7 +324,8 @@ export const handleChat = withWidgetErrors<ChatOptions | undefined>(async (req, 
   const language = conversation.language;
 
   const previousVisitorMessages = await countVisitorMessages(conversationId);
-  if (previousVisitorMessages === 0) await countConversation(site.accountId, now);
+  // Test conversations don't use up the month's conversations (their AI cost is still metered).
+  if (previousVisitorMessages === 0 && !conversation.isTest) await countConversation(site.accountId, now);
   const visitorMessageId = await addMessage(conversationId, { role: "visitor", content: input.message });
   // Back from one of our emails and chatting again: follow-ups now come from this conversation
   // (attribution alone, without a recent click of their own, never redirects their emails).

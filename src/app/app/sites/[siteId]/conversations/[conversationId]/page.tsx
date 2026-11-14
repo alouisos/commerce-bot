@@ -54,7 +54,10 @@ export default async function ConversationPage({
         <ArrowLeftIcon /> All conversations
       </Link>
       <header className="flex flex-col gap-1.5">
-        <h2 className="text-2xl">Conversation</h2>
+        <h2 className="flex items-center gap-2 text-2xl">
+          Conversation
+          {conversation.isTest && <span className="badge">Test</span>}
+        </h2>
         <p className="text-sm text-ink-muted">
           Started <time dateTime={conversation.createdAt.toISOString()}>{utc(conversation.createdAt)}</time> ·
           Language: {conversation.language}

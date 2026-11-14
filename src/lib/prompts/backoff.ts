@@ -22,6 +22,7 @@ async function countByKind(siteId: string, from: Date, to: Date): Promise<Record
     .where(
       and(
         eq(promptImpressions.siteId, siteId),
+        eq(promptImpressions.isTest, false),
         isNotNull(promptImpressions.shownAt),
         gte(promptImpressions.shownAt, from),
         lte(promptImpressions.shownAt, to),
@@ -37,7 +38,7 @@ async function countByKind(siteId: string, from: Date, to: Date): Promise<Record
 }
 
 /**
- * Suggestion types the site's visitors keep dismissing: over the last 14 days, at least 20 shown and
+ * Suggestion types the site's visitors keep dismissing (test-tab impressions never count): over the last 14 days, at least 20 shown and
  * half or more dismissed. A paused type resumes by itself as those impressions leave the window.
  */
 export async function pausedKinds(siteId: string, now: Date = new Date()): Promise<PromptKind[]> {

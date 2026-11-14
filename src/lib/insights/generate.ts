@@ -90,7 +90,7 @@ export async function generateSiteInsights(
   const recent = await db
     .select()
     .from(conversations)
-    .where(and(eq(conversations.siteId, site.id), gte(conversations.lastMessageAt, from)))
+    .where(and(eq(conversations.siteId, site.id), eq(conversations.isTest, false), gte(conversations.lastMessageAt, from)))
     .orderBy(desc(conversations.lastMessageAt))
     .limit(MAX_CONVERSATIONS);
   if (recent.length === 0) return { status: "skipped", reason: "no-conversations" };
@@ -109,7 +109,7 @@ export async function generateSiteInsights(
     db
       .select({ lastMessage: max(conversations.lastMessageAt) })
       .from(conversations)
-      .where(eq(conversations.siteId, site.id)),
+      .where(and(eq(conversations.siteId, site.id), eq(conversations.isTest, false))),
   ]);
   if (previous && lastMessage && previous.createdAt > lastMessage) {
     return { status: "skipped", reason: "up-to-date" };

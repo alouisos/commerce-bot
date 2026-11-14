@@ -30,6 +30,7 @@ export function Panel({
   onLead,
   onFollowLink,
   onClose,
+  onExitTest,
   consent,
 }: {
   config: WidgetConfig;
@@ -44,6 +45,8 @@ export function Panel({
   /** A link to the shop's own site was followed from the chat. */
   onFollowLink?: () => void;
   onClose: () => void;
+  /** Set in the owner's test tab: shows the TEST MODE tag and an Exit button. */
+  onExitTest?: (() => void) | null;
   /** The email offer, when it should be shown. */
   consent?: { done: boolean; onYes: (email: string) => Promise<void>; onNo: () => void } | null;
 }) {
@@ -104,6 +107,14 @@ export function Panel({
     >
       <div class="header">
         <h2 id="cc-title">{config.botName}</h2>
+        {onExitTest && (
+          <div class="test-mode">
+            <span class="test-tag">TEST MODE</span>
+            <button type="button" class="test-exit" onClick={onExitTest}>
+              Exit
+            </button>
+          </div>
+        )}
         <button type="button" class="close" aria-label={strings.close} onClick={onClose}>
           <span aria-hidden="true">×</span>
         </button>

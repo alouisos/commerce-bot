@@ -5,11 +5,13 @@ import { fetchConversation, sendChat, sendLead, sendSubscribe } from "../api";
 import { onColor } from "../color";
 import { consentReplies } from "../consent-timing";
 import { collectPageContext } from "../page-context";
-import { usePrompts } from "../prompts";
+import { usePrompts, withTest } from "../prompts";
 import {
+  clearTestKey,
   consentAsked,
   getRef,
   getSession,
+  getTestKey,
   hasTeased,
   markConsentAsked,
   markReopen,
@@ -40,6 +42,7 @@ export function App({
   store,
   register,
   tracker,
+  reload = () => window.location.reload(),
 }: {
   config: WidgetConfig;
   apiBase: string;
@@ -48,8 +51,13 @@ export function App({
   register?: (api: ConciergeApi) => void;
   /** Behaviour for intent and suggestions; without it there are no suggestions. */
   tracker?: VisitTracker;
+  /** Reloads the page (leaving test mode). */
+  reload?: () => void;
 }) {
   const { strings } = config;
+  // The owner's test tab: only when the server confirmed the key this tab stored.
+  const [testKey] = useState(() => (config.testMode === true ? getTestKey(store) : null));
+  const testMode = testKey !== null;
   const forcedFallback = config.mode === "fallback";
   const [open, setOpen] = useState(false);
   const [teaser, setTeaser] = useState(false);
@@ -60,19 +68,20 @@ export function App({
   const [streaming, setStreaming] = useState(false);
   const [fallback, setFallback] = useState(forcedFallback);
   // "open" while offered, "thanks" after yes, "closed" when asked before this visit or after no.
+  // A test tab asks in every conversation.
   const [consent, setConsent] = useState<"open" | "thanks" | "closed">(() =>
-    consentAsked(store) ? "closed" : "open",
+    !testMode && consentAsked(store) ? "closed" : "open",
   );
   const launcherRef = useRef<HTMLButtonElement>(null);
   const cidRef = useRef<string | null>(null);
   const restoredRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const prompts = usePrompts({ tracker, config, apiBase, siteKey, store, busy: open || teaser });
+  const prompts = usePrompts({ tracker, config, apiBase, siteKey, store, busy: open || teaser, testKey });
   const { silence } = prompts;
 
   const openPanel = useCallback(() => {
-    // Opening the chat, by any route, ends suggestions for the visit.
+    // Opening the chat, by any route, ends suggestions for the visit (not in a test tab).
     silence();
     setTeaser(false);
     setOpen(true);
@@ -98,15 +107,15 @@ export function App({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Teaser: once per session, 1.5 s after load.
+  // Teaser: once per session (on every page load in a test tab), 1.5 s after load.
   useEffect(() => {
-    if (hasTeased(store)) return;
+    if (!testMode && hasTeased(store)) return;
     const t = setTimeout(() => {
       markTeased(store);
       setTeaser(true);
     }, TEASER_DELAY_MS);
     return () => clearTimeout(t);
-  }, [store]);
+  }, [store, testMode]);
 
   // Full-screen layout: lock host page scroll while open.
   useEffect(() => {
@@ -165,6 +174,7 @@ export function App({
           visit: tracker?.summary() ?? null,
           promptId,
           ref: getRef(store),
+          ...withTest(testKey),
         };
         for await (const ev of sendChat(apiBase, req, ctrl.signal)) {
           if (ev.type === "start") {
@@ -197,7 +207,7 @@ export function App({
         setFallback(true);
       }
     },
-    [apiBase, siteKey, store, strings.fallback, tracker],
+    [apiBase, siteKey, store, strings.fallback, tracker, testKey],
   );
 
   const tapPrompt = useCallback(() => {
@@ -219,26 +229,39 @@ export function App({
   const botReplies = messages.filter((m) => m.role === "bot").length;
   // Read at decision time; null when there is no tracker (tracking not allowed).
   const intent = tracker?.summary().intent ?? null;
+  // A test tab asks after the first reply; it still needs a site that can send email.
   const offerConsent =
-    config.emailCapture && !fallback && consent !== "closed" && botReplies >= consentReplies(intent);
+    config.emailCapture && !fallback && consent !== "closed" && botReplies >= (testMode ? 1 : consentReplies(intent));
   const consentYes = useCallback(
     async (email: string) => {
       markConsentAsked(store);
       const { sid } = getSession(store);
       try {
-        await sendSubscribe(apiBase, { key: siteKey, sid, cid: cidRef.current, email, language: config.language });
+        await sendSubscribe(apiBase, {
+          key: siteKey,
+          sid,
+          cid: cidRef.current,
+          email,
+          language: config.language,
+          ...withTest(testKey),
+        });
         setConsent("thanks");
       } catch {
         // A missed email is fine; the offer just goes away.
         setConsent("closed");
       }
     },
-    [apiBase, siteKey, store, config.language],
+    [apiBase, siteKey, store, config.language, testKey],
   );
   const consentNo = useCallback(() => {
     markConsentAsked(store);
     setConsent("closed");
   }, [store]);
+
+  const exitTest = useCallback(() => {
+    clearTestKey(store);
+    reload();
+  }, [store, reload]);
 
   return (
     <div
@@ -290,6 +313,7 @@ export function App({
           onLead={lead}
           onFollowLink={() => markReopen(store)}
           onClose={closePanel}
+          onExitTest={testMode ? exitTest : null}
           consent={offerConsent ? { done: consent === "thanks", onYes: consentYes, onNo: consentNo } : null}
         />
       )}

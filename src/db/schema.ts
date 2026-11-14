@@ -201,6 +201,8 @@ export const conversations = pgTable(
       onDelete: "set null",
     }),
     contactId: uuid("contact_id").references((): AnyPgColumn => contacts.id, { onDelete: "set null" }),
+    /** Started from the owner's test tab: listed (marked Test) but left out of every number. */
+    isTest: boolean("is_test").default(false).notNull(),
     createdAt: createdAt(),
   },
   (t) => [index("conversations_site_idx").on(t.siteId, t.lastMessageAt)],
@@ -225,6 +227,8 @@ export const promptImpressions = pgTable(
     shownAt: timestamp("shown_at"),
     outcome: text("outcome", { enum: ["tapped", "dismissed"] }),
     outcomeAt: timestamp("outcome_at"),
+    /** Offered in the owner's test tab: left out of back-off and suggestion stats. */
+    isTest: boolean("is_test").default(false).notNull(),
     createdAt: createdAt(),
   },
   (t) => [index("prompt_impressions_site_shown_idx").on(t.siteId, t.shownAt)],

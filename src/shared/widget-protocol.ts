@@ -6,6 +6,9 @@
 //   query string. The CORS preflight has no body, so the server reads the key
 //   from the query for OPTIONS.
 // - Visitor identity (`sid`) is a random id in sessionStorage, per visit only.
+// - Test mode: a tab opened from the admin's install page keeps the site's test key in sessionStorage
+//   and sends it as `test` (config: `?test=`). Only the server decides whether it is valid; an unknown or
+//   invalid key is normal mode, never an error.
 
 export const LIMITS = {
   messageMaxChars: 2000,
@@ -81,6 +84,8 @@ export type WidgetConfig = {
   emailCapture: boolean;
   /** auto: follow a detected consent tool for tracking; required: wait for consent to appear at all; off: never wait. */
   consentMode: "auto" | "required" | "off";
+  /** The request carried this site's valid test key: the owner's test tab (see `test` on requests). */
+  testMode: boolean;
 };
 
 export type WidgetImage = { id: string; url: string; caption: string };
@@ -105,6 +110,8 @@ export type ChatRequest = {
   promptId?: string | null;
   /** The attribution reference from an email link (cc_ref), kept for the visit. */
   ref?: string | null;
+  /** The owner's test key, sent only from a tab the server confirmed as a test tab. */
+  test?: string;
 };
 
 export type ChatEvent =
@@ -127,6 +134,7 @@ export type SubscribeRequest = {
   cid: string | null;
   email: string;
   language: string;
+  test?: string;
 };
 
 /** Sent once from an order-confirmation page, when tracking is allowed. */
@@ -145,6 +153,7 @@ export type PromptRequest = {
   page: PageContext;
   intent: Intent;
   confidence: number;
+  test?: string;
 };
 
 /** A suggestion to show. `question` is what gets sent as the visitor's message if they tap it. */
@@ -155,4 +164,5 @@ export type PromptEventRequest = {
   sid: string;
   id: string;
   event: "shown" | "tapped" | "dismissed";
+  test?: string;
 };

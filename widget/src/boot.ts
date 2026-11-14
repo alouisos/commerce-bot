@@ -2,7 +2,8 @@ import { h, render } from "preact";
 import { fetchConfig } from "./api";
 import { detectConsent, onConsentChange } from "./consent";
 import { reportOrderOnce } from "./orders";
-import { setRef } from "./session";
+import { getTestKey, setRef } from "./session";
+import { captureTestKey } from "./test-mode";
 import css from "./styles.css";
 import { App, type ConciergeApi } from "./ui/App";
 import { createVisitTracker, type VisitTracker } from "./visit";
@@ -59,10 +60,13 @@ export async function boot(doc: Document, win: Window, current: Element | null):
   const queue = claimGlobal(win);
   if (!queue) return;
   const apiBase = new URL(script.src, win.location.href).origin;
+  const tabStore = sessionStore(win);
+  // Opened from the admin's install page: keep the test key for this tab. The server decides if it's valid.
+  captureTestKey(win, tabStore);
 
   let config;
   try {
-    config = await fetchConfig(apiBase, key, doc.documentElement.lang || null);
+    config = await fetchConfig(apiBase, key, doc.documentElement.lang || null, getTestKey(tabStore));
   } catch (err) {
     console.warn("[concierge] widget disabled:", err instanceof Error ? err.message : err);
     return;
@@ -126,7 +130,7 @@ export async function boot(doc: Document, win: Window, current: Element | null):
     mountPoint = doc.createElement("div");
     shadow.append(style, mountPoint);
     doc.body.appendChild(host);
-    store = sessionStore(win);
+    store = tabStore;
     // Arrived from one of the shop's emails: remember the link's ref for this visit. The URL is left alone.
     try {
       setRef(store, new URLSearchParams(win.location.search).get("cc_ref"));

@@ -18,6 +18,8 @@ export type ConversationRow = {
   unanswered: boolean;
   hasSale: boolean;
   intent: Intent | null;
+  /** Started from the owner's test tab. */
+  isTest: boolean;
 };
 
 export const PAGE_SIZE = 25;
@@ -81,6 +83,7 @@ export async function listConversations(
       language: conversations.language,
       firstPageUrl: conversations.firstPageUrl,
       intent: conversations.intent,
+      isTest: conversations.isTest,
       visitorMessages: sql<number>`(select count(*) from messages m where m.conversation_id = ${convId} and m.role = 'visitor')`.mapWith(
         Number,
       ),

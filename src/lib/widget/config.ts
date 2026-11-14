@@ -48,7 +48,9 @@ export async function buildWidgetConfig(
   site: Site & { account: Account },
   requestedLang: string | null,
   now: Date = new Date(),
+  opts: { testMode?: boolean } = {},
 ): Promise<WidgetConfig> {
+  const testMode = opts.testMode === true;
   const greetings = await db.select().from(siteGreetings).where(eq(siteGreetings.siteId, site.id));
   const language = resolveLanguage(requestedLang, availableLanguages(greetings), site.defaultLanguage);
   const copy = copyFor(language);
@@ -77,8 +79,10 @@ export async function buildWidgetConfig(
     showBadge: !status.limits.removeBadge,
     mode,
     proactivity,
-    pausedKinds: proactivity === "off" ? [] : await pausedKinds(site.id, now),
+    // Back-off doesn't apply in the owner's test tab.
+    pausedKinds: proactivity === "off" || testMode ? [] : await pausedKinds(site.id, now),
     emailCapture: await canOfferEmail(site, site.account, now),
     consentMode: site.consentMode,
+    testMode,
   };
 }

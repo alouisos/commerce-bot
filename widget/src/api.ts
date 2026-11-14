@@ -18,8 +18,13 @@ function url(apiBase: string, path: string, params: Record<string, string | null
   return `${apiBase}/api/widget/${path}?${q.toString()}`;
 }
 
-export async function fetchConfig(apiBase: string, key: string, lang: string | null): Promise<WidgetConfig> {
-  const res = await fetch(url(apiBase, "config", { key, lang }));
+export async function fetchConfig(
+  apiBase: string,
+  key: string,
+  lang: string | null,
+  test: string | null = null,
+): Promise<WidgetConfig> {
+  const res = await fetch(url(apiBase, "config", { key, lang, test }));
   if (!res.ok) throw new Error(`config ${res.status}`);
   return (await res.json()) as WidgetConfig;
 }

@@ -16,7 +16,13 @@ export async function dailyInsights(now: Date = new Date()): Promise<number> {
     .from(conversations)
     .innerJoin(sites, eq(sites.id, conversations.siteId))
     .innerJoin(accounts, eq(accounts.id, sites.accountId))
-    .where(and(gte(conversations.lastMessageAt, new Date(now.getTime() - WINDOW_MS["30d"])), isNull(accounts.removedAt)));
+    .where(
+      and(
+        gte(conversations.lastMessageAt, new Date(now.getTime() - WINDOW_MS["30d"])),
+        eq(conversations.isTest, false),
+        isNull(accounts.removedAt),
+      ),
+    );
   for (const r of rows) for (const w of INSIGHT_WINDOWS) await enqueueInsights(r.siteId, w);
   return rows.length;
 }

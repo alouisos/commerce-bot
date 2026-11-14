@@ -34,6 +34,7 @@ export const config: WidgetConfig = {
   pausedKinds: [],
   emailCapture: false,
   consentMode: "auto",
+  testMode: false,
 };
 
 export function sseBody(events: ChatEvent[]): ReadableStream<Uint8Array> {

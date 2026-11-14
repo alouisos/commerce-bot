@@ -13,10 +13,12 @@ export type Preset = {
   minGapMs: number;
 };
 
-export const PRESETS: Record<Proactivity, Preset | null> = {
+export const PRESETS: Record<Proactivity, Preset | null> & { test: Preset } = {
   off: null,
-  gentle: { pageDelayMs: 15000, quietScrollMs: 2000, maxPerVisit: 2, minConfidence: 0.7, minGapMs: 60000 },
-  active: { pageDelayMs: 8000, quietScrollMs: 1500, maxPerVisit: 3, minConfidence: 0.55, minGapMs: 30000 },
+  gentle: { pageDelayMs: 4000, quietScrollMs: 2000, maxPerVisit: 2, minConfidence: 0.7, minGapMs: 60000 },
+  active: { pageDelayMs: 4000, quietScrollMs: 1500, maxPerVisit: 3, minConfidence: 0.55, minGapMs: 30000 },
+  /** The shop owner's test tab (never a site setting): quick and unlimited, so the bot can be tried out. */
+  test: { pageDelayMs: 3000, quietScrollMs: 500, maxPerVisit: 1000, minConfidence: 0, minGapMs: 5000 },
 };
 
 /** A shown suggestion hides itself after this long (counts as ignored). */
@@ -38,6 +40,11 @@ export type GateState = {
   intent: Intent | null;
   confidence: number;
   pausedKinds: PromptKind[];
+  /**
+   * The owner's test tab, confirmed by the server: the `test` preset, and neither silence nor back-off
+   * applies. Suggestions switched off ("off") still means none.
+   */
+  testMode?: boolean;
 };
 
 export type BlockReason =
@@ -57,10 +64,11 @@ export type BlockReason =
 
 /** Why no suggestion may be requested now, or null when one may. */
 export function promptBlockReason(s: GateState, now: number): BlockReason | null {
-  const p = PRESETS[s.proactivity];
-  if (!p) return "off";
+  if (!PRESETS[s.proactivity]) return "off";
+  const test = s.testMode === true;
+  const p = test ? PRESETS.test : PRESETS[s.proactivity]!;
   if (!s.aiAvailable) return "ai-unavailable";
-  if (s.silenced) return "silenced";
+  if (s.silenced && !test) return "silenced";
   if (s.busy) return "busy";
   if (s.pageKind === "checkout") return "checkout";
   if (s.shownThisVisit >= p.maxPerVisit) return "cap";
@@ -70,6 +78,6 @@ export function promptBlockReason(s: GateState, now: number): BlockReason | null
   if (s.lastScrollAt !== null && now - s.lastScrollAt < p.quietScrollMs) return "scrolling";
   if (!s.intent) return "no-intent";
   if (s.confidence < p.minConfidence) return "low-confidence";
-  if (s.pausedKinds.includes(kindForIntent(s.intent))) return "paused";
+  if (!test && s.pausedKinds.includes(kindForIntent(s.intent))) return "paused";
   return null;
 }

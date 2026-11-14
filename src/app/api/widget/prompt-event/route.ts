@@ -4,11 +4,14 @@ import { db } from "@/db/client";
 import { promptImpressions } from "@/db/schema";
 import { hit } from "@/lib/usage/rate-limit";
 import { clientIp, corsHeaders, preflight, resolveWidgetRequest, sidSchema, WidgetError, withWidgetErrors } from "@/lib/widget/guard";
+import { testKeySchema } from "@/lib/widget/schemas";
 
 const schema = z.object({
   sid: sidSchema,
   id: z.uuid(),
   event: z.enum(["shown", "tapped", "dismissed"]),
+  // Sent from the owner's test tab; the impression already says whether it was a test.
+  test: testKeySchema,
 });
 
 /** Records what happened to a suggestion. Only the visit it was offered to can report on it. */

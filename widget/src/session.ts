@@ -8,11 +8,22 @@ const CONSENT_ASKED = "concierge.consentAsked";
 const REF = "concierge.ref";
 const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const REOPEN = "concierge.reopen";
+const TEST = "concierge.test";
+const TEST_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
 /** How long after clicking a link in the chat the next page still reopens it. */
 export const REOPEN_MAX_AGE_MS = 120_000;
 
-const memory: { sid: string | null; cid: string | null; teased: boolean; consentAsked: boolean; ref: string | null; reopen: number | null } = {
+const memory: {
+  sid: string | null;
+  cid: string | null;
+  teased: boolean;
+  consentAsked: boolean;
+  ref: string | null;
+  reopen: number | null;
+  test: string | null;
+} = {
   reopen: null,
+  test: null,
   sid: null,
   cid: null,
   teased: false,
@@ -113,6 +124,31 @@ export function setRef(store: Storage, ref: string | null): void {
   if (!ref || !REF_PATTERN.test(ref)) return;
   memory.ref = ref;
   write(store, REF, ref);
+}
+
+/**
+ * The owner's test key for this tab, if one was stored. Only a sign of intent: test mode is on only
+ * when the server confirms the key (config.testMode).
+ */
+export function getTestKey(store: Storage): string | null {
+  const v = read(store, TEST);
+  const key = v === undefined ? memory.test : v;
+  return key && TEST_PATTERN.test(key) ? key : null;
+}
+
+export function setTestKey(store: Storage, key: string): void {
+  if (!TEST_PATTERN.test(key)) return;
+  memory.test = key;
+  write(store, TEST, key);
+}
+
+export function clearTestKey(store: Storage): void {
+  memory.test = null;
+  try {
+    store.removeItem(TEST);
+  } catch {
+    // storage blocked: memory was cleared above
+  }
 }
 
 // Suggestion state for the visit: survives page loads so the cap and the silence hold.

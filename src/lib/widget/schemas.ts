@@ -39,3 +39,6 @@ export const visitSchema = z.object({
   addedToCart: z.boolean(),
   cartSeen: z.boolean(),
 });
+
+/** The owner's test key (`test` on widget requests). Optional; anything malformed is dropped, never an error. */
+export const testKeySchema = z.string().max(100).nullish().catch(null).transform((v) => v ?? null);

@@ -83,7 +83,8 @@ export async function findRelevantConversations(
   const retained = new Date(now);
   retained.setUTCMonth(retained.getUTCMonth() - site.retentionMonths);
   const from = new Date(Math.max(now.getTime() - LOOKBACK_DAYS * DAY, retained.getTime()));
-  const inWindow = and(eq(conversations.siteId, siteId), gte(conversations.lastMessageAt, from));
+  // The owner's test conversations are never part of the answer.
+  const inWindow = and(eq(conversations.siteId, siteId), eq(conversations.isTest, false), gte(conversations.lastMessageAt, from));
 
   let ids: string[] = [];
   const words = terms(question);

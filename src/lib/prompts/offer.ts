@@ -106,12 +106,14 @@ async function crawledPage(siteId: string, url: string): Promise<{ url: string; 
 export async function offerPrompt(
   site: WidgetSite,
   input: { sid: string; page: PageContext; intent: Intent; confidence: number },
-  opts: { now?: Date; callModel?: CallModel } = {},
+  opts: { now?: Date; callModel?: CallModel; testMode?: boolean } = {},
 ): Promise<PromptOffer | null> {
   const now = opts.now ?? new Date();
+  const testMode = opts.testMode === true;
   const kind = kindForIntent(input.intent);
   if (site.proactivity === "off" || input.page.kind === "checkout") return null;
-  if ((await pausedKinds(site.id, now)).includes(kind)) return null;
+  // The owner's test tab sees every type; its impressions are marked so back-off and stats skip them.
+  if (!testMode && (await pausedKinds(site.id, now)).includes(kind)) return null;
   if (aiBlocked(await getQuota(site.account, now))) return null;
   if (await atConversationLimit(site.account, now)) return null;
 
@@ -186,6 +188,7 @@ export async function offerPrompt(
       pageUrl: key,
       text: suggestion.text,
       question: suggestion.question,
+      isTest: testMode,
     })
     .returning({ id: promptImpressions.id });
   return { id: impression.id, ...suggestion };
