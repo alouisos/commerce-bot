@@ -34,32 +34,32 @@ afterEach(() => {
 });
 
 describe("AI note", () => {
-  it("is not shown when the chat opens", async () => {
+  it("shows under the message box as soon as the chat opens", async () => {
     vi.stubGlobal("fetch", mockFetch({}).fn);
     mount();
     fireEvent.click(screen.getByLabelText("Open chat"));
     await screen.findByRole("dialog");
-    expect(screen.queryByText(config.strings.disclosure)).toBeNull();
-  });
-
-  it("appears under the message box after the first reply", async () => {
-    vi.stubGlobal("fetch", mockFetch({ chat: reply }).fn);
-    mount();
-    fireEvent.click(screen.getByLabelText("Open chat"));
-    await screen.findByRole("dialog");
-    await send("hello");
-    const note = await screen.findByText(config.strings.disclosure);
+    const note = screen.getByText(config.strings.disclosure);
     const composer = screen.getByPlaceholderText("Type a message").closest(".composer")!;
     // The note follows the composer in the panel.
     expect(composer.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(note.className).toBe("disclosure");
   });
 
-  it("is not shown in fallback mode", async () => {
+  it("stays after replies, shown once", async () => {
+    vi.stubGlobal("fetch", mockFetch({ chat: reply }).fn);
+    mount();
+    fireEvent.click(screen.getByLabelText("Open chat"));
+    await screen.findByRole("dialog");
+    await send("hello");
+    expect(screen.getAllByText(config.strings.disclosure)).toHaveLength(1);
+  });
+
+  it("is shown in fallback mode too", async () => {
     vi.stubGlobal("fetch", mockFetch({}).fn);
     mount({ ...config, mode: "fallback" });
     fireEvent.click(screen.getByLabelText("Open chat"));
     await screen.findByRole("dialog");
-    expect(screen.queryByText(config.strings.disclosure)).toBeNull();
+    expect(screen.getByText(config.strings.disclosure)).toBeTruthy();
   });
 });

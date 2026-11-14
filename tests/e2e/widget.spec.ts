@@ -14,10 +14,10 @@ test("widget: Greek greeting, panel, chat, restore", async ({ page }) => {
   await page.mouse.wheel(0, 600);
   await expect(teaser).toHaveCount(0);
 
-  // The AI note isn't shown until the bot has answered.
+  // The Greek AI note shows under the message box as soon as the chat opens.
   await page.locator("#concierge-root .launcher").click();
   const panel = page.locator("#concierge-root .panel");
-  await expect(panel.locator(".disclosure")).toHaveCount(0);
+  await expect(panel.locator(".disclosure")).toContainText("Η τεχνητή νοημοσύνη μπορεί να κάνει λάθη");
 
   // Send a message and get the fake model's reply.
   const input = panel.getByLabel("Γράψτε την ερώτησή σας…");
@@ -25,8 +25,6 @@ test("widget: Greek greeting, panel, chat, restore", async ({ page }) => {
   await input.press("Enter");
   await expect(panel.locator(".msg.bot").filter({ hasText: "Test reply about:" })).toBeVisible({ timeout: 15_000 });
   await expect(panel.locator(".msg.visitor")).toContainText(QUESTION);
-  // After the first reply, the Greek AI note sits under the message box.
-  await expect(panel.locator(".disclosure")).toContainText("Η τεχνητή νοημοσύνη μπορεί να κάνει λάθη");
 
   // Reload: the conversation is restored.
   await page.reload();

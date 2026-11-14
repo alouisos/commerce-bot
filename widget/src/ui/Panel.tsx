@@ -152,8 +152,8 @@ export function Panel({
           </button>
         </div>
       )}
-      {/* The AI note sits under the message box once the bot has actually answered. */}
-      {!fallback && messages.some((m) => m.role === "bot") && <p class="disclosure">{strings.disclosure}</p>}
+      {/* The AI note: visible from the moment the chat opens (AI Act transparency), under the message box. */}
+      <p class="disclosure">{strings.disclosure}</p>
       {config.showBadge && (
         <div class="badge">
           <a href={apiBase} target="_blank" rel="noopener noreferrer">
