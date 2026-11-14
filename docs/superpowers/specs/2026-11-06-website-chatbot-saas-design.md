@@ -166,8 +166,11 @@ information; admins can also state pairings explicitly. **(my call)**
 - No prompt in the first several seconds after landing, and none while the
   visitor is actively scrolling.
 - A cap of prompts per visit (default 2).
-- One dismissal silences prompts for the rest of the visit. Closing the chat
-  also means no more prompts that session.
+- Only an explicit no silences prompts for the rest of the visit: × on a
+  prompt, × on the greeting, or "No" to the email ask. Opening the chat does
+  not. After a chat, at most one more prompt may come: on another page, 30 s
+  after the chat closed or the page opened, when the visitor is close to
+  buying, and built on the conversation. (Product owner, 2026-11-14.)
 - No prompt when intent confidence is low.
 - **Proactivity dial per site:** Off (bot only answers when opened) /
   Gentle (default) / Active.

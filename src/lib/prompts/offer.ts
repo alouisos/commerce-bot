@@ -118,7 +118,8 @@ async function conversationExcerpt(
   const rows = await db
     .select({ role: messages.role, content: messages.content })
     .from(messages)
-    .where(eq(messages.conversationId, owned))
+    // Canned fallback replies carry nothing the visitor discussed.
+    .where(and(eq(messages.conversationId, owned), eq(messages.kind, "chat")))
     .orderBy(desc(messages.createdAt), desc(messages.id))
     .limit(EXCERPT_MESSAGES);
   const lines = rows

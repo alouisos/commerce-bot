@@ -37,6 +37,8 @@ export function usePrompts(opts: {
   chatSent(): void;
   /** The panel was closed. */
   chatClosed(): void;
+  /** This page loaded without the panel open: after a chat, that counts as closing it at page start. */
+  arrivedClosed(): void;
 } {
   const { tracker, config, apiBase, siteKey, store, busy } = opts;
   const testKey = opts.testKey ?? null;
@@ -181,6 +183,13 @@ export function usePrompts(opts: {
     if (getPromptState(store).chatted) updatePromptState(store, { chatClosedAt: Date.now() });
   }, [store]);
 
+  const arrivedClosed = useCallback(() => {
+    const ps = getPromptState(store);
+    if (!ps.chatted) return;
+    const start = tracker?.pageStartedAt() ?? Date.now();
+    updatePromptState(store, { chatClosedAt: Math.max(ps.chatClosedAt ?? 0, start) });
+  }, [store, tracker]);
+
   return {
     offer,
     dismiss: useCallback(() => void report("dismissed"), [report]),
@@ -188,5 +197,6 @@ export function usePrompts(opts: {
     silence,
     chatSent,
     chatClosed,
+    arrivedClosed,
   };
 }

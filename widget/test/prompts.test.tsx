@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/ui/App";
-import { markTeased } from "../src/session";
+import { markReopen, markTeased } from "../src/session";
 import { createVisitTracker, type VisitTracker } from "../src/visit";
 import { API, config, mockFetch } from "./fixtures";
 import type { ChatEvent, PromptOffer, WidgetConfig } from "../../src/shared/widget-protocol";
@@ -114,6 +114,20 @@ describe("suggestions", () => {
     fireEvent.click(screen.getByLabelText("Open chat"));
     fireEvent.click(screen.getByLabelText("Open chat"));
     remount({}, "/product/conditioner/");
+    await advance(20_000);
+    expect(f.promptCalls()).toHaveLength(1);
+    expect(screen.getByText(offer.text)).toBeTruthy();
+  });
+
+  it("the greeting going away by itself (a click elsewhere) doesn't silence", async () => {
+    const f = setup();
+    sessionStorage.clear();
+    mount();
+    await advance(1_600);
+    expect(screen.getByText(config.greeting.message)).toBeTruthy();
+    fireEvent.pointerDown(document.body);
+    await advance(10);
+    expect(screen.queryByText(config.greeting.message)).toBeNull();
     await advance(20_000);
     expect(f.promptCalls()).toHaveLength(1);
     expect(screen.getByText(offer.text)).toBeTruthy();
@@ -283,12 +297,69 @@ describe("after the visitor chatted", () => {
     expect(f.promptCalls()).toHaveLength(0);
   });
 
-  it("none while the panel hasn't been closed since chatting", async () => {
+  it("none while the panel stays open: it reopens on the next page after a chat link", async () => {
     const f = setup(offer, answer());
     mount();
     await say();
+    markReopen(sessionStorage); // the visitor followed a link in the chat (wide screen: the panel reopens)
     remount({}, ...CART);
+    expect(screen.getByRole("dialog")).toBeTruthy();
     await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(0);
+  });
+
+  it("arriving on a new page with the panel closed counts as closing it: one suggestion 30 s later", async () => {
+    const f = setup(offer, answer());
+    mount();
+    await say(); // the panel is still open when the visitor moves on
+    remount({}, ...CART);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await advance(29_000);
+    expect(f.promptCalls()).toHaveLength(0);
+    await advance(2_000);
+    expect(f.promptCalls()).toHaveLength(1);
+    await advance(10);
+    expect(screen.getByText(offer.text)).toBeTruthy();
+    remount({}, "/basket/", "woocommerce-cart");
+    await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(1);
+  });
+
+  it("a second chat after the post-chat suggestion doesn't reopen the door", async () => {
+    const f = setup(offer, answer());
+    mount();
+    await say();
+    closePanel();
+    remount({}, ...CART);
+    await advance(40_000);
+    expect(f.events()).toEqual(["shown"]);
+    await say("And the conditioner?");
+    closePanel();
+    remount({}, "/basket/", "woocommerce-cart");
+    await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(1);
+  });
+
+  it("on a phone, no suggestion while the Continue our conversation bubble shows", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width"), addEventListener() {}, removeEventListener() {} }));
+    const f = setup(offer, answer());
+    mount();
+    await say();
+    markReopen(sessionStorage);
+    remount({}, ...CART);
+    expect(screen.getByText(config.strings.continueChat)).toBeTruthy();
+    await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(0);
+    expect(screen.queryByText(offer.text)).toBeNull();
+  });
+
+  it("on a phone, the continue bubble holds suggestions back even without a chat on record", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width"), addEventListener() {}, removeEventListener() {} }));
+    const f = setup();
+    markReopen(sessionStorage);
+    mount();
+    expect(screen.getByText(config.strings.continueChat)).toBeTruthy();
+    await advance(60_000);
     expect(f.promptCalls()).toHaveLength(0);
   });
 

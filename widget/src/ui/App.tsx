@@ -82,8 +82,17 @@ export function App({
   const abortRef = useRef<AbortController | null>(null);
 
   // In a test tab the greeting doesn't hold suggestions back: a suggestion takes its place.
-  const prompts = usePrompts({ tracker, config, apiBase, siteKey, store, busy: open || (teaser && !testMode), testKey });
-  const { silence, chatSent, chatClosed } = prompts;
+  // The "continue our conversation" bubble holds suggestions back too: one bubble at a time.
+  const prompts = usePrompts({
+    tracker,
+    config,
+    apiBase,
+    siteKey,
+    store,
+    busy: open || continueOffer || (teaser && !testMode),
+    testKey,
+  });
+  const { silence, chatSent, chatClosed, arrivedClosed } = prompts;
 
   // Opening the chat doesn't silence suggestions; after a chat only a narrow door stays open (prompt-rules).
   const openPanel = useCallback(() => {
@@ -104,10 +113,16 @@ export function App({
 
   // Arriving from a link in the chat: carry the conversation on. Wide screens reopen the panel;
   // on phones (where the panel is full-screen) a bubble offers it instead of hiding the page.
+  // Any other arrival has the panel closed, which after a chat counts as closing it at page start; a panel
+  // that reopens here counts as closed only once the visitor closes it.
   useEffect(() => {
-    if (!takeReopen(store)) return;
-    if (window.matchMedia?.("(max-width: 479px)").matches) setContinueOffer(true);
-    else openPanel();
+    const reopen = takeReopen(store);
+    if (reopen && !window.matchMedia?.("(max-width: 479px)").matches) {
+      openPanel();
+      return;
+    }
+    if (reopen) setContinueOffer(true);
+    arrivedClosed();
     // Runs once per page load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -307,7 +322,7 @@ export function App({
           }}
         />
       )}
-      {prompts.offer && !open && !teaser && (
+      {prompts.offer && !open && !teaser && !continueOffer && (
         <Prompt
           text={prompts.offer.text}
           dismissLabel={strings.dismissPrompt}

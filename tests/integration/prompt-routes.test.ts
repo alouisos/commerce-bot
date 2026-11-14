@@ -226,11 +226,25 @@ describe("offerPrompt after a chat", () => {
       "Visitor: m7 m",
       "Assistant: m8",
     ]);
-    expect(lines[3].length).toBeLessThanOrEqual("Assistant: ".length + 300);
+    expect(lines[3]).toBe(`Assistant: ${`m6 it suits dry hair best ${"x".repeat(400)}`.slice(0, 300)}`);
+    expect(lines[3].length).toBe("Assistant: ".length + 300);
     expect(userText).toContain("Visitor: m7 mail me at [email] please");
     expect(userText).not.toContain("jo.doe@example.com");
     const rows = await db.select().from(promptCache).where(eq(promptCache.siteId, site.id));
     expect(rows.map((r) => r.text)).toEqual(["Cached text?"]);
+  });
+
+  it("leaves canned fallback replies out of the excerpt", async () => {
+    const site = await widgetSite();
+    const conv = await makeConversation(site.id, { visitorSessionId: SID });
+    const t0 = Date.now() - 60_000;
+    await makeMessage(conv.id, { role: "visitor", content: "Is it sulfate-free?", createdAt: new Date(t0) });
+    await makeMessage(conv.id, { role: "bot", kind: "fallback", content: "CANNED we cannot answer", createdAt: new Date(t0 + 1000) });
+    const callModel = reply(good);
+    await offerPrompt(site, input({ cid: conv.id }), { callModel });
+    const [, userText] = callModel.mock.calls[0] as unknown as [string, string];
+    expect(userText).toContain("Visitor: Is it sulfate-free?");
+    expect(userText).not.toContain("CANNED");
   });
 
   it("never writes a personal suggestion to the cache", async () => {
