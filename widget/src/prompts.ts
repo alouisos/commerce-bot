@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { scoreIntent } from "../../src/shared/intent";
-import { PROMPT_VISIBLE_MS, promptBlockReason, type GateState } from "../../src/shared/prompt-rules";
+import { PROMPT_MIN_VISIBLE_MS, PROMPT_VISIBLE_MS, promptBlockReason, type GateState } from "../../src/shared/prompt-rules";
 import type { PromptOffer, WidgetConfig } from "../../src/shared/widget-protocol";
 import { fetchPrompt, sendPromptEvent } from "./api";
 import { collectPageContext } from "./page-context";
@@ -110,15 +110,20 @@ export function usePrompts(opts: {
     };
   }, [tracker, config.proactivity, gate, store, apiBase, siteKey, show, testKey]);
 
-  // A shown suggestion goes away by itself after a while, or when the visitor scrolls on (ignored).
+  // A shown suggestion goes away by itself after a while, or when the visitor scrolls on (ignored) —
+  // but it stays up for its first PROMPT_MIN_VISIBLE_MS so there's time to tap it.
   useEffect(() => {
     if (!offer) return;
+    const shownAt = Date.now();
     const hide = () => show(null);
+    const onScroll = () => {
+      if (Date.now() - shownAt >= PROMPT_MIN_VISIBLE_MS) hide();
+    };
     const t = setTimeout(hide, PROMPT_VISIBLE_MS);
-    window.addEventListener("scroll", hide, { passive: true, once: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       clearTimeout(t);
-      window.removeEventListener("scroll", hide);
+      window.removeEventListener("scroll", onScroll);
     };
   }, [offer, show]);
 

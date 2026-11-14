@@ -163,7 +163,7 @@ describe("suggestions", () => {
     expect(f.promptCalls()).toHaveLength(1);
   });
 
-  it("an ignored suggestion hides itself after 20 s or on scroll, without a dismissal", async () => {
+  it("an ignored suggestion hides itself after 20 s, or on a scroll once it has been up 10 s, without a dismissal", async () => {
     const f = setup();
     mount();
     await advance(16_000);
@@ -173,10 +173,29 @@ describe("suggestions", () => {
     remount({}, "/product/conditioner/");
     await advance(70_000);
     expect(screen.getByText(offer.text)).toBeTruthy();
+    await advance(10_500);
     window.dispatchEvent(new Event("scroll"));
     await advance(10);
     expect(screen.queryByText(offer.text)).toBeNull();
     expect(f.events()).toEqual(["shown", "shown"]);
+  });
+
+  it("stays up for its first 10 s even while the visitor scrolls", async () => {
+    setup();
+    mount();
+    for (let i = 0; i < 40 && !screen.queryByText(offer.text); i++) await advance(500);
+    expect(screen.getByText(offer.text)).toBeTruthy();
+    window.dispatchEvent(new Event("scroll"));
+    await advance(4_000);
+    window.dispatchEvent(new Event("scroll"));
+    await advance(4_000);
+    window.dispatchEvent(new Event("scroll"));
+    await advance(10);
+    expect(screen.getByText(offer.text)).toBeTruthy();
+    await advance(2_500);
+    window.dispatchEvent(new Event("scroll"));
+    await advance(10);
+    expect(screen.queryByText(offer.text)).toBeNull();
   });
 
   it("at most two per visit on gentle, one request per page", async () => {

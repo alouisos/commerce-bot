@@ -24,6 +24,9 @@ export const PRESETS: Record<Proactivity, Preset | null> & { test: Preset } = {
 /** A shown suggestion hides itself after this long (counts as ignored). */
 export const PROMPT_VISIBLE_MS = 20000;
 
+/** A shown suggestion stays up at least this long: scrolling doesn't hide it before then. */
+export const PROMPT_MIN_VISIBLE_MS = 10000;
+
 export type GateState = {
   proactivity: Proactivity;
   aiAvailable: boolean;
