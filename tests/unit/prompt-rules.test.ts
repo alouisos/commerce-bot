@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PRESETS, promptBlockReason, type GateState } from "@/shared/prompt-rules";
+import { POST_CHAT_MAX, POST_CHAT_WAIT_MS, PRESETS, promptBlockReason, type GateState } from "@/shared/prompt-rules";
 
 const now = 1_000_000;
 const base: GateState = {
@@ -79,5 +79,74 @@ describe("promptBlockReason", () => {
   it("reports the first failing rule", () => {
     expect(r({ proactivity: "off", silenced: true })).toBe("off");
     expect(r({ silenced: true, busy: true, pageKind: "checkout" })).toBe("silenced");
+  });
+
+  describe("after the visitor chatted", () => {
+    // Chatted on another page, closed the panel a minute ago, now ready to buy.
+    const chatted: Partial<GateState> = {
+      chatted: true,
+      onChatPage: false,
+      chatClosedAt: now - 60_000,
+      postChatShown: 0,
+      intent: "buying",
+      confidence: 0.9,
+    };
+    const c = (o: Partial<GateState>) => r({ ...chatted, ...o });
+
+    it("exports the limits", () => {
+      expect(POST_CHAT_WAIT_MS).toBe(30000);
+      expect(POST_CHAT_MAX).toBe(1);
+    });
+
+    it("allows one buying suggestion on another page once the panel was closed 30 s ago", () => {
+      expect(c({})).toBeNull();
+      expect(c({ chatClosedAt: now - POST_CHAT_WAIT_MS })).toBeNull();
+    });
+
+    it("never on a page where the visitor chatted", () => {
+      expect(c({ onChatPage: true })).toBe("chat-page");
+    });
+
+    it("waits until the panel has been closed for 30 s", () => {
+      expect(c({ chatClosedAt: null })).toBe("after-chat-wait");
+      expect(c({ chatClosedAt: now - POST_CHAT_WAIT_MS + 1 })).toBe("after-chat-wait");
+    });
+
+    it("only for a visitor ready to buy", () => {
+      expect(c({ intent: "exploring", confidence: 0.8 })).toBe("after-chat-intent");
+      expect(c({ intent: "learning", confidence: 0.8 })).toBe("after-chat-intent");
+      expect(c({ intent: null })).toBe("no-intent");
+    });
+
+    it("at most one, on top of the normal cap and gap", () => {
+      expect(c({ postChatShown: POST_CHAT_MAX })).toBe("after-chat-cap");
+      expect(c({ shownThisVisit: 2, lastShownAt: now - 1_000 })).toBeNull();
+    });
+
+    it("the normal gates still apply", () => {
+      expect(c({ proactivity: "off" })).toBe("off");
+      expect(c({ silenced: true })).toBe("silenced");
+      expect(c({ busy: true })).toBe("busy");
+      expect(c({ pageKind: "checkout" })).toBe("checkout");
+      expect(c({ requestedOnPage: true })).toBe("page-done");
+      expect(c({ pageStartedAt: now - 3_500 })).toBe("too-soon");
+      expect(c({ lastScrollAt: now - 1_000 })).toBe("scrolling");
+      expect(c({ confidence: 0.6 })).toBe("low-confidence");
+      expect(c({ pausedKinds: ["pairing"] })).toBe("paused");
+    });
+
+    it("test mode ignores the after-chat limits", () => {
+      const t = (o: Partial<GateState>) => c({ testMode: true, ...o });
+      expect(t({ onChatPage: true })).toBeNull();
+      expect(t({ chatClosedAt: null })).toBeNull();
+      expect(t({ intent: "exploring", confidence: 0.8 })).toBeNull();
+      expect(t({ postChatShown: 5 })).toBeNull();
+    });
+
+    it("a visit without a chat is unchanged", () => {
+      expect(r({ chatted: false, onChatPage: true, chatClosedAt: null, postChatShown: 3 })).toBeNull();
+      expect(r({ chatted: false, shownThisVisit: 2, lastShownAt: now - 120_000 })).toBe("cap");
+      expect(r({ chatted: false, shownThisVisit: 1, lastShownAt: now - 30_000 })).toBe("gap");
+    });
   });
 });

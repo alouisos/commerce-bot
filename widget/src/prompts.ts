@@ -28,7 +28,16 @@ export function usePrompts(opts: {
   busy: boolean;
   /** The owner's test key, when the server confirmed this tab as a test tab. */
   testKey?: string | null;
-}): { offer: PromptOffer | null; dismiss(): void; tap(): PromptOffer | null; silence(): void } {
+}): {
+  offer: PromptOffer | null;
+  dismiss(): void;
+  tap(): PromptOffer | null;
+  silence(): void;
+  /** The visitor sent a chat message on this page. */
+  chatSent(): void;
+  /** The panel was closed. */
+  chatClosed(): void;
+} {
   const { tracker, config, apiBase, siteKey, store, busy } = opts;
   const testKey = opts.testKey ?? null;
   const testMode = testKey !== null;
@@ -69,6 +78,10 @@ export function usePrompts(opts: {
         confidence: intent.confidence,
         pausedKinds: config.pausedKinds,
         testMode,
+        chatted: ps.chatted,
+        onChatPage: ps.chatPages.includes(pageKey()),
+        chatClosedAt: ps.chatClosedAt,
+        postChatShown: ps.postChatShown,
       };
       return promptBlockReason(state, Date.now()) === null ? { state, intent } : null;
     },
@@ -87,19 +100,26 @@ export function usePrompts(opts: {
       updatePromptState(store, { requestedPages: [...ps.requestedPages, pageKey()] });
       requestedHere.current.add(pageKey());
       inFlight.current = true;
-      const { sid } = getSession(store);
+      const { sid, cid } = getSession(store);
       void fetchPrompt(apiBase, {
         key: siteKey,
         sid,
         page: collectPageContext(document, window),
         intent: ok.intent.intent,
         confidence: ok.intent.confidence,
+        // After a chat the suggestion may build on it; before one, the request stays as it was.
+        ...(ps.chatted && cid ? { cid } : {}),
         ...withTest(testKey),
       }).then((o) => {
         inFlight.current = false;
         // The visitor may have opened the chat, scrolled or dismissed something while we waited.
         if (cancelled || !o || !gate(false)) return;
-        updatePromptState(store, { shown: getPromptState(store).shown + 1, lastShownAt: Date.now() });
+        const now = getPromptState(store);
+        updatePromptState(store, {
+          shown: now.shown + 1,
+          lastShownAt: Date.now(),
+          ...(now.chatted ? { postChatShown: now.postChatShown + 1 } : {}),
+        });
         show(o);
         sendPromptEvent(apiBase, { key: siteKey, sid, id: o.id, event: "shown", ...withTest(testKey) });
       });
@@ -127,7 +147,8 @@ export function usePrompts(opts: {
     };
   }, [offer, show]);
 
-  // Nothing silences suggestions in a test tab (opening the chat, dismissing one, closing the greeting).
+  // Only an explicit no silences suggestions (× on one or on the greeting, No to the email ask), and
+  // nothing does in a test tab.
   const silence = useCallback(() => {
     if (!testMode) updatePromptState(store, { silenced: true });
   }, [store, testMode]);
@@ -137,17 +158,35 @@ export function usePrompts(opts: {
       const o = offerRef.current;
       if (!o) return null;
       sendPromptEvent(apiBase, { key: siteKey, sid: getSession(store).sid, id: o.id, event, ...withTest(testKey) });
-      silence();
+      // × is a no; a tap opens the chat, which the post-chat rules handle.
+      if (event === "dismissed") silence();
       show(null);
       return o;
     },
     [apiBase, siteKey, store, silence, show, testKey],
   );
 
+  // Recorded in a test tab too: its suggestions also build on the conversation.
+  const chatSent = useCallback(() => {
+    const ps = getPromptState(store);
+    const page = pageKey();
+    updatePromptState(store, {
+      chatted: true,
+      chatPages: ps.chatPages.includes(page) ? ps.chatPages : [...ps.chatPages, page],
+      chatClosedAt: null,
+    });
+  }, [store]);
+
+  const chatClosed = useCallback(() => {
+    if (getPromptState(store).chatted) updatePromptState(store, { chatClosedAt: Date.now() });
+  }, [store]);
+
   return {
     offer,
     dismiss: useCallback(() => void report("dismissed"), [report]),
     tap: useCallback(() => report("tapped"), [report]),
     silence,
+    chatSent,
+    chatClosed,
   };
 }

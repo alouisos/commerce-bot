@@ -5,7 +5,7 @@ import { App } from "../src/ui/App";
 import { markTeased } from "../src/session";
 import { createVisitTracker, type VisitTracker } from "../src/visit";
 import { API, config, mockFetch } from "./fixtures";
-import type { PromptOffer, WidgetConfig } from "../../src/shared/widget-protocol";
+import type { ChatEvent, PromptOffer, WidgetConfig } from "../../src/shared/widget-protocol";
 
 const offer: PromptOffer = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -32,11 +32,11 @@ function mount(cfg: Partial<WidgetConfig> = {}, path?: string, bodyClass?: strin
   return render(<App config={{ ...config, ...cfg }} apiBase={API} siteKey="pk_test" store={store} tracker={tracker} />);
 }
 
-function remount(cfg: Partial<WidgetConfig> = {}, path?: string) {
+function remount(cfg: Partial<WidgetConfig> = {}, path?: string, bodyClass?: string) {
   cleanup();
   trackers.forEach((t) => t.dispose());
   trackers = [];
-  return mount(cfg, path);
+  return mount(cfg, path, bodyClass);
 }
 
 async function advance(ms: number) {
@@ -45,7 +45,7 @@ async function advance(ms: number) {
   });
 }
 
-function setup(prompt: PromptOffer | null = offer, chat = [{ type: "start" as const, cid: "c1" }]) {
+function setup(prompt: PromptOffer | null = offer, chat: ChatEvent[] = [{ type: "start", cid: "c1" }]) {
   const m = mockFetch({ prompt, chat });
   vi.stubGlobal("fetch", vi.fn(m.fn));
   const promptCalls = () => m.calls.filter((c) => c.url.pathname.endsWith("/prompt"));
@@ -108,13 +108,15 @@ describe("suggestions", () => {
     expect(f.promptCalls()).toHaveLength(0);
   });
 
-  it("stays quiet after the chat was opened once", async () => {
+  it("opening the chat doesn't silence: a suggestion can still appear later on another page", async () => {
     const f = setup();
     mount();
     fireEvent.click(screen.getByLabelText("Open chat"));
     fireEvent.click(screen.getByLabelText("Open chat"));
-    await advance(30_000);
-    expect(f.promptCalls()).toHaveLength(0);
+    remount({}, "/product/conditioner/");
+    await advance(20_000);
+    expect(f.promptCalls()).toHaveLength(1);
+    expect(screen.getByText(offer.text)).toBeTruthy();
   });
 
   it("stays quiet after the greeting was closed with ×", async () => {
@@ -136,6 +138,7 @@ describe("suggestions", () => {
     expect(document.activeElement).toBe(document.body);
     const req = JSON.parse(String(f.promptCalls()[0].init?.body)) as { intent: string; confidence: number };
     expect(req).toMatchObject({ intent: "exploring", confidence: 0.7 });
+    expect(req).not.toHaveProperty("cid");
   });
 
   it("tapping opens the chat and asks the suggestion's question", async () => {
@@ -216,5 +219,126 @@ describe("suggestions", () => {
     await advance(60_000);
     expect(f.promptCalls()).toHaveLength(1);
     expect(f.events()).toEqual([]);
+  });
+});
+
+const answer = (cid = "c1"): ChatEvent[] => [
+  { type: "start", cid },
+  { type: "delta", text: "An answer" },
+  { type: "done", messageId: `m-${Math.random()}`, images: [] },
+];
+
+/** Opens the panel and sends one message; the panel stays open. */
+async function say(text = "Is it sulfate-free?") {
+  if (!screen.queryByRole("dialog")) fireEvent.click(screen.getByLabelText("Open chat"));
+  fireEvent.input(screen.getByPlaceholderText("Type a message"), { target: { value: text } });
+  fireEvent.click(screen.getByLabelText("Send"));
+  await advance(50);
+}
+
+function closePanel() {
+  fireEvent.click(screen.getByLabelText("Close chat"));
+}
+
+const CART: [string, string] = ["/cart/", "woocommerce-cart"];
+
+describe("after the visitor chatted", () => {
+  it("offers one suggestion, on another page, 30 s after the chat closed, to a visitor ready to buy, with the cid", async () => {
+    const f = setup(offer, answer());
+    mount();
+    await say();
+    closePanel();
+    remount({}, ...CART);
+    await advance(29_000);
+    expect(f.promptCalls()).toHaveLength(0);
+    await advance(2_000);
+    expect(f.promptCalls()).toHaveLength(1);
+    const req = JSON.parse(String(f.promptCalls()[0].init?.body)) as { intent: string; cid?: string };
+    expect(req).toMatchObject({ intent: "buying", cid: "c1" });
+    await advance(10);
+    expect(screen.getByText(offer.text)).toBeTruthy();
+    expect(f.events()).toEqual(["shown"]);
+  });
+
+  it("at most one after the chat", async () => {
+    const f = setup(offer, answer());
+    mount();
+    await say();
+    closePanel();
+    remount({}, ...CART);
+    await advance(60_000);
+    cleanup();
+    mount({}, "/basket/", "woocommerce-cart");
+    await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(1);
+    expect(f.events()).toEqual(["shown"]);
+  });
+
+  it("none on the page where the visitor chatted", async () => {
+    const f = setup(offer, answer());
+    mount({}, ...CART);
+    await say();
+    closePanel();
+    await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(0);
+  });
+
+  it("none while the panel hasn't been closed since chatting", async () => {
+    const f = setup(offer, answer());
+    mount();
+    await say();
+    remount({}, ...CART);
+    await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(0);
+  });
+
+  it("none unless the visitor is ready to buy", async () => {
+    const f = setup(offer, answer());
+    mount();
+    await say();
+    closePanel();
+    remount({}, "/product/conditioner/");
+    await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(0);
+  });
+
+  it("tapping a suggestion isn't a no: the post-chat door stays open", async () => {
+    const f = setup(offer, answer());
+    mount();
+    await advance(20_000);
+    fireEvent.click(screen.getByText(offer.text));
+    await advance(50);
+    closePanel();
+    remount({}, ...CART);
+    await advance(40_000);
+    expect(f.promptCalls()).toHaveLength(2);
+    expect(f.events()).toEqual(["shown", "tapped", "shown"]);
+  });
+
+  it("No to the email ask silences suggestions", async () => {
+    const f = setup(offer, answer());
+    mount({ emailCapture: true });
+    await say("one");
+    await say("two");
+    await say("three");
+    fireEvent.click(screen.getByText(config.strings.consentNo));
+    closePanel();
+    remount({ emailCapture: true }, ...CART);
+    await advance(120_000);
+    expect(f.promptCalls()).toHaveLength(0);
+  });
+
+  it("in a test tab the after-chat limits don't apply, and the request carries the cid", async () => {
+    sessionStorage.setItem("concierge.test", "abcdefghijklmnopqrstuvwxyz012345");
+    const f = setup(offer, answer());
+    mount({ testMode: true });
+    await say();
+    closePanel();
+    await advance(1_600);
+    fireEvent.pointerDown(document.body); // the greeting goes away on the first click elsewhere
+    await advance(10_000);
+    expect(f.promptCalls()).toHaveLength(1);
+    const req = JSON.parse(String(f.promptCalls()[0].init?.body)) as { intent: string; cid?: string };
+    expect(req).toMatchObject({ intent: "exploring", cid: "c1" });
   });
 });

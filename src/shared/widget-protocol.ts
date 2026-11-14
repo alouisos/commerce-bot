@@ -153,6 +153,8 @@ export type PromptRequest = {
   page: PageContext;
   intent: Intent;
   confidence: number;
+  /** After the visitor chatted: the visit's conversation, so the suggestion can build on it. */
+  cid?: string;
   test?: string;
 };
 

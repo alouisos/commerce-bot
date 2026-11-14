@@ -27,10 +27,16 @@ export const PROMPT_VISIBLE_MS = 20000;
 /** A shown suggestion stays up at least this long: scrolling doesn't hide it before then. */
 export const PROMPT_MIN_VISIBLE_MS = 10000;
 
+/** After a chat: no suggestion until the panel has been closed this long. */
+export const POST_CHAT_WAIT_MS = 30000;
+
+/** After a chat: at most this many suggestions for the rest of the visit, on top of the normal cap. */
+export const POST_CHAT_MAX = 1;
+
 export type GateState = {
   proactivity: Proactivity;
   aiAvailable: boolean;
-  /** Dismissed a suggestion or the greeting, or opened the chat, this visit. */
+  /** Said no this visit: × on a suggestion or the greeting, or "No" to the email ask. */
   silenced: boolean;
   /** Panel open, greeting or suggestion showing, or a suggestion request in flight. */
   busy: boolean;
@@ -48,6 +54,14 @@ export type GateState = {
    * applies. Suggestions switched off ("off") still means none.
    */
   testMode?: boolean;
+  /** The visitor sent at least one chat message this visit. */
+  chatted?: boolean;
+  /** The current page is one where the visitor sent a chat message. */
+  onChatPage?: boolean;
+  /** When the panel was last closed after chatting; null while it hasn't been since the last message. */
+  chatClosedAt?: number | null;
+  /** Suggestions shown since the visitor chatted. */
+  postChatShown?: number;
 };
 
 export type BlockReason =
@@ -63,9 +77,16 @@ export type BlockReason =
   | "scrolling"
   | "no-intent"
   | "low-confidence"
-  | "paused";
+  | "paused"
+  | "chat-page"
+  | "after-chat-wait"
+  | "after-chat-intent"
+  | "after-chat-cap";
 
-/** Why no suggestion may be requested now, or null when one may. */
+/**
+ * Why no suggestion may be requested now, or null when one may. After a chat (not in a test tab) only a
+ * narrow door stays open: another page, 30 s after the panel closed, a visitor ready to buy, and once.
+ */
 export function promptBlockReason(s: GateState, now: number): BlockReason | null {
   if (!PRESETS[s.proactivity]) return "off";
   const test = s.testMode === true;
@@ -74,13 +95,19 @@ export function promptBlockReason(s: GateState, now: number): BlockReason | null
   if (s.silenced && !test) return "silenced";
   if (s.busy) return "busy";
   if (s.pageKind === "checkout") return "checkout";
-  if (s.shownThisVisit >= p.maxPerVisit) return "cap";
+  const afterChat = s.chatted === true && !test;
+  if (afterChat) {
+    if (s.onChatPage) return "chat-page";
+    if (s.chatClosedAt == null || now - s.chatClosedAt < POST_CHAT_WAIT_MS) return "after-chat-wait";
+    if ((s.postChatShown ?? 0) >= POST_CHAT_MAX) return "after-chat-cap";
+  } else if (s.shownThisVisit >= p.maxPerVisit) return "cap";
   if (s.requestedOnPage) return "page-done";
   if (now - s.pageStartedAt < p.pageDelayMs) return "too-soon";
-  if (s.lastShownAt !== null && now - s.lastShownAt < p.minGapMs) return "gap";
+  if (!afterChat && s.lastShownAt !== null && now - s.lastShownAt < p.minGapMs) return "gap";
   if (s.lastScrollAt !== null && now - s.lastScrollAt < p.quietScrollMs) return "scrolling";
   if (!s.intent) return "no-intent";
   if (s.confidence < p.minConfidence) return "low-confidence";
+  if (afterChat && s.intent !== "buying") return "after-chat-intent";
   if (!test && s.pausedKinds.includes(kindForIntent(s.intent))) return "paused";
   return null;
 }

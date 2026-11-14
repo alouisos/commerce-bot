@@ -169,34 +169,66 @@ export function clearTestKey(store: Storage): void {
 // Suggestion state for the visit: survives page loads so the cap and the silence hold.
 const PROMPTS = "concierge.prompts";
 
-export type PromptState = { shown: number; lastShownAt: number | null; silenced: boolean; requestedPages: string[] };
+export type PromptState = {
+  shown: number;
+  lastShownAt: number | null;
+  silenced: boolean;
+  requestedPages: string[];
+  /** The visitor sent at least one chat message this visit. */
+  chatted: boolean;
+  /** Pages where the visitor sent a chat message (newest last, at most CHAT_PAGES_MAX). */
+  chatPages: string[];
+  /** When the panel was last closed after chatting; null while it hasn't been since the last message. */
+  chatClosedAt: number | null;
+  /** Suggestions shown since the visitor chatted. */
+  postChatShown: number;
+};
 
-const EMPTY: PromptState = { shown: 0, lastShownAt: null, silenced: false, requestedPages: [] };
-let promptMemory: PromptState = { ...EMPTY };
+const CHAT_PAGES_MAX = 20;
+
+const empty = (): PromptState => ({
+  shown: 0,
+  lastShownAt: null,
+  silenced: false,
+  requestedPages: [],
+  chatted: false,
+  chatPages: [],
+  chatClosedAt: null,
+  postChatShown: 0,
+});
+let promptMemory: PromptState = empty();
+
+const copy = (s: PromptState): PromptState => ({ ...s, requestedPages: [...s.requestedPages], chatPages: [...s.chatPages] });
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((p): p is string => typeof p === "string") : []);
 
 export function getPromptState(store: Storage): PromptState {
   const raw = read(store, PROMPTS);
-  if (raw === undefined) return { ...promptMemory, requestedPages: [...promptMemory.requestedPages] };
-  if (raw === null) return { ...EMPTY, requestedPages: [] };
+  if (raw === undefined) return copy(promptMemory);
+  if (raw === null) return empty();
   try {
     const v = JSON.parse(raw) as Partial<PromptState>;
     const state: PromptState = {
       shown: typeof v.shown === "number" ? v.shown : 0,
       lastShownAt: typeof v.lastShownAt === "number" ? v.lastShownAt : null,
       silenced: v.silenced === true,
-      requestedPages: Array.isArray(v.requestedPages) ? v.requestedPages.filter((p) => typeof p === "string") : [],
+      requestedPages: strings(v.requestedPages),
+      chatted: v.chatted === true,
+      chatPages: strings(v.chatPages),
+      chatClosedAt: typeof v.chatClosedAt === "number" ? v.chatClosedAt : null,
+      postChatShown: typeof v.postChatShown === "number" ? v.postChatShown : 0,
     };
     // Kept in memory too, so a later failing write can't forget a dismissal read from storage.
     promptMemory = state;
-    return { ...state, requestedPages: [...state.requestedPages] };
+    return copy(state);
   } catch {
-    return { ...EMPTY };
+    return empty();
   }
 }
 
 export function updatePromptState(store: Storage, patch: Partial<PromptState>): PromptState {
   const next = { ...getPromptState(store), ...patch };
   next.requestedPages = next.requestedPages.slice(-50);
+  next.chatPages = next.chatPages.slice(-CHAT_PAGES_MAX);
   promptMemory = next;
   write(store, PROMPTS, JSON.stringify(next));
   return next;

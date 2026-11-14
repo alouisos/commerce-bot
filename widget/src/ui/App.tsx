@@ -83,18 +83,18 @@ export function App({
 
   // In a test tab the greeting doesn't hold suggestions back: a suggestion takes its place.
   const prompts = usePrompts({ tracker, config, apiBase, siteKey, store, busy: open || (teaser && !testMode), testKey });
-  const { silence } = prompts;
+  const { silence, chatSent, chatClosed } = prompts;
 
+  // Opening the chat doesn't silence suggestions; after a chat only a narrow door stays open (prompt-rules).
   const openPanel = useCallback(() => {
-    // Opening the chat, by any route, ends suggestions for the visit (not in a test tab).
-    silence();
     setTeaser(false);
     setOpen(true);
-  }, [silence]);
+  }, []);
   const closePanel = useCallback(() => {
+    chatClosed();
     setOpen(false);
     launcherRef.current?.focus();
-  }, []);
+  }, [chatClosed]);
 
   useEffect(() => {
     register?.({ open: openPanel, close: closePanel });
@@ -165,6 +165,7 @@ export function App({
     async (text: string, promptId: string | null = null) => {
       const { sid, cid } = getSession(store);
       cidRef.current = cid;
+      chatSent();
       setMessages((m) => [...m, { id: nextId(), role: "visitor", content: text, images: [] }]);
       setStreaming(true);
       setPending("");
@@ -216,7 +217,7 @@ export function App({
         setFallback(true);
       }
     },
-    [apiBase, siteKey, store, strings.fallback, tracker, testKey],
+    [apiBase, siteKey, store, strings.fallback, tracker, testKey, chatSent],
   );
 
   const tapPrompt = useCallback(() => {
@@ -263,11 +264,13 @@ export function App({
     },
     [apiBase, siteKey, store, config.language, testKey, testMode],
   );
+  // "No" is an explicit no: it also ends suggestions for the visit (not in a test tab).
   const consentNo = useCallback(() => {
     markConsentAsked(store);
     if (testMode) markConsentAskedCid(store, cidRef.current);
+    silence();
     setConsent("closed");
-  }, [store, testMode]);
+  }, [store, testMode, silence]);
 
   const exitTest = useCallback(() => {
     clearTestKey(store);

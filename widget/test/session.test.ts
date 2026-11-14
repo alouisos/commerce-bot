@@ -45,10 +45,20 @@ describe("session", () => {
 describe("prompt state", () => {
   it("starts empty and keeps updates for the visit", async () => {
     const { getPromptState, updatePromptState } = await import("../src/session");
-    expect(getPromptState(sessionStorage)).toEqual({ shown: 0, lastShownAt: null, silenced: false, requestedPages: [] });
+    const after = { chatted: false, chatPages: [], chatClosedAt: null, postChatShown: 0 };
+    expect(getPromptState(sessionStorage)).toEqual({ shown: 0, lastShownAt: null, silenced: false, requestedPages: [], ...after });
     updatePromptState(sessionStorage, { shown: 1, lastShownAt: 5, requestedPages: ["https://x/p"] });
     updatePromptState(sessionStorage, { silenced: true });
-    expect(getPromptState(sessionStorage)).toEqual({ shown: 1, lastShownAt: 5, silenced: true, requestedPages: ["https://x/p"] });
+    expect(getPromptState(sessionStorage)).toEqual({ shown: 1, lastShownAt: 5, silenced: true, requestedPages: ["https://x/p"], ...after });
+  });
+
+  it("keeps the chat state for the visit, with at most 20 chat pages", async () => {
+    const { getPromptState, updatePromptState } = await import("../src/session");
+    const pages = Array.from({ length: 25 }, (_, i) => `https://x/p${i}`);
+    updatePromptState(sessionStorage, { chatted: true, chatPages: pages, chatClosedAt: 7, postChatShown: 1 });
+    const s = getPromptState(sessionStorage);
+    expect(s).toMatchObject({ chatted: true, chatClosedAt: 7, postChatShown: 1 });
+    expect(s.chatPages).toEqual(pages.slice(-20));
   });
 
   it("works in memory when storage throws", async () => {
