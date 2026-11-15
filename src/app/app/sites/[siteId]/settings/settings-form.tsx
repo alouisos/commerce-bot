@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { PERSONALITIES, PERSONALITY_NOTES_MAX, PERSONALITY_PRESETS, type Personality } from "@/lib/chat/personality";
 import { saveSettingsAction, type SettingsState } from "./actions";
 
 type Initial = {
@@ -9,6 +10,8 @@ type Initial = {
   corner: "bottom-right" | "bottom-left";
   defaultLanguage: string;
   guardrails: string;
+  personality: Personality;
+  personalityNotes: string;
   allowedOrigins: string[];
   greetings: { language: string; message: string }[];
   proactivity: "off" | "gentle" | "active";
@@ -30,8 +33,44 @@ export function SettingsForm({ siteId, initial }: { siteId: string; initial: Ini
       <h2>Widget settings</h2>
       <label className="flex flex-col gap-1">
         Bot name
-        <input name="botName" defaultValue={initial.botName} required maxLength={40} />
+        <input name="botName" defaultValue={initial.botName} required maxLength={40} aria-describedby="bot-name-help" />
+        <span id="bot-name-help" className="text-sm text-ink-muted">
+          Shown at the top of the chat window, and the name the bot uses for itself.
+        </span>
       </label>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend>Personality</legend>
+        {PERSONALITIES.map((p) => (
+          <label key={p} className="flex items-start gap-2">
+            <input
+              type="radio"
+              name="personality"
+              value={p}
+              defaultChecked={initial.personality === p}
+              className="mt-1"
+            />
+            <span>
+              {PERSONALITY_PRESETS[p].label}
+              <span className="block text-sm text-ink-muted font-normal">{PERSONALITY_PRESETS[p].help}</span>
+            </span>
+          </label>
+        ))}
+        <label className="flex flex-col gap-1">
+          In your own words (optional)
+          <textarea
+            name="personalityNotes"
+            defaultValue={initial.personalityNotes}
+            maxLength={PERSONALITY_NOTES_MAX}
+            rows={3}
+            placeholder="e.g. Talks like a friendly local barista. Calls customers by their first name if they give it. Loves a coffee pun."
+            aria-describedby="personality-help"
+          />
+          <span id="personality-help" className="text-sm text-ink-muted">
+            Changes how the bot sounds, not what it is allowed to say. Your guardrails and its safety rules still apply.
+          </span>
+        </label>
+      </fieldset>
       <label className="flex flex-col gap-1">
         Accent colour
         <input name="accentColor" type="color" defaultValue={initial.accentColor} className="h-10 w-20" />

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { accounts, siteGreetings, sites, type Account, type Site } from "@/db/schema";
+import { PERSONALITIES, PERSONALITY_NOTES_MAX } from "@/lib/chat/personality";
 import { ValidationError } from "@/lib/errors";
 import { sniffImageType } from "@/lib/files";
 import { planStatus } from "@/lib/plans";
@@ -28,6 +29,11 @@ export const siteSettingsSchema = z.object({
   corner: z.enum(["bottom-right", "bottom-left"]),
   defaultLanguage: lang,
   guardrails: z.string().max(2000, "Guardrails are at most 2,000 characters"),
+  personality: z.enum(PERSONALITIES, { error: "Choose a personality for the bot" }),
+  personalityNotes: z
+    .string()
+    .trim()
+    .max(PERSONALITY_NOTES_MAX, `The personality description is at most ${PERSONALITY_NOTES_MAX} characters`),
   greetings: z
     .array(z.object({ language: lang, message: z.string().trim().min(1, "Greeting is required").max(280, "Greeting is at most 280 characters") }))
     .max(10)
@@ -53,6 +59,8 @@ export async function updateSiteSettings(siteId: string, input: unknown): Promis
         corner: s.corner,
         defaultLanguage: s.defaultLanguage,
         guardrails: s.guardrails,
+        personality: s.personality,
+        personalityNotes: s.personalityNotes,
         allowedOrigins: [...new Set(s.allowedOrigins)],
         proactivity: s.proactivity,
       })
@@ -62,7 +70,7 @@ export async function updateSiteSettings(siteId: string, input: unknown): Promis
       await tx.insert(siteGreetings).values(s.greetings.map((g) => ({ siteId, ...g })));
     }
   });
-  // Guardrails may have changed; suggestions written under the old rules are dropped.
+  // Guardrails or the personality may have changed; suggestions written under the old ones are dropped.
   await clearPromptCache(siteId);
 }
 

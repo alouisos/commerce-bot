@@ -14,6 +14,8 @@ const valid = {
   corner: "bottom-right",
   defaultLanguage: "en",
   guardrails: "",
+  personality: "friendly",
+  personalityNotes: "",
   greetings: [{ language: "el", message: "Γεια" }],
   allowedOrigins: ["https://milianjo.com"],
   proactivity: "gentle",

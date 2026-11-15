@@ -18,6 +18,7 @@ import type { Intent, PageContext, PromptOffer } from "@/shared/widget-protocol"
 import { pausedKinds } from "./backoff";
 import { normalizeUrl } from "@/lib/crawl/discover";
 import { LIMITS } from "@/shared/widget-protocol";
+import { suggestionVoice } from "@/lib/chat/personality";
 import { cleanSuggestion, conversationSection, KIND_INSTRUCTIONS, PROMPT_JSON_SCHEMA, promptSystem } from "./writer";
 
 const CACHE_MS = 7 * 24 * 3600_000;
@@ -192,7 +193,7 @@ export async function offerPrompt(
       buildContext(page, hits, []),
       ...(conversation ? ["", conversationSection(conversation)] : []),
     ].join("\n");
-    const system = promptSystem(site.guardrails, { conversation: conversation !== null });
+    const system = promptSystem(site.guardrails, { conversation: conversation !== null, voice: suggestionVoice(site) });
     const reply = await (opts.callModel ?? defaultCallModel)(system, prompt);
     await recordModelUsage({
       accountId: site.accountId,

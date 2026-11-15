@@ -48,6 +48,8 @@ export default async function SettingsPage({ params }: PageProps<"/app/sites/[si
           proactivity: site.proactivity,
           defaultLanguage: site.defaultLanguage,
           guardrails: site.guardrails,
+          personality: site.personality,
+          personalityNotes: site.personalityNotes,
           allowedOrigins: site.allowedOrigins,
           greetings: [...defaults, ...extra],
         }}

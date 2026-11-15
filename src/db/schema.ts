@@ -78,6 +78,12 @@ export const sites = pgTable("sites", {
     .default("bottom-right"),
   greetingImageKey: text("greeting_image_key"),
   guardrails: text("guardrails").notNull().default(""),
+  /** How the bot sounds in its replies and suggestions (see src/lib/chat/personality.ts). */
+  personality: text("personality", { enum: ["friendly", "professional", "playful", "expert", "concise"] })
+    .notNull()
+    .default("friendly"),
+  /** The owner's own words about the bot's personality, added to the preset. Tone only. */
+  personalityNotes: text("personality_notes").notNull().default(""),
   crawlStatus: text("crawl_status", { enum: ["idle", "crawling", "done", "failed"] })
     .notNull()
     .default("idle"),

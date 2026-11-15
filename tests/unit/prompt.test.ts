@@ -3,7 +3,13 @@ import { buildContext, buildSystemPrompt } from "@/lib/chat/prompt";
 import type { KnowledgeHit } from "@/lib/kb/search";
 import type { PageContext } from "@/shared/widget-protocol";
 
-const site = { botName: "Mira", name: "Olive & Co", guardrails: "Never offer discounts." };
+const site = {
+  botName: "Mira",
+  name: "Olive & Co",
+  guardrails: "Never offer discounts.",
+  personality: "friendly" as const,
+  personalityNotes: "",
+};
 
 const page: PageContext = {
   url: "https://shop.example/products/argan",

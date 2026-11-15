@@ -22,6 +22,8 @@ const settings = (greetings: { language: string; message: string }[]) => ({
   corner: "bottom-left",
   defaultLanguage: "el",
   guardrails: "No medical advice",
+  personality: "playful",
+  personalityNotes: "  Loves a hair pun.  ",
   greetings,
   allowedOrigins: ["https://a.com"],
   proactivity: "gentle",
@@ -68,6 +70,16 @@ describe("updateSiteSettings", () => {
     expect(rows.map((r) => [r.language, r.message])).toEqual([["en", "Hello"]]);
     const [s] = await db.select().from(sites).where(eq(sites.id, site.id));
     expect(s).toMatchObject({ botName: "Mila", corner: "bottom-left", defaultLanguage: "el", allowedOrigins: ["https://a.com"] });
+    expect(s).toMatchObject({ personality: "playful", personalityNotes: "Loves a hair pun." });
+  });
+  it("is friendly by default, and rejects an unknown personality or overlong notes", async () => {
+    const account = await makeAccount();
+    const site = await makeSite(account.id);
+    expect(site).toMatchObject({ personality: "friendly", personalityNotes: "" });
+    await expect(updateSiteSettings(site.id, { ...settings([]), personality: "grumpy" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(updateSiteSettings(site.id, { ...settings([]), personalityNotes: "x".repeat(501) })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
   });
   it("throws ValidationError on invalid input", async () => {
     const account = await makeAccount();

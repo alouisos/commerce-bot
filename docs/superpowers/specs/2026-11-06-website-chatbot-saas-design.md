@@ -263,6 +263,8 @@ regularly (e.g. daily), such as:
 ### 8.4 Settings
 - Greeting message and image for the popup. **(decided)**
 - Bot name, accent colour, corner. **(my call)**
+- Personality: a preset (friendly, professional, playful, expert, short and direct) plus optional notes in the
+  owner's words. It shapes the tone of replies and suggestions only; the safety rules and guardrails still apply.
 - Proactivity dial. **(my call)**
 - Email sending mode and frequency. **(decided)**
 - Sending domain verification.

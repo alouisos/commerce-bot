@@ -57,6 +57,8 @@ export async function saveSettingsAction(
       corner: String(formData.get("corner") ?? ""),
       defaultLanguage: String(formData.get("defaultLanguage") ?? "").trim().toLowerCase(),
       guardrails: String(formData.get("guardrails") ?? ""),
+      personality: String(formData.get("personality") ?? ""),
+      personalityNotes: String(formData.get("personalityNotes") ?? ""),
       greetings,
       allowedOrigins,
       proactivity: String(formData.get("proactivity") ?? ""),
