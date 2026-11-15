@@ -62,8 +62,11 @@ export type WidgetStrings = {
   consentYes: string;
   consentNo: string;
   consentThanks: string;
-  /** Bubble offering to reopen the chat after following one of its links (narrow screens). */
+  /** On phones: the minimized chat bar's text until a reply is loaded (after following one of its links). */
   continueChat: string;
+  /** On phones: the sheet's handle, when it can grow (peek or minimized) and when it can shrink (full). */
+  expandChat: string;
+  shrinkChat: string;
 };
 
 export type WidgetConfig = {

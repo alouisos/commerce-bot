@@ -343,7 +343,7 @@ describe("after the visitor chatted", () => {
     expect(f.promptCalls()).toHaveLength(1);
   });
 
-  it("on a phone, no suggestion while the Continue our conversation bubble shows", async () => {
+  it("on a phone, no suggestion while the chat is reopened as the bar", async () => {
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width"), addEventListener() {}, removeEventListener() {} }));
     const f = setup(offer, answer());
     mount();
@@ -356,7 +356,7 @@ describe("after the visitor chatted", () => {
     expect(screen.queryByText(offer.text)).toBeNull();
   });
 
-  it("on a phone, the continue bubble holds suggestions back even without a chat on record", async () => {
+  it("on a phone, the reopened bar holds suggestions back even without a chat on record", async () => {
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width"), addEventListener() {}, removeEventListener() {} }));
     const f = setup();
     markReopen(sessionStorage);

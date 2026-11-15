@@ -123,6 +123,12 @@ Section 5 makes this concrete.
   page's language. Any language with no admin version falls back to an AI
   translation, except consent wording, which always uses a reviewed version.
 - Accessible: keyboard-operable, screen-reader labelled, works at phone width.
+- **On phones the chat is a bottom sheet, not a full-screen cover (my call):** it opens at about half the
+  screen, with the page usable and scrollable above it. Typing (the keyboard) or dragging it up makes it
+  full-screen, the only height that is modal and locks the page. Scrolling the page shrinks it to a bar with
+  the bot's name and its last reply; a tap or drag brings it back. A link the chat gives opens the new page
+  with the chat as that bar. The AI notice shows whenever the sheet is half or full height; the bar only
+  appears for a chat that has already shown it.
   The existing Ask Jo components show the bar this site expects.
 
 ### 5.2 Understanding where the visitor is — no tagging (decided)

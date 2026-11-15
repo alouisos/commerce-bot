@@ -296,14 +296,73 @@ describe("panel", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("locks host scroll in the full-screen layout and restores it", async () => {
-    vi.stubGlobal("fetch", mockFetch({}).fn);
+});
+
+describe("phone bottom sheet", () => {
+  const scrollTo = (y: number) => Object.defineProperty(window, "scrollY", { value: y, configurable: true });
+  afterEach(() => scrollTo(0));
+  const phone = () =>
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("479"), media: q, addEventListener() {}, removeEventListener() {} }));
+
+  it("opens half-height and non-modal, focusing the sheet rather than the message box", async () => {
+    phone();
+    vi.stubGlobal("fetch", mockFetch({}).fn);
     document.documentElement.style.overflow = "scroll";
     mount();
-    await openPanel();
-    expect(document.documentElement.style.overflow).toBe("hidden");
-    fireEvent.keyDown(screen.getByPlaceholderText("Type a message"), { key: "Escape" });
+    const dialog = await openPanel();
+    expect(dialog.dataset.sheet).toBe("peek");
+    expect(dialog.getAttribute("aria-modal")).toBe("false");
+    await waitFor(() => expect(document.activeElement).toBe(dialog));
+    // The page above stays scrollable.
     expect(document.documentElement.style.overflow).toBe("scroll");
+    expect(screen.getByLabelText(config.strings.expandChat)).toBeTruthy();
+  });
+
+  it("typing takes the whole screen and locks the page; shrinking or closing gives it back", async () => {
+    phone();
+    vi.stubGlobal("fetch", mockFetch({}).fn);
+    document.documentElement.style.overflow = "scroll";
+    mount();
+    const dialog = await openPanel();
+    fireEvent.focus(screen.getByPlaceholderText("Type a message"));
+    expect(dialog.dataset.sheet).toBe("full");
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(document.documentElement.style.overflow).toBe("hidden");
+    fireEvent.click(screen.getByLabelText(config.strings.shrinkChat));
+    expect(dialog.dataset.sheet).toBe("peek");
+    expect(document.documentElement.style.overflow).toBe("scroll");
+    fireEvent.focus(screen.getByPlaceholderText("Type a message"));
+    fireEvent.keyDown(screen.getByPlaceholderText("Type a message"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.documentElement.style.overflow).toBe("scroll");
+  });
+
+  it("scrolling the page shrinks the half sheet to the bar; the handle grows it back", async () => {
+    phone();
+    vi.stubGlobal("fetch", mockFetch({}).fn);
+    mount();
+    const dialog = await openPanel();
+    await act(async () => {
+      scrollTo(20);
+      window.dispatchEvent(new Event("scroll"));
+    });
+    expect(dialog.dataset.sheet).toBe("peek");
+    await act(async () => {
+      scrollTo(120);
+      window.dispatchEvent(new Event("scroll"));
+    });
+    expect(dialog.dataset.sheet).toBe("mini");
+    expect(screen.getByTestId("sheet-preview").textContent).toBe(config.strings.continueChat);
+    fireEvent.click(screen.getByLabelText(config.strings.expandChat));
+    expect(dialog.dataset.sheet).toBe("peek");
+  });
+
+  it("a wide screen keeps the floating, modal panel", async () => {
+    vi.stubGlobal("fetch", mockFetch({}).fn);
+    mount();
+    const dialog = await openPanel();
+    expect(dialog.dataset.sheet).toBeUndefined();
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(screen.queryByLabelText(config.strings.expandChat)).toBeNull();
   });
 });

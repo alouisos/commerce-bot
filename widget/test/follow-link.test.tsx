@@ -1,5 +1,5 @@
 /** @jsxImportSource preact */
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatEvent } from "../../src/shared/widget-protocol";
 import { markReopen, setConversationId } from "../src/session";
@@ -68,17 +68,24 @@ describe("following a link from the chat", () => {
     expect(sessionStorage.getItem("concierge.reopen")).toBeNull();
   });
 
-  it("on a phone it offers to continue instead of covering the page", async () => {
+  it("on a phone it reopens as the bar at the bottom, showing the last reply, and a tap brings it up", async () => {
     setWidth(true);
     setConversationId(sessionStorage, "c1");
     markReopen(sessionStorage, Date.now());
-    vi.stubGlobal("fetch", mockFetch({}).fn);
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        conversation: {
+          messages: [{ id: "m1", role: "bot", content: "Try **the [ritual](https://shop.test/ritual)** tonight", images: [], kind: "chat" }],
+        },
+      }).fn,
+    );
     mount();
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.click(await screen.findByText(config.strings.continueChat));
-    await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.dataset.sheet).toBe("mini");
+    // The bar says what's there until the conversation loads, then shows the last reply as plain text.
+    await waitFor(() => expect(screen.getByTestId("sheet-preview").textContent).toBe("Try the ritual tonight"));
+    fireEvent.click(screen.getByLabelText(config.strings.expandChat));
+    expect(dialog.dataset.sheet).toBe("peek");
   });
 });

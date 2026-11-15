@@ -26,12 +26,16 @@ import { Launcher } from "./Launcher";
 import { Panel, type UiMessage } from "./Panel";
 import { usePresence } from "./presence";
 import { Prompt } from "./Prompt";
+import { type Sheet, useNarrow, useVisualViewport } from "./sheet";
 import { Teaser } from "./Teaser";
 
 export type ConciergeApi = { open(): void; close(): void };
 
 /** The one bubble next to the launcher at a time. */
-type Bubble = { kind: "continue" } | { kind: "greeting" } | { kind: "prompt"; text: string };
+type Bubble = { kind: "greeting" } | { kind: "prompt"; text: string };
+
+/** Scrolling the page this far with the half-height sheet up shrinks it to the bar. */
+const SHEET_SCROLL_PX = 48;
 
 const TEASER_DELAY_MS = 1500;
 let localId = 0;
@@ -67,8 +71,10 @@ export function App({
   const forcedFallback = config.mode === "fallback";
   const [open, setOpen] = useState(false);
   const [teaser, setTeaser] = useState(false);
-  // After following a chat link on a narrow screen: offer to continue rather than cover the new page.
-  const [continueOffer, setContinueOffer] = useState(false);
+  // Phones: the chat is a bottom sheet, and the page stays usable above it unless it is full-screen.
+  const narrow = useNarrow();
+  const [sheetState, setSheet] = useState<Sheet>("peek");
+  const sheet = narrow ? sheetState : null;
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [pending, setPending] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -86,14 +92,14 @@ export function App({
   const abortRef = useRef<AbortController | null>(null);
 
   // In a test tab the greeting doesn't hold suggestions back: a suggestion takes its place.
-  // The "continue our conversation" bubble holds suggestions back too: one bubble at a time.
+  // The chat holds them back while open, even as the bar on a phone: one thing at a time.
   const prompts = usePrompts({
     tracker,
     config,
     apiBase,
     siteKey,
     store,
-    busy: open || continueOffer || (teaser && !testMode),
+    busy: open || (teaser && !testMode),
     testKey,
   });
   const { silence, chatSent, chatClosed, arrivedClosed } = prompts;
@@ -101,6 +107,7 @@ export function App({
   // Opening the chat doesn't silence suggestions; after a chat only a narrow door stays open (prompt-rules).
   const openPanel = useCallback(() => {
     setTeaser(false);
+    setSheet("peek");
     setOpen(true);
   }, []);
   const closePanel = useCallback(() => {
@@ -115,17 +122,16 @@ export function App({
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Arriving from a link in the chat: carry the conversation on. Wide screens reopen the panel;
-  // on phones (where the panel is full-screen) a bubble offers it instead of hiding the page.
+  // Arriving from a link in the chat: carry the conversation on. Wide screens reopen the panel; phones reopen
+  // it as the bar at the bottom, so the new page is in view and one tap brings the chat back up.
   // Any other arrival has the panel closed, which after a chat counts as closing it at page start; a panel
   // that reopens here counts as closed only once the visitor closes it.
   useEffect(() => {
-    const reopen = takeReopen(store);
-    if (reopen && !window.matchMedia?.("(max-width: 479px)").matches) {
+    if (takeReopen(store)) {
       openPanel();
+      if (narrow) setSheet("mini");
       return;
     }
-    if (reopen) setContinueOffer(true);
     arrivedClosed();
     // Runs once per page load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,16 +151,29 @@ export function App({
     if (testMode && prompts.offer) setTeaser(false);
   }, [testMode, prompts.offer]);
 
-  // Full-screen layout: lock host page scroll while open.
+  // The half-height sheet gives way to the page: scrolling it shrinks the chat to the bar.
   useEffect(() => {
-    if (!open || !window.matchMedia?.("(max-width: 479px)").matches) return;
+    if (!open || sheet !== "peek") return;
+    const start = window.scrollY;
+    const onScroll = () => {
+      if (Math.abs(window.scrollY - start) > SHEET_SCROLL_PX) setSheet("mini");
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [open, sheet]);
+
+  const viewport = useVisualViewport(open && narrow);
+
+  // Full-screen sheet: lock host page scroll while it covers the page.
+  useEffect(() => {
+    if (!open || sheet !== "full") return;
     const el = document.documentElement;
     const previous = el.style.overflow;
     el.style.overflow = "hidden";
     return () => {
       el.style.overflow = previous;
     };
-  }, [open]);
+  }, [open, sheet]);
 
   // Opening: restore the stored conversation (navigation restore) or show the fallback notice.
   useEffect(() => {
@@ -299,37 +318,26 @@ export function App({
   // At most one bubble, in this order; each animates in and out (presence.ts).
   const bubble: Bubble | null = open
     ? null
-    : continueOffer
-      ? { kind: "continue" }
-      : teaser
-        ? { kind: "greeting" }
-        : prompts.offer
-          ? { kind: "prompt", text: prompts.offer.text }
-          : null;
+    : teaser
+      ? { kind: "greeting" }
+      : prompts.offer
+        ? { kind: "prompt", text: prompts.offer.text }
+        : null;
   const { shown: bubbleShown, leaving: bubbleLeaving } = usePresence(bubble);
   const panel = usePresence(open ? true : null);
-  const dismissContinue = useCallback(() => setContinueOffer(false), []);
   const dismissTeaser = useCallback(() => setTeaser(false), []);
 
   return (
     <div
-      class={`cc ${config.corner === "bottom-left" ? "left" : "right"}${bubble ? " has-bubble" : ""}`}
-      style={{ "--accent": config.accentColor, "--on-accent": onColor(config.accentColor) }}
+      class={`cc ${config.corner === "bottom-left" ? "left" : "right"}${bubble ? " has-bubble" : ""}${
+        open && narrow ? " sheet-open" : ""
+      }`}
+      style={{
+        "--accent": config.accentColor,
+        "--on-accent": onColor(config.accentColor),
+        ...(viewport ? { "--cc-kb": `${viewport.kb}px`, "--cc-vv-h": `${viewport.height}px` } : {}),
+      }}
     >
-      {bubbleShown?.kind === "continue" && (
-        <Teaser
-          key="continue"
-          leaving={bubbleLeaving}
-          message={strings.continueChat}
-          imageUrl={null}
-          closeLabel={strings.close}
-          onOpen={() => {
-            setContinueOffer(false);
-            openPanel();
-          }}
-          onDismiss={dismissContinue}
-        />
-      )}
       {bubbleShown?.kind === "greeting" && (
         <Teaser
           key="greeting"
@@ -358,6 +366,8 @@ export function App({
       {panel.shown && (
         <Panel
           leaving={panel.leaving}
+          sheet={sheet}
+          onSheet={setSheet}
           config={config}
           apiBase={apiBase}
           messages={messages}
