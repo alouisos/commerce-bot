@@ -6,14 +6,17 @@ export function Prompt({
   dismissLabel,
   onTap,
   onDismiss,
+  leaving = false,
 }: {
   text: string;
   dismissLabel: string;
   onTap: () => void;
   onDismiss: () => void;
+  /** Gone and playing its exit animation. */
+  leaving?: boolean;
 }) {
   return (
-    <div class="teaser-wrap" role="status">
+    <div class={leaving ? "teaser-wrap leaving" : "teaser-wrap"} role="status" aria-hidden={leaving ? "true" : undefined} inert={leaving}>
       <button type="button" class="teaser" onClick={onTap}>
         <span>{text}</span>
       </button>

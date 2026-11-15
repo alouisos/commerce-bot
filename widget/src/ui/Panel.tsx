@@ -32,6 +32,7 @@ export function Panel({
   onClose,
   onExitTest,
   consent,
+  leaving = false,
 }: {
   config: WidgetConfig;
   apiBase: string;
@@ -49,6 +50,8 @@ export function Panel({
   onExitTest?: (() => void) | null;
   /** The email offer, when it should be shown. */
   consent?: { done: boolean; onYes: (email: string) => Promise<void>; onNo: () => void } | null;
+  /** Closed and playing its exit animation: hidden from assistive tech and not interactive. */
+  leaving?: boolean;
 }) {
   const { strings } = config;
   const panelRef = useRef<HTMLDivElement>(null);
@@ -56,10 +59,12 @@ export function Panel({
   const endRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
 
+  // On opening, and again when reopened during the exit animation.
   useEffect(() => {
+    if (leaving) return;
     const el = textareaRef.current ?? panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
     el?.focus();
-  }, []);
+  }, [leaving]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: "end" });
@@ -98,7 +103,9 @@ export function Panel({
 
   return (
     <div
-      class="panel"
+      class={leaving ? "panel leaving" : "panel"}
+      aria-hidden={leaving ? "true" : undefined}
+      inert={leaving}
       role="dialog"
       aria-modal="true"
       aria-labelledby="cc-title"

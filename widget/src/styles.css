@@ -103,3 +103,95 @@
 .consent-row input { flex: 1 1 160px; min-width: 0; border: 1px solid #bbb; border-radius: 8px; padding: 6px 10px; background: #fff; }
 .consent-no { background: none; border: none; padding: 6px 4px; text-decoration: underline; cursor: pointer; color: inherit; }
 .consent-fine { margin: 0; font-size: 12px; opacity: 0.75; }
+
+/* ---- Motion. Exit animations last EXIT_MS (widget/src/ui/presence.ts); keep the two in step. ---- */
+.launcher {
+  animation: cc-launcher-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.launcher:hover { transform: scale(1.06); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32); }
+.launcher:active { transform: scale(0.95); }
+.launcher-icon, .launcher-x {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  transition: opacity 200ms ease, transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.launcher-icon { border-radius: 50%; overflow: hidden; }
+.launcher-x { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+.launcher-x::before, .launcher-x::after {
+  content: ""; position: absolute; width: 22px; height: 2.5px; border-radius: 2px; background: currentColor;
+}
+.launcher-x::before { transform: rotate(45deg); }
+.launcher-x::after { transform: rotate(-45deg); }
+.launcher[aria-expanded="true"] .launcher-icon { opacity: 0; transform: rotate(90deg) scale(0.5); }
+.launcher[aria-expanded="true"] .launcher-x { opacity: 1; transform: none; }
+/* A soft ring around the launcher while a bubble is up, so the eye goes from one to the other. */
+.launcher::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 0 var(--accent); opacity: 0;
+}
+.has-bubble .launcher::after { animation: cc-ring 1.6s ease-out 2; }
+
+.panel { animation: cc-panel-in 340ms cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+.panel.leaving { animation: cc-panel-out 200ms cubic-bezier(0.4, 0, 1, 1) both; pointer-events: none; }
+.right .panel { transform-origin: calc(100% - 28px) calc(100% + 40px); }
+.left .panel { transform-origin: 28px calc(100% + 40px); }
+
+.teaser-wrap { animation: cc-bubble-in 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.teaser-wrap.leaving { animation: cc-bubble-out 200ms ease-in both; pointer-events: none; }
+.right .teaser-wrap { transform-origin: 100% 100%; }
+.left .teaser-wrap { transform-origin: 0 100%; }
+.teaser { transition: transform 160ms ease, box-shadow 160ms ease; }
+.teaser:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2); }
+.teaser-close { animation: cc-fade-in 200ms 260ms ease both; }
+
+.msg { animation: cc-msg-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.msg.visitor { transform-origin: 100% 100%; }
+.msg.bot { transform-origin: 0 100%; }
+.typing { animation: cc-fade-in 200ms ease both; }
+
+@keyframes cc-launcher-in { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+@keyframes cc-ring {
+  0% { opacity: 0.55; box-shadow: 0 0 0 0 var(--accent); }
+  100% { opacity: 0; box-shadow: 0 0 0 14px var(--accent); }
+}
+@keyframes cc-panel-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cc-panel-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(14px) scale(0.94); }
+}
+@keyframes cc-bubble-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.85); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cc-bubble-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(6px) scale(0.92); }
+}
+@keyframes cc-msg-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cc-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Full-screen on phones: the panel slides up from the bottom instead of growing from the launcher. */
+@media (max-width: 479px) {
+  .panel { animation-name: cc-sheet-in; animation-duration: 320ms; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  .panel.leaving { animation-name: cc-sheet-out; animation-duration: 200ms; }
+}
+/* The full-screen panel has its own close button; the launcher would sit on top of Send. Faded, not removed,
+   so focus can still go back to it on close. */
+@media (max-width: 479px) {
+  .launcher[aria-expanded="true"] { opacity: 0; transform: scale(0.6); pointer-events: none; }
+}
+@keyframes cc-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes cc-sheet-out { from { transform: none; } to { transform: translateY(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .launcher, .panel, .panel.leaving, .teaser-wrap, .teaser-wrap.leaving, .teaser-close, .msg, .typing,
+  .has-bubble .launcher::after { animation: none; }
+  .launcher, .launcher-icon, .launcher-x, .teaser { transition: none; }
+  .launcher:hover, .teaser:hover { transform: none; }
+}

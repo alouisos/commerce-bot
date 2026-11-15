@@ -24,10 +24,14 @@ import {
 import type { VisitTracker } from "../visit";
 import { Launcher } from "./Launcher";
 import { Panel, type UiMessage } from "./Panel";
+import { usePresence } from "./presence";
 import { Prompt } from "./Prompt";
 import { Teaser } from "./Teaser";
 
 export type ConciergeApi = { open(): void; close(): void };
+
+/** The one bubble next to the launcher at a time. */
+type Bubble = { kind: "continue" } | { kind: "greeting" } | { kind: "prompt"; text: string };
 
 const TEASER_DELAY_MS = 1500;
 let localId = 0;
@@ -292,13 +296,30 @@ export function App({
     reload();
   }, [store, reload]);
 
+  // At most one bubble, in this order; each animates in and out (presence.ts).
+  const bubble: Bubble | null = open
+    ? null
+    : continueOffer
+      ? { kind: "continue" }
+      : teaser
+        ? { kind: "greeting" }
+        : prompts.offer
+          ? { kind: "prompt", text: prompts.offer.text }
+          : null;
+  const { shown: bubbleShown, leaving: bubbleLeaving } = usePresence(bubble);
+  const panel = usePresence(open ? true : null);
+  const dismissContinue = useCallback(() => setContinueOffer(false), []);
+  const dismissTeaser = useCallback(() => setTeaser(false), []);
+
   return (
     <div
-      class={`cc ${config.corner === "bottom-left" ? "left" : "right"}`}
+      class={`cc ${config.corner === "bottom-left" ? "left" : "right"}${bubble ? " has-bubble" : ""}`}
       style={{ "--accent": config.accentColor, "--on-accent": onColor(config.accentColor) }}
     >
-      {continueOffer && !open && (
+      {bubbleShown?.kind === "continue" && (
         <Teaser
+          key="continue"
+          leaving={bubbleLeaving}
           message={strings.continueChat}
           imageUrl={null}
           closeLabel={strings.close}
@@ -306,32 +327,37 @@ export function App({
             setContinueOffer(false);
             openPanel();
           }}
-          onDismiss={() => setContinueOffer(false)}
+          onDismiss={dismissContinue}
         />
       )}
-      {teaser && !open && !continueOffer && (
+      {bubbleShown?.kind === "greeting" && (
         <Teaser
+          key="greeting"
+          leaving={bubbleLeaving}
           message={config.greeting.message}
           imageUrl={null}
           closeLabel={strings.close}
           onOpen={openPanel}
-          onDismiss={() => setTeaser(false)}
+          onDismiss={dismissTeaser}
           onClose={() => {
             silence();
             setTeaser(false);
           }}
         />
       )}
-      {prompts.offer && !open && !teaser && !continueOffer && (
+      {bubbleShown?.kind === "prompt" && (
         <Prompt
-          text={prompts.offer.text}
+          key="prompt"
+          leaving={bubbleLeaving}
+          text={bubbleShown.text}
           dismissLabel={strings.dismissPrompt}
           onTap={tapPrompt}
           onDismiss={prompts.dismiss}
         />
       )}
-      {open && (
+      {panel.shown && (
         <Panel
+          leaving={panel.leaving}
           config={config}
           apiBase={apiBase}
           messages={messages}

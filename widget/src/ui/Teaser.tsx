@@ -9,6 +9,7 @@ export function Teaser({
   onOpen,
   onDismiss,
   onClose,
+  leaving = false,
 }: {
   message: string;
   imageUrl: string | null;
@@ -18,10 +19,13 @@ export function Teaser({
   onDismiss: () => void;
   /** The visitor closed it with ×. Defaults to `onDismiss`. */
   onClose?: () => void;
+  /** Gone and playing its exit animation. */
+  leaving?: boolean;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (leaving) return;
     const types = ["scroll", "pointerdown", "keydown"] as const;
     const opts = { passive: true, once: true } as const;
     const handler = (e: Event) => {
@@ -38,10 +42,15 @@ export function Teaser({
     return () => {
       for (const t of types) window.removeEventListener(t, handler);
     };
-  }, [onDismiss]);
+  }, [onDismiss, leaving]);
 
   return (
-    <div class="teaser-wrap" ref={wrapRef}>
+    <div
+      class={leaving ? "teaser-wrap leaving" : "teaser-wrap"}
+      ref={wrapRef}
+      aria-hidden={leaving ? "true" : undefined}
+      inert={leaving}
+    >
       <button type="button" class="teaser" onClick={onOpen}>
         {imageUrl && <img src={imageUrl} alt="" />}
         <span>{message}</span>

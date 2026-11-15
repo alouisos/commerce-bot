@@ -6,6 +6,7 @@ import { markReopen, markTeased } from "../src/session";
 import { createVisitTracker, type VisitTracker } from "../src/visit";
 import { API, config, mockFetch } from "./fixtures";
 import type { ChatEvent, PromptOffer, WidgetConfig } from "../../src/shared/widget-protocol";
+import { EXIT_MS } from "../src/ui/presence";
 
 const offer: PromptOffer = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -126,7 +127,7 @@ describe("suggestions", () => {
     await advance(1_600);
     expect(screen.getByText(config.greeting.message)).toBeTruthy();
     fireEvent.pointerDown(document.body);
-    await advance(10);
+    await advance(10 + EXIT_MS);
     expect(screen.queryByText(config.greeting.message)).toBeNull();
     await advance(20_000);
     expect(f.promptCalls()).toHaveLength(1);
@@ -173,6 +174,7 @@ describe("suggestions", () => {
     mount();
     await advance(20_000);
     fireEvent.click(screen.getByLabelText("Dismiss suggestion"));
+    await advance(EXIT_MS);
     expect(screen.queryByText(offer.text)).toBeNull();
     expect(f.events()).toEqual(["shown", "dismissed"]);
     remount({}, "/product/conditioner/");
@@ -186,13 +188,14 @@ describe("suggestions", () => {
     await advance(16_000);
     expect(screen.getByText(offer.text)).toBeTruthy();
     await advance(20_000);
+    await advance(EXIT_MS);
     expect(screen.queryByText(offer.text)).toBeNull();
     remount({}, "/product/conditioner/");
     await advance(70_000);
     expect(screen.getByText(offer.text)).toBeTruthy();
     await advance(10_500);
     window.dispatchEvent(new Event("scroll"));
-    await advance(10);
+    await advance(10 + EXIT_MS);
     expect(screen.queryByText(offer.text)).toBeNull();
     expect(f.events()).toEqual(["shown", "shown"]);
   });
@@ -211,7 +214,7 @@ describe("suggestions", () => {
     expect(screen.getByText(offer.text)).toBeTruthy();
     await advance(2_500);
     window.dispatchEvent(new Event("scroll"));
-    await advance(10);
+    await advance(10 + EXIT_MS);
     expect(screen.queryByText(offer.text)).toBeNull();
   });
 

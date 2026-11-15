@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/ui/App";
 import { API, config, mockFetch } from "./fixtures";
 import type { WidgetConfig } from "../../src/shared/widget-protocol";
+import { EXIT_MS } from "../src/ui/presence";
 
 function mount(cfg: WidgetConfig = config, register?: (a: { open(): void; close(): void }) => void) {
   return render(<App config={cfg} apiBase={API} siteKey="pk_test" store={sessionStorage} register={register} />);
@@ -47,6 +48,7 @@ describe("teaser", () => {
     await act(async () => {
       window.dispatchEvent(new Event("scroll"));
     });
+    await advance(EXIT_MS);
     expect(screen.queryByText("Hi, ask me anything")).toBeNull();
     cleanup();
     mount();
@@ -98,6 +100,7 @@ describe("teaser", () => {
       t.dispatchEvent(new Event("pointerdown", { bubbles: true, composed: true }));
       window.dispatchEvent(new Event("pointerdown"));
     });
+    await advance(EXIT_MS);
     expect(screen.queryByText("Hi, ask me anything")).toBeNull();
   });
 
