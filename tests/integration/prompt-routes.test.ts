@@ -136,6 +136,8 @@ describe("offerPrompt", () => {
       greetings: [],
       allowedOrigins: ["https://example.com"],
       proactivity: "gentle",
+      personality: "friendly",
+      personalityNotes: "",
     });
     expect(await db.select().from(promptCache).where(eq(promptCache.siteId, site.id))).toHaveLength(0);
     await offerPrompt(site, input(), { callModel });
