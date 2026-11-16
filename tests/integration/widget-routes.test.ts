@@ -46,7 +46,7 @@ describe("config", () => {
     const cfg = (await res.json()) as WidgetConfig;
     expect(cfg.mode).toBe("ai");
     expect(cfg.botName).toBe(site.botName);
-    expect(cfg.proactivity).toBe("gentle");
+    expect(cfg.proactivity).toBe("active");
     expect(cfg.pausedKinds).toEqual([]);
     expect(cfg.strings.dismissPrompt).toBe("Dismiss suggestion");
   });

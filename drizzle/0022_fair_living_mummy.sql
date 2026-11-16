@@ -1,0 +1,1 @@
+ALTER TABLE "sites" ALTER COLUMN "proactivity" SET DEFAULT 'active';

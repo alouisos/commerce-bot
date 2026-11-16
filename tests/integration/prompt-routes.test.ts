@@ -334,11 +334,18 @@ describe("POST /api/widget/prompt", () => {
     expect((await promptPOST(post(url, body(site.publicKey, { cid: "x".repeat(500) })))).status).toBe(200);
   });
 
-  it("limits each visit to 6 requests per 30 minutes", async () => {
-    const site = await widgetSite();
-    const url = `/api/widget/prompt?key=${site.publicKey}`;
-    for (let i = 0; i < 6; i++) expect((await promptPOST(post(url, body(site.publicKey)))).status).not.toBe(429);
-    expect((await promptPOST(post(url, body(site.publicKey)))).status).toBe(429);
+  it("limits each visit's requests per 30 minutes by level: 6 on Gentle, 8 on Active, 16 on Eager", async () => {
+    for (const [proactivity, limit] of [
+      ["gentle", 6],
+      ["active", 8],
+      ["eager", 16],
+    ] as const) {
+      const site = await widgetSite({ proactivity });
+      const url = `/api/widget/prompt?key=${site.publicKey}`;
+      const visit = body(site.publicKey, { sid: `sid-${proactivity}-visit` });
+      for (let i = 0; i < limit; i++) expect((await promptPOST(post(url, visit))).status).not.toBe(429);
+      expect((await promptPOST(post(url, visit))).status).toBe(429);
+    }
   });
 });
 

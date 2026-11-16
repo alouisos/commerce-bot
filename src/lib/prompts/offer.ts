@@ -193,7 +193,11 @@ export async function offerPrompt(
       buildContext(page, hits, []),
       ...(conversation ? ["", conversationSection(conversation)] : []),
     ].join("\n");
-    const system = promptSystem(site.guardrails, { conversation: conversation !== null, voice: suggestionVoice(site) });
+    const system = promptSystem(site.guardrails, {
+      conversation: conversation !== null,
+      voice: suggestionVoice(site),
+      eager: site.proactivity === "active" || site.proactivity === "eager",
+    });
     const reply = await (opts.callModel ?? defaultCallModel)(system, prompt);
     await recordModelUsage({
       accountId: site.accountId,

@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { PERSONALITIES, PERSONALITY_NOTES_MAX, PERSONALITY_PRESETS, type Personality } from "@/lib/chat/personality";
+import { PRESETS } from "@/shared/prompt-rules";
+import type { Proactivity } from "@/shared/widget-protocol";
 import { saveSettingsAction, type SettingsState } from "./actions";
 
 type Initial = {
@@ -14,13 +16,28 @@ type Initial = {
   personalityNotes: string;
   allowedOrigins: string[];
   greetings: { language: string; message: string }[];
-  proactivity: "off" | "gentle" | "active";
+  proactivity: Proactivity;
 };
+
+const perVisit = (level: "gentle" | "active" | "eager") => PRESETS[level]!.maxPerVisit;
 
 const PROACTIVITY = [
   { value: "off", label: "Off", help: "Only answers when a visitor opens the chat." },
-  { value: "gentle", label: "Gentle (recommended)", help: "Occasional, well-timed suggestions. At most 2 per visit." },
-  { value: "active", label: "Active", help: "Suggests a little sooner, up to 3 times per visit." },
+  {
+    value: "gentle",
+    label: "Gentle",
+    help: `Occasional suggestions when the visitor's interest is clear. At most ${perVisit("gentle")} per visit.`,
+  },
+  {
+    value: "active",
+    label: "Active (recommended)",
+    help: `Suggests sooner and keeps helping after a chat. Up to ${perVisit("active")} per visit.`,
+  },
+  {
+    value: "eager",
+    label: "Eager",
+    help: `Offers help on almost every page, soon after it opens. Up to ${perVisit("eager")} per visit. A visitor who says no is still left alone.`,
+  },
 ] as const;
 
 export function SettingsForm({ siteId, initial }: { siteId: string; initial: Initial }) {

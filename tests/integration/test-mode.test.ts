@@ -253,7 +253,7 @@ describe("POST /api/widget/prompt in test mode", () => {
   });
 
   it("lifts the per-visit limit (7th request allowed) only with a valid key", async () => {
-    const site = await widgetSite();
+    const site = await widgetSite({ proactivity: "gentle" });
     const url = `/api/widget/prompt?key=${site.publicKey}`;
     const test = testModeKey(site.publicKey);
     for (let i = 0; i < 7; i++) {

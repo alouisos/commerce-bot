@@ -23,7 +23,7 @@ export const LIMITS = {
 export type PageKind = "product" | "cart" | "checkout" | "content" | "listing" | "home" | "other";
 export type Intent = "learning" | "exploring" | "buying";
 export type PromptKind = "question" | "pairing";
-export type Proactivity = "off" | "gentle" | "active";
+export type Proactivity = "off" | "gentle" | "active" | "eager";
 
 /** What the visitor did this visit, sent with chats so the bot (and the admin) see the context. */
 export type VisitSummary = {

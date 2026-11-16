@@ -91,9 +91,9 @@ export const sites = pgTable("sites", {
   crawlStartedAt: timestamp("crawl_started_at"),
   lastCrawledAt: timestamp("last_crawled_at"),
   lastSeenAt: timestamp("last_seen_at"),
-  proactivity: text("proactivity", { enum: ["off", "gentle", "active"] })
+  proactivity: text("proactivity", { enum: ["off", "gentle", "active", "eager"] })
     .notNull()
-    .default("gentle"),
+    .default("active"),
   /** "automatic" takes effect only on plans with autoSendEmails (see effectiveEmailMode). */
   emailMode: text("email_mode", { enum: ["approval", "automatic"] })
     .notNull()

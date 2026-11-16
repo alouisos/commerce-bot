@@ -155,6 +155,13 @@
       "when": 1794744878558,
       "tag": "0021_slim_black_bird",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794843156698,
+      "tag": "0022_fair_living_mummy",
+      "breakpoints": true
     }
   ]
 }

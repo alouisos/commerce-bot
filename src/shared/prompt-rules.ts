@@ -11,15 +11,61 @@ export type Preset = {
   minConfidence: number;
   /** Minimum time between two suggestions in one visit. */
   minGapMs: number;
+  /** After a chat: no suggestion until the panel has been closed this long. */
+  postChatWaitMs: number;
+  /** After a chat: at most this many suggestions for the rest of the visit, on top of the normal cap. */
+  postChatMax: number;
+  /** After a chat: any clear intent may get a suggestion, not only a visitor ready to buy. */
+  postChatAnyIntent: boolean;
 };
 
 export const PRESETS: Record<Proactivity, Preset | null> & { test: Preset } = {
   off: null,
-  gentle: { pageDelayMs: 4000, quietScrollMs: 2000, maxPerVisit: 2, minConfidence: 0.7, minGapMs: 60000 },
-  active: { pageDelayMs: 4000, quietScrollMs: 1500, maxPerVisit: 3, minConfidence: 0.55, minGapMs: 30000 },
+  gentle: {
+    pageDelayMs: 4000,
+    quietScrollMs: 2000,
+    maxPerVisit: 2,
+    minConfidence: 0.7,
+    minGapMs: 60000,
+    postChatWaitMs: 30000,
+    postChatMax: 1,
+    postChatAnyIntent: false,
+  },
+  active: {
+    pageDelayMs: 3000,
+    quietScrollMs: 1200,
+    maxPerVisit: 4,
+    minConfidence: 0.5,
+    minGapMs: 25000,
+    postChatWaitMs: 20000,
+    postChatMax: 2,
+    postChatAnyIntent: true,
+  },
+  eager: {
+    pageDelayMs: 2000,
+    quietScrollMs: 800,
+    maxPerVisit: 8,
+    minConfidence: 0.4,
+    minGapMs: 15000,
+    postChatWaitMs: 12000,
+    postChatMax: 3,
+    postChatAnyIntent: true,
+  },
   /** The shop owner's test tab (never a site setting): quick and unlimited, so the bot can be tried out. */
-  test: { pageDelayMs: 3000, quietScrollMs: 500, maxPerVisit: 1000, minConfidence: 0, minGapMs: 5000 },
+  test: {
+    pageDelayMs: 3000,
+    quietScrollMs: 500,
+    maxPerVisit: 1000,
+    minConfidence: 0,
+    minGapMs: 5000,
+    postChatWaitMs: 0,
+    postChatMax: 1000,
+    postChatAnyIntent: true,
+  },
 };
+
+/** Suggestion requests the server accepts per visit (30 minutes), by level: a request is at most one per page. */
+export const REQUESTS_PER_VISIT: Record<Exclude<Proactivity, "off">, number> = { gentle: 6, active: 8, eager: 16 };
 
 /** A shown suggestion hides itself after this long (counts as ignored). */
 export const PROMPT_VISIBLE_MS = 20000;
@@ -27,11 +73,6 @@ export const PROMPT_VISIBLE_MS = 20000;
 /** A shown suggestion stays up at least this long: scrolling doesn't hide it before then. */
 export const PROMPT_MIN_VISIBLE_MS = 10000;
 
-/** After a chat: no suggestion until the panel has been closed this long. */
-export const POST_CHAT_WAIT_MS = 30000;
-
-/** After a chat: at most this many suggestions for the rest of the visit, on top of the normal cap. */
-export const POST_CHAT_MAX = 1;
 
 export type GateState = {
   proactivity: Proactivity;
@@ -84,8 +125,9 @@ export type BlockReason =
   | "after-chat-cap";
 
 /**
- * Why no suggestion may be requested now, or null when one may. After a chat (not in a test tab) only a
- * narrow door stays open: another page, 30 s after the panel closed, a visitor ready to buy, and once.
+ * Why no suggestion may be requested now, or null when one may. After a chat (not in a test tab) the door
+ * narrows by level: another page, a wait after the panel closed, a capped number, and on Gentle only a
+ * visitor ready to buy.
  */
 export function promptBlockReason(s: GateState, now: number): BlockReason | null {
   if (!PRESETS[s.proactivity]) return "off";
@@ -98,8 +140,8 @@ export function promptBlockReason(s: GateState, now: number): BlockReason | null
   const afterChat = s.chatted === true && !test;
   if (afterChat) {
     if (s.onChatPage) return "chat-page";
-    if (s.chatClosedAt == null || now - s.chatClosedAt < POST_CHAT_WAIT_MS) return "after-chat-wait";
-    if ((s.postChatShown ?? 0) >= POST_CHAT_MAX) return "after-chat-cap";
+    if (s.chatClosedAt == null || now - s.chatClosedAt < p.postChatWaitMs) return "after-chat-wait";
+    if ((s.postChatShown ?? 0) >= p.postChatMax) return "after-chat-cap";
   } else if (s.shownThisVisit >= p.maxPerVisit) return "cap";
   if (s.requestedOnPage) return "page-done";
   if (now - s.pageStartedAt < p.pageDelayMs) return "too-soon";
@@ -107,7 +149,7 @@ export function promptBlockReason(s: GateState, now: number): BlockReason | null
   if (s.lastScrollAt !== null && now - s.lastScrollAt < p.quietScrollMs) return "scrolling";
   if (!s.intent) return "no-intent";
   if (s.confidence < p.minConfidence) return "low-confidence";
-  if (afterChat && s.intent !== "buying") return "after-chat-intent";
+  if (afterChat && !p.postChatAnyIntent && s.intent !== "buying") return "after-chat-intent";
   if (!test && s.pausedKinds.includes(kindForIntent(s.intent))) return "paused";
   return null;
 }

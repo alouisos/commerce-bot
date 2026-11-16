@@ -171,15 +171,20 @@ information; admins can also state pairings explicitly. **(my call)**
 ### 5.5 Not being annoying — hard rules (my call, from the anti-goals)
 - No prompt in the first several seconds after landing, and none while the
   visitor is actively scrolling.
-- A cap of prompts per visit (default 2).
+- A cap of prompts per visit (2 on Gentle, 4 on Active, 8 on Eager).
 - Only an explicit no silences prompts for the rest of the visit: × on a
   prompt, × on the greeting, or "No" to the email ask. Opening the chat does
-  not. After a chat, at most one more prompt may come: on another page, 30 s
-  after the chat closed or the page opened, when the visitor is close to
-  buying, and built on the conversation. (Product owner, 2026-11-14.)
+  not. After a chat, more prompts may come, built on the conversation and never
+  on the page where they chatted: on Gentle one, 30 s after the chat closed or
+  the page opened, when the visitor is close to buying; on Active two, after
+  20 s, for any clear intent; on Eager three, after 12 s. (Product owner,
+  2026-11-14; levels widened 2026-11-16.)
 - No prompt when intent confidence is low.
 - **Proactivity dial per site:** Off (bot only answers when opened) /
-  Gentle (default) / Active.
+  Gentle / Active (default for new sites) / Eager. Active and Eager also tell
+  the suggestion writer to prefer showing something, and every chat reply
+  offers one useful next step when the knowledge supports it. No level uses
+  fake urgency, invented discounts or pressure. (Product owner, 2026-11-16.)
 - The system tracks shown / tapped / dismissed for every prompt type and
   **automatically backs off** prompt types that keep getting dismissed on a
   site. The admin is told when this happens.

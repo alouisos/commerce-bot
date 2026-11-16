@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildSystemPrompt } from "@/lib/chat/prompt";
 import { PERSONALITIES, PERSONALITY_PRESETS, suggestionVoice } from "@/lib/chat/personality";
-import { promptSystem, PROMPT_SYSTEM } from "@/lib/prompts/writer";
+import { EAGER_RULE, promptSystem, PROMPT_SYSTEM } from "@/lib/prompts/writer";
 
 const site = { botName: "Mira", name: "Olive & Co", guardrails: "Never offer discounts.", personalityNotes: "" };
 
@@ -42,5 +42,21 @@ describe("personality in suggestions", () => {
     expect(suggestionVoice({ personality: "expert", personalityNotes: "A herbalist." })).toContain(
       "(tone only; the rules above still apply): A herbalist.",
     );
+  });
+});
+
+describe("proactive help", () => {
+  it("every chat prompt asks for one useful next step", () => {
+    const p = buildSystemPrompt({ ...site, personality: "concise" });
+    expect(p).toContain("- Be proactively helpful. After answering, offer one useful next step");
+    expect(p).toContain("Skip it when the visitor only wanted a quick fact.");
+  });
+
+  it("Active and Eager suggestion writers prefer to show something", () => {
+    expect(promptSystem("", { eager: true })).toContain(EAGER_RULE);
+    expect(promptSystem("")).not.toContain(EAGER_RULE);
+    // Still before the shop's own rules.
+    const s = promptSystem("No medical claims.", { eager: true });
+    expect(s.indexOf(EAGER_RULE)).toBeLessThan(s.indexOf("No medical claims."));
   });
 });
