@@ -67,6 +67,8 @@ export type WidgetStrings = {
   /** On phones: the sheet's handle, when it can grow (peek or minimized) and when it can shrink (full). */
   expandChat: string;
   shrinkChat: string;
+  /** The round button that scrolls the conversation to its newest message. */
+  scrollToLatest: string;
 };
 
 export type WidgetConfig = {

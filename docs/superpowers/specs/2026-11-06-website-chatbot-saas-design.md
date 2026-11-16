@@ -123,6 +123,10 @@ Section 5 makes this concrete.
   page's language. Any language with no admin version falls back to an AI
   translation, except consent wording, which always uses a reviewed version.
 - Accessible: keyboard-operable, screen-reader labelled, works at phone width.
+- **Reading replies (product owner, 2026-11-16):** the conversation never follows a reply as it streams in,
+  so it can be read from its first line. Sending a message moves the view once, putting that message at the
+  top. Away from the bottom, a small round button scrolls to the latest message; it pulses while more of a
+  reply is arriving.
 - **On phones the chat is a bottom sheet, not a full-screen cover (my call):** it opens at about half the
   screen, with the page usable and scrollable above it. Typing (the keyboard) or dragging it up makes it
   full-screen, the only height that is modal and locks the page. Scrolling the page shrinks it to a bar with

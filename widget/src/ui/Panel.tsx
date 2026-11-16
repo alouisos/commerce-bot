@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import type { RefObject } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { LIMITS, type WidgetConfig, type WidgetImage } from "../../../src/shared/widget-protocol";
 import { renderMessage } from "../render";
 import { ConsentCard } from "./ConsentCard";
@@ -13,6 +13,10 @@ export type UiMessage = { id: string; role: "visitor" | "bot"; content: string; 
 const DRAG_START = 6;
 const DRAG_SNAP = 40;
 const MINI_HEIGHT = 64;
+/** Further than this from the bottom of the conversation, the "latest message" button shows. */
+const AWAY_PX = 80;
+/** Space kept above the visitor's message when it is scrolled to the top. */
+const TOP_GAP_PX = 14;
 
 const FOCUSABLE = 'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -67,7 +71,9 @@ export function Panel({
   const { strings } = config;
   const panelRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [away, setAway] = useState(false);
+  const shownCountRef = useRef(0);
   const [draft, setDraft] = useState("");
   const dragRef = useRef<{ y: number; h: number; moved: boolean } | null>(null);
   const draggedRef = useRef(false);
@@ -89,9 +95,41 @@ export function Panel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaving]);
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView?.({ block: "end" });
-  }, [messages, pending]);
+  const checkAway = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAway(el.scrollHeight - el.scrollTop - el.clientHeight > AWAY_PX);
+  }, []);
+
+  // The view moves only when messages are added, never while a reply streams in, so a reply can be read from
+  // its first line as it arrives. Opening (or a restored conversation) shows the end; the visitor's new
+  // message goes to the top, leaving the space below for the reply.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const before = shownCountRef.current;
+    shownCountRef.current = messages.length;
+    if (!el || messages.length <= before) return;
+    const last = messages[messages.length - 1];
+    if (before === 0) {
+      el.scrollTop = el.scrollHeight;
+    } else if (last.role === "visitor") {
+      const node = el.querySelector<HTMLElement>(".messages > .msg:last-child");
+      if (node) el.scrollTop = Math.max(0, node.offsetTop - TOP_GAP_PX);
+    }
+    checkAway();
+  }, [messages, checkAway]);
+
+  // New text below can take the newest line out of view: the button shows when it does.
+  useLayoutEffect(() => {
+    checkAway();
+  }, [pending, streaming, checkAway]);
+
+  function scrollToLatest() {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (typeof el.scrollTo === "function") el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    else el.scrollTop = el.scrollHeight;
+  }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === "Escape") {
@@ -227,8 +265,11 @@ export function Panel({
           <span aria-hidden="true">×</span>
         </button>
       </div>
+      <div class="scroll-wrap">
       <div
         class="scroll"
+        ref={scrollRef as RefObject<HTMLDivElement>}
+        onScroll={checkAway}
         onClick={(e) => {
           // Covers finished replies and one still streaming in.
           const link = (e.target as Element | null)?.closest?.("a[data-cc-nav]");
@@ -254,7 +295,19 @@ export function Panel({
             <span />
           </div>
         )}
-        <div ref={endRef} />
+      </div>
+      {away && (
+        <button
+          type="button"
+          class={streaming ? "to-latest streaming" : "to-latest"}
+          aria-label={strings.scrollToLatest}
+          onClick={scrollToLatest}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 16.5 5.5 10l1.4-1.4 5.1 5.1 5.1-5.1L18.5 10z" />
+          </svg>
+        </button>
+      )}
       </div>
       {consent && !fallback && <ConsentCard strings={strings} {...consent} />}
       {fallback ? (

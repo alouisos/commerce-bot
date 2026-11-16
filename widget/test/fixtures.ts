@@ -14,6 +14,7 @@ export const config: WidgetConfig = {
     continueChat: "Continue our conversation",
     expandChat: "Expand chat",
     shrinkChat: "Shrink chat",
+    scrollToLatest: "Scroll to the latest message",
     fallback: "We cannot answer right now. Leave your email.",
     leadThanks: "Thanks, we will be in touch.",
     open: "Open chat",
